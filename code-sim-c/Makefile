@@ -2,7 +2,7 @@ CC=clang
 CFLAGS=-std=c11 -O2 -Wall -Wextra -Iinclude
 TARGET=build/sim
 
-SRCS=src/main.c
+SRCS=src/main.c src/winnow_sim.c
 OBJS=$(SRCS:src/%.c=build/%.o)
 
 all: $(TARGET)
