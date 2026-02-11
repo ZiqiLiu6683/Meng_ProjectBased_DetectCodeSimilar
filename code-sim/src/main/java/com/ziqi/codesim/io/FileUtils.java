@@ -1,3 +1,6 @@
+// Ziqi Liu Meng Project-Based Software Engineering
+// This file is summary of the file functions
+// Functions include: readAll
 package com.ziqi.codesim.io;
 
 import java.nio.charset.StandardCharsets;

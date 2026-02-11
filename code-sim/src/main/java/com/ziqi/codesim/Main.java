@@ -1,10 +1,12 @@
 package com.ziqi.codesim;
 
 import java.util.List;
+import java.util.Set;
 
 import com.ziqi.codesim.io.FileUtils;
 import com.ziqi.codesim.preprocess.Tokenizer;
 import com.ziqi.codesim.fingerprint.RollingHash;
+import com.ziqi.codesim.fingerprint.Winnowing;
 
 
 public class Main {
@@ -30,7 +32,7 @@ public class Main {
         int k = 10; 
         long[] hashesA = RollingHash.kgramHashes(tokensA, k);
         long[] hashesB = RollingHash.kgramHashes(tokensB, k);
-        System.out.println("\n Rolling Hashes:");
+        System.out.println("\nRolling Hashes:");
         System.out.println("k = " + k);
         System.out.println("Tokens A = " + tokensA.size() + ", k-grams A = " + hashesA.length);
         System.out.println("Tokens B = " + tokensB.size() + ", k-grams B = " + hashesB.length);
@@ -41,6 +43,26 @@ public class Main {
         System.out.println("First 5 k-gram hashes of B:");
         for (int i = 0; i < 5; i++) {
             System.out.println("B[" + i + "] = " + Long.toUnsignedString(hashesB[i]));
+        }
+        // Winnowing Fingerprints
+        int w = 4; 
+        Set<Long> fpA = Winnowing.fingerprintTokens(tokensA, k, w);
+        Set<Long> fpB = Winnowing.fingerprintTokens(tokensB, k, w);
+        System.out.println("\nWinnowing Fingerprints:");
+        System.out.println("w = " + w);
+        System.out.println("Fingerprints A = " + fpA.size());
+        System.out.println("Fingerprints B = " + fpB.size());
+        System.out.println("First 10 fingerprints of A:");
+        int count = 0;
+        for (long x : fpA) {
+            System.out.println(Long.toUnsignedString(x));
+            if (++count >= 10) break;
+        }
+        System.out.println("First 10 fingerprints of B:");
+        count = 0;
+        for (long x : fpB) {
+            System.out.println(Long.toUnsignedString(x));
+            if (++count >= 10) break;
         }
     }
 }
