@@ -2,6 +2,7 @@
 # include <stdlib.h>
 # include "winnow_sim.h"
 
+
 // Read file and store it into memory
 static char* read_file(const char* filePath, size_t* out_len) {
     FILE* f = fopen(filePath, "rb");
