@@ -1,5 +1,5 @@
-// Sample A
-// Orignal code
+// Sample C
+// Add new fundtion and all others are the same
 #include <stdio.h>
 
 int sumArray(int arr[], int n) {
@@ -8,6 +8,14 @@ int sumArray(int arr[], int n) {
         sum += arr[i];
     }
     return sum;
+}
+
+int multiplyArray(int arr[], int n) {
+    int product = 1;
+    for (int i = 0; i < n; i++) {
+        product *= arr[i];
+    }
+    return product;
 }
 
 int main() {

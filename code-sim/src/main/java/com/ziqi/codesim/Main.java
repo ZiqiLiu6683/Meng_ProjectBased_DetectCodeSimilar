@@ -30,7 +30,7 @@ public class Main {
         System.out.println("First 10 tokens of A: \n" + tokensA.subList(0, Math.min(10, tokensA.size())));
         System.out.println("First 10 tokens of B: \n" + tokensB.subList(0, Math.min(10, tokensB.size())));
         // Hash
-        int k = 10; 
+        int k = 6; 
         long[] hashesA = RollingHash.kgramHashes(tokensA, k);
         long[] hashesB = RollingHash.kgramHashes(tokensB, k);
         System.out.println("\nRolling Hashes:");
@@ -46,7 +46,7 @@ public class Main {
             System.out.println("B[" + i + "] = " + Long.toUnsignedString(hashesB[i]));
         }
         // Winnowing Fingerprints
-        int w = 4; 
+        int w = 5; 
         Set<Long> fpA = Winnowing.fingerprintTokens(tokensA, k, w);
         Set<Long> fpB = Winnowing.fingerprintTokens(tokensB, k, w);
         System.out.println("\nWinnowing Fingerprints:");
