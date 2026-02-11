@@ -1,5 +1,6 @@
 // Ziqi Liu Meng Project-Based Software Engineering
 // This file is used for selecting the minimum hash values as fingerprints (Winnowing)
+// Choose rightmost if tie
 package com.ziqi.codesim.fingerprint;
 
 import java.util.HashSet;

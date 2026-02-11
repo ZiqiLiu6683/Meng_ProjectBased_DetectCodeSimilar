@@ -7,6 +7,7 @@ import com.ziqi.codesim.io.FileUtils;
 import com.ziqi.codesim.preprocess.Tokenizer;
 import com.ziqi.codesim.fingerprint.RollingHash;
 import com.ziqi.codesim.fingerprint.Winnowing;
+import com.ziqi.codesim.sim.Similarity;
 
 
 public class Main {
@@ -64,5 +65,8 @@ public class Main {
             System.out.println(Long.toUnsignedString(x));
             if (++count >= 10) break;
         }
+        // Similarity
+        double sim = Similarity.jaccard(fpA, fpB);
+        System.out.println(String.format("\nSimilarity (Jaccard) = %.2f%%\n", sim * 100));
     }
 }
