@@ -5,6 +5,7 @@ import java.util.List;
 import com.ziqi.codesim.io.FileUtils;
 import com.ziqi.codesim.preprocess.Tokenizer;
 
+
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
