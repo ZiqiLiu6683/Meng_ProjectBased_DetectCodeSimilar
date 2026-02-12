@@ -7,7 +7,7 @@ Meng Project based
 - Whitespace is token separator.
 ## Tokenization
 Two modes:
-- RAW: keep identifiers/numbers/strings as-is. (Completed)
+- SIMPLE: keep identifiers/numbers/strings as-is. (Completed)
 - NORMALIZED:
   - identifiers -> ID
   - numbers -> NUM
