@@ -2,5 +2,6 @@
 /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/fingerprint/RollingHash.java
 /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/fingerprint/Winnowing.java
 /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/io/FileUtils.java
+/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/preprocess/Lang.java
 /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/preprocess/Tokenizer.java
 /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/src/main/java/com/ziqi/codesim/sim/Similarity.java

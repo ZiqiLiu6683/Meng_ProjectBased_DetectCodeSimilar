@@ -8,6 +8,7 @@ import com.ziqi.codesim.preprocess.Tokenizer;
 import com.ziqi.codesim.fingerprint.RollingHash;
 import com.ziqi.codesim.fingerprint.Winnowing;
 import com.ziqi.codesim.sim.Similarity;
+import com.ziqi.codesim.preprocess.Lang;
 
 
 public class Main {
@@ -19,8 +20,8 @@ public class Main {
 
         String a = FileUtils.readAll(args[0]);
         String b = FileUtils.readAll(args[1]);
-        List<String> tokensA = Tokenizer.tokenizeForBaseline(a);
-        List<String> tokensB = Tokenizer.tokenizeForBaseline(b);
+        List<String> tokensA = Tokenizer.tokenizeForBaseline(a, Lang.detect(args[0]));
+        List<String> tokensB = Tokenizer.tokenizeForBaseline(b, Lang.detect(args[1]));
         // Read Files
         System.out.println("File A: " + args[0]);
         System.out.println("Chars A: " + a.length());

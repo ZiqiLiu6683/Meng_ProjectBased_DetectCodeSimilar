@@ -15,7 +15,7 @@ public class Lang {
             this.keywords = keywords;
         }
     }
-    public static Spec detectLanguage(String filePath) {
+    public static Spec detect(String filePath) {
         if (filePath.endsWith(".java")) return new Spec(Language.JAVA, JAVA_KEYWORDS);
         if (filePath.endsWith(".c") || filePath.endsWith(".h")) return new Spec(Language.C, C_KEYWORDS);
         return new Spec(Language.C, C_KEYWORDS); // C as default
