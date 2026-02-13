@@ -20,6 +20,11 @@
       <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.github.javaparser</groupId>
+      <artifactId>javaparser-symbol-solver-core</artifactId>
+      <version>3.25.10</version>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
