@@ -48,22 +48,22 @@ public class Main {
         }
         // Winnowing Fingerprints
         int w = 5; 
-        Set<Long> fpA = Winnowing.fingerprintTokens(tokensA, k, w);
-        Set<Long> fpB = Winnowing.fingerprintTokens(tokensB, k, w);
+        List<Winnowing.Fingerprint> fpA = Winnowing.fingerprintTokens(tokensA, k, w);
+        List<Winnowing.Fingerprint> fpB = Winnowing.fingerprintTokens(tokensB, k, w);
         System.out.println("\nWinnowing Fingerprints:");
         System.out.println("w = " + w);
         System.out.println("Fingerprints A = " + fpA.size());
         System.out.println("Fingerprints B = " + fpB.size());
         System.out.println("First 10 fingerprints of A:");
         int count = 0;
-        for (long x : fpA) {
-            System.out.println(Long.toUnsignedString(x));
+        for (Winnowing.Fingerprint fp : fpA) {
+            System.out.println(Long.toUnsignedString(fp.hash) + " (pos " + fp.pos + ")");
             if (++count >= 10) break;
         }
         System.out.println("First 10 fingerprints of B:");
         count = 0;
-        for (long x : fpB) {
-            System.out.println(Long.toUnsignedString(x));
+        for (Winnowing.Fingerprint fp : fpB) {
+            System.out.println(Long.toUnsignedString(fp.hash) + " (pos " + fp.pos + ")");
             if (++count >= 10) break;
         }
         // Similarity
