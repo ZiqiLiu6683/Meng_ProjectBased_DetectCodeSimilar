@@ -38,9 +38,9 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.3.0</version>
-        <configuration>
+        <!-- <configuration>
           <mainClass>com.ziqi.codesim.Main</mainClass>
-        </configuration>
+        </configuration> -->
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
