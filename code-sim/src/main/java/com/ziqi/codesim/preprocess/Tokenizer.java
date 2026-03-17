@@ -38,7 +38,7 @@ public class Tokenizer {
                         i++;
                     }
                 }
-                tokens.add("STR");
+                tokens.add("STR"); // “Hello”
                 // stringStored.add(code.substring(start, i));
                 continue;
             }
