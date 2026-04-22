@@ -1,0 +1,194 @@
+// Ziqi Liu Meng Project-Based Software Engineering
+// APTED-style structural similarity: method-level TED-based best-match pairing.
+//
+// Improvement over exact subtree matching (Strategy 2):
+//   - Exact subtree matching requires complete structural equality (binary 0/1).
+//   - TED gives a continuous score: two trees that differ by only a few edits
+//     (e.g. AssignExpr → ReturnStmt) still receive a high similarity score.
+//
+// Pipeline:
+//   1. Extract every MethodDeclaration from both CompilationUnits.
+//   2. Convert each method's AST subtree to a TedNode tree (same normalisation
+//      as SubtreeHasher: leaf values abstracted, structural nodes keep class name).
+//   3. Compute pairwise normalised TED similarity for every method pair.
+//   4. Symmetric best-match pairing (forward A→B + backward B→A), weighted by
+//      method tree size, identical to MethodLevelSimilarity's aggregation strategy.
+package com.ziqi.codesim.ast;
+
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.type.PrimitiveType;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class AptedSimilarity {
+
+    // -----------------------------------------------------------------------
+    // Public data structures
+    // -----------------------------------------------------------------------
+
+    /** One extracted method together with its TedNode tree. */
+    public static class MethodTreeInfo {
+        public final String  name;
+        public final TedNode tree;
+
+        MethodTreeInfo(String name, TedNode tree) {
+            this.name = name;
+            this.tree = tree;
+        }
+    }
+
+    /** One row of the best-match table. */
+    public static class MatchRecord {
+        public final String methodA;
+        public final String methodB;   // best match found in the other file
+        public final double similarity;
+        public final int    tedDist;   // raw tree edit distance (for reporting)
+        public final int    sizeA;     // TedNode tree size of methodA (used as weight)
+
+        MatchRecord(String a, String b, double sim, int dist, int size) {
+            this.methodA    = a;
+            this.methodB    = b;
+            this.similarity = sim;
+            this.tedDist    = dist;
+            this.sizeA      = size;
+        }
+    }
+
+    /** Full result returned to the caller. */
+    public static class Result {
+        public final double            similarity;
+        public final List<MatchRecord> forwardMatches;
+        public final List<MatchRecord> backwardMatches;
+
+        Result(double sim, List<MatchRecord> fwd, List<MatchRecord> bwd) {
+            this.similarity      = sim;
+            this.forwardMatches  = fwd;
+            this.backwardMatches = bwd;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Public API
+    // -----------------------------------------------------------------------
+
+    /**
+     * Extract all MethodDeclarations from {@code cu} and convert each to a
+     * TedNode tree ready for TED computation.
+     */
+    public static List<MethodTreeInfo> extractMethods(CompilationUnit cu) {
+        List<MethodTreeInfo> methods = new ArrayList<>();
+        cu.findAll(MethodDeclaration.class).forEach(md -> {
+            TedNode tree = toTedNode(md);
+            methods.add(new MethodTreeInfo(md.getNameAsString(), tree));
+        });
+        return methods;
+    }
+
+    /**
+     * Compute method-level TED-based similarity between two compilation units.
+     *
+     * @return Result with final score and per-method match details
+     */
+    public static Result compute(CompilationUnit cuA, CompilationUnit cuB) {
+        List<MethodTreeInfo> methodsA = extractMethods(cuA);
+        List<MethodTreeInfo> methodsB = extractMethods(cuB);
+
+        if (methodsA.isEmpty() && methodsB.isEmpty()) {
+            return new Result(1.0, new ArrayList<>(), new ArrayList<>());
+        }
+        if (methodsA.isEmpty() || methodsB.isEmpty()) {
+            return new Result(0.0, new ArrayList<>(), new ArrayList<>());
+        }
+
+        List<MatchRecord> fwd = bestMatchPass(methodsA, methodsB);
+        List<MatchRecord> bwd = bestMatchPass(methodsB, methodsA);
+
+        double fwdScore = weightedAverage(fwd);
+        double bwdScore = weightedAverage(bwd);
+
+        return new Result((fwdScore + bwdScore) / 2.0, fwd, bwd);
+    }
+
+    // -----------------------------------------------------------------------
+    // JavaParser → TedNode conversion
+    // -----------------------------------------------------------------------
+
+    /**
+     * Recursively convert a JavaParser AST node to a TedNode.
+     * Uses the same label normalisation as SubtreeHasher for consistency:
+     *   - Leaf value nodes (literals, names) → abstract category token
+     *   - Structural nodes → class simple name (e.g. "IfStmt", "ForStmt")
+     */
+    public static TedNode toTedNode(Node node) {
+        TedNode ted = new TedNode(normalizeLabel(node));
+        for (Node child : node.getChildNodes()) {
+            ted.addChild(toTedNode(child));
+        }
+        return ted;
+    }
+
+    private static String normalizeLabel(Node n) {
+        // Literals
+        if (n instanceof StringLiteralExpr)  return "STR";
+        if (n instanceof IntegerLiteralExpr) return "NUM";
+        if (n instanceof LongLiteralExpr)    return "NUM";
+        if (n instanceof DoubleLiteralExpr)  return "NUM";
+        if (n instanceof CharLiteralExpr)    return "CHR";
+        if (n instanceof BooleanLiteralExpr) return "BOOL";
+        if (n instanceof NullLiteralExpr)    return "NULL";
+        // Names
+        if (n instanceof SimpleName) return "ID";
+        if (n instanceof NameExpr)   return "ID";
+        // Self-references
+        if (n instanceof ThisExpr)   return "THIS";
+        if (n instanceof SuperExpr)  return "SUPER";
+        // Primitive types: keep the type name so that int↔boolean is detected
+        if (n instanceof PrimitiveType) return "T:" + n.toString();
+        // All other structural nodes: use the AST class name
+        return n.getClass().getSimpleName();
+    }
+
+    // -----------------------------------------------------------------------
+    // Best-match pairing
+    // -----------------------------------------------------------------------
+
+    private static List<MatchRecord> bestMatchPass(List<MethodTreeInfo> from,
+                                                    List<MethodTreeInfo> to) {
+        List<MatchRecord> records = new ArrayList<>();
+        for (MethodTreeInfo mA : from) {
+            double bestSim  = -1.0;
+            int    bestDist = Integer.MAX_VALUE;
+            String bestName = "(none)";
+
+            for (MethodTreeInfo mB : to) {
+                int    dist = TreeEditDistance.compute(mA.tree, mB.tree);
+                double sim  = TreeEditDistance.normalizedSimilarity(mA.tree, mB.tree);
+                if (sim > bestSim) {
+                    bestSim  = sim;
+                    bestDist = dist;
+                    bestName = mB.name;
+                }
+            }
+            records.add(new MatchRecord(
+                mA.name, bestName,
+                Math.max(0.0, bestSim),
+                bestDist,
+                mA.tree.size()
+            ));
+        }
+        return records;
+    }
+
+    private static double weightedAverage(List<MatchRecord> records) {
+        double totalWeight = 0, weightedSum = 0;
+        for (MatchRecord r : records) {
+            weightedSum  += r.similarity * r.sizeA;
+            totalWeight  += r.sizeA;
+        }
+        return totalWeight == 0 ? 0.0 : weightedSum / totalWeight;
+    }
+}
