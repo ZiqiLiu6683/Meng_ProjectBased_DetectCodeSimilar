@@ -1,221 +1,93 @@
 // Ziqi Liu Meng Project-Based Software Engineering
-// API call sequence similarity (Strategy 5).
+// API call similarity – Strategy 5 (file-level, CLAN-inspired).
 //
-// Inspired by CLAN (McMillan et al. 2012), which uses API call sequences as
-// semantic anchors for cross-project similarity detection.  We adopt a
-// linearised, lightweight variant suited to clone detection:
+// Design rationale (from McMillan et al. ICSE 2012 – CLAN):
+//   CLAN treats an application's API usage as a *bag of API identifiers*,
+//   not as ordered sequences.  It builds a Term-Document Matrix (rows =
+//   JDK package/class names, columns = applications) and computes cosine
+//   similarity via LSI.  The fundamental unit of comparison is the entire
+//   file (application), not individual methods.
 //
-//   - For each MethodDeclaration, extract EXTERNAL MethodCallExpr nodes only.
-//     Calls to methods defined within the same CompilationUnit are filtered out
-//     because internal calls are implementation details already handled by
-//     S3 (method-level Winnowing) and S4 (method-level TED).
-//     Calls are collected in AST traversal order (≈ source-code order).
-//     Only the callee name is kept; scope is discarded for robustness to
-//     variable renaming (e.g. list.add == myList.add == "add").
-//   - Fingerprint each sequence with Winnowing (k=2, w=2).
-//     Fallback: if the sequence is shorter than k, use unigram Winnowing
-//     so that even single-call methods get a meaningful score.
-//   - Bidirectional best-match pairing and size-weighted aggregation,
-//     identical to MethodLevelSimilarity and AptedSimilarity.
+//   We adopt the same philosophy with a lighter-weight implementation:
+//   collect every EXTERNAL MethodCallExpr name from the whole
+//   CompilationUnit into a Set<String>, then compute Jaccard overlap
+//   between the two sets.  This mirrors Strategy 2 (subtree Jaccard) but
+//   operates on the "API vocabulary" of a class rather than its tree structure.
 //
-// Division of labour with S3/S4:
-//   Internal calls (step, helper, compute…) → S3/S4 handle via method bodies
-//   External calls (Collections.sort, list.add, Files.read…) → S5 only
+// Division of labour with S1-S4:
+//   S1  file-level token Winnowing   (surface syntax)
+//   S2  file-level subtree Jaccard   (exact structural overlap)
+//   S3  method-level token Winnowing (internal call/body syntax)
+//   S4  method-level TED / APTED     (structural near-matches)
+//   S5  file-level API call Jaccard  (external library usage vocabulary)
 //
-// What this captures that S1-S4 miss:
-//   Two methods may differ in token structure (different loops, variable names)
-//   yet invoke the same external API calls in the same order.  S5 surfaces
-//   this "behavioural fingerprint" independently of syntax.
+// What S5 captures that S1-S4 miss:
+//   Two files may differ completely in variable names, loop style, or
+//   control-flow structure yet call the same external libraries in the
+//   same combination (e.g. both use Collections.sort + Iterator.hasNext +
+//   List.add).  S5 surfaces this "API fingerprint" independently of syntax.
+//
+// Internal vs External:
+//   "Internal" calls are calls to methods declared within the same
+//   CompilationUnit.  They are already handled by S3/S4 and would inject
+//   project-specific noise into the API vocabulary; we filter them out.
+//   Only calls whose name does NOT appear in the file's own MethodDeclaration
+//   name set are kept.
 package com.ziqi.codesim.ast;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
-import com.ziqi.codesim.fingerprint.Winnowing;
 import com.ziqi.codesim.sim.Similarity;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ApiCallSimilarity {
-
-    // 2-gram of consecutive external call names; window = 2.
-    private static final int K = 2;
-    private static final int W = 2;
-
-    // -----------------------------------------------------------------------
-    // Public data structures
-    // -----------------------------------------------------------------------
-
-    /** One extracted method with its external call sequence and fingerprints. */
-    public static class MethodCallInfo {
-        public final String                      name;
-        public final List<String>                callSequence;  // external calls only
-        public final List<Winnowing.Fingerprint> fingerprints;
-
-        MethodCallInfo(String name,
-                       List<String> seq,
-                       List<Winnowing.Fingerprint> fps) {
-            this.name         = name;
-            this.callSequence = seq;
-            this.fingerprints = fps;
-        }
-
-        /** Weight used in aggregation = number of external API calls. */
-        public int size() { return callSequence.size(); }
-    }
-
-    /** One row of the best-match table. */
-    public static class MatchRecord {
-        public final String methodA;
-        public final String methodB;
-        public final double similarity;
-        public final int    weightA;
-
-        MatchRecord(String a, String b, double sim, int w) {
-            this.methodA    = a;
-            this.methodB    = b;
-            this.similarity = sim;
-            this.weightA    = w;
-        }
-    }
-
-    /** Full result returned to the caller. */
-    public static class Result {
-        public final double            similarity;
-        public final List<MatchRecord> forwardMatches;
-        public final List<MatchRecord> backwardMatches;
-
-        Result(double sim, List<MatchRecord> fwd, List<MatchRecord> bwd) {
-            this.similarity      = sim;
-            this.forwardMatches  = fwd;
-            this.backwardMatches = bwd;
-        }
-    }
 
     // -----------------------------------------------------------------------
     // Public API
     // -----------------------------------------------------------------------
 
     /**
-     * Extract all MethodDeclarations from {@code cu} and build
-     * MethodCallInfo records (external call sequence + fingerprints).
+     * Extract the set of external API call names from an entire CompilationUnit.
+     * "External" means the callee name is NOT declared as a method in this file.
+     * Only the callee name is kept (scope/receiver discarded) for robustness
+     * to variable renaming (e.g. list.add == myList.add == "add").
      */
-    public static List<MethodCallInfo> extractMethods(CompilationUnit cu) {
-        // Collect all method names defined in this file — these are "internal"
+    public static Set<String> extractApiCallSet(CompilationUnit cu) {
+        // All method names defined in this file → "internal"
         Set<String> internalNames = cu.findAll(MethodDeclaration.class).stream()
             .map(MethodDeclaration::getNameAsString)
             .collect(Collectors.toSet());
 
-        List<MethodCallInfo> methods = new ArrayList<>();
-        cu.findAll(MethodDeclaration.class).forEach(md -> {
-            List<String> seq = extractExternalCallSequence(md, internalNames);
-            List<Winnowing.Fingerprint> fps = fingerprintSequence(seq);
-            methods.add(new MethodCallInfo(md.getNameAsString(), seq, fps));
-        });
-        return methods;
-    }
-
-    /**
-     * Compute API-call-sequence similarity between two compilation units.
-     * Methods whose external call sequences are both empty score 1.0
-     * (structurally equivalent in terms of API usage).
-     */
-    public static Result compute(CompilationUnit cuA, CompilationUnit cuB) {
-        List<MethodCallInfo> methodsA = extractMethods(cuA);
-        List<MethodCallInfo> methodsB = extractMethods(cuB);
-
-        if (methodsA.isEmpty() && methodsB.isEmpty()) {
-            return new Result(1.0, new ArrayList<>(), new ArrayList<>());
-        }
-        if (methodsA.isEmpty() || methodsB.isEmpty()) {
-            return new Result(0.0, new ArrayList<>(), new ArrayList<>());
-        }
-
-        List<MatchRecord> fwd = bestMatchPass(methodsA, methodsB);
-        List<MatchRecord> bwd = bestMatchPass(methodsB, methodsA);
-
-        double fwdScore = weightedAverage(fwd);
-        double bwdScore = weightedAverage(bwd);
-
-        return new Result((fwdScore + bwdScore) / 2.0, fwd, bwd);
-    }
-
-    // -----------------------------------------------------------------------
-    // External call-sequence extraction
-    // -----------------------------------------------------------------------
-
-    /**
-     * Collect MethodCallExpr nodes inside {@code md} in AST traversal order,
-     * keeping only calls whose name is NOT in {@code internalNames}.
-     * Only the callee name is kept (scope discarded).
-     */
-    static List<String> extractExternalCallSequence(MethodDeclaration md,
-                                                     Set<String> internalNames) {
-        List<String> seq = new ArrayList<>();
-        md.findAll(MethodCallExpr.class).forEach(call -> {
+        Set<String> apiCalls = new HashSet<>();
+        cu.findAll(MethodCallExpr.class).forEach(call -> {
             String name = call.getNameAsString();
             if (!internalNames.contains(name)) {
-                seq.add(name);
+                apiCalls.add(name);
             }
         });
-        return seq;
+        return apiCalls;
     }
-
-    // -----------------------------------------------------------------------
-    // Fingerprinting with short-sequence fallback
-    // -----------------------------------------------------------------------
 
     /**
-     * Fingerprint a call sequence with Winnowing(K, W).
-     * Falls back to unigram Winnowing(1,1) when the sequence is shorter than K,
-     * so that even a single external call produces a non-empty fingerprint set.
+     * Compute file-level API call similarity between two compilation units.
+     * Returns the Jaccard index of their external API call name sets.
+     *
+     * Edge cases:
+     *   Both empty  → 0.0  (no API vocabulary present → no S5 signal; returning 1.0
+     *                        would artificially inflate the combined score for files
+     *                        that simply contain no external library calls)
+     *   One empty   → 0.0  (completely disjoint API vocabularies)
      */
-    static List<Winnowing.Fingerprint> fingerprintSequence(List<String> seq) {
-        if (seq.isEmpty()) return new ArrayList<>();
-        if (seq.size() < K) return Winnowing.fingerprintTokens(seq, 1, 1);
-        return Winnowing.fingerprintTokens(seq, K, W);
-    }
+    public static double compute(CompilationUnit cuA, CompilationUnit cuB) {
+        Set<String> apiA = extractApiCallSet(cuA);
+        Set<String> apiB = extractApiCallSet(cuB);
 
-    // -----------------------------------------------------------------------
-    // Best-match pairing
-    // -----------------------------------------------------------------------
+        if (apiA.isEmpty() || apiB.isEmpty()) return 0.0;
 
-    private static List<MatchRecord> bestMatchPass(List<MethodCallInfo> from,
-                                                    List<MethodCallInfo> to) {
-        List<MatchRecord> records = new ArrayList<>();
-        for (MethodCallInfo mA : from) {
-
-            // Methods with no external calls carry no S5 signal.
-            // Weight = 0 so they don't affect the weighted average.
-            if (mA.callSequence.isEmpty()) {
-                records.add(new MatchRecord(mA.name, "(no ext. calls)", 0.0, 0));
-                continue;
-            }
-
-            double bestSim  = 0.0;
-            String bestName = "(none)";
-            for (MethodCallInfo mB : to) {
-                if (mB.callSequence.isEmpty()) continue;
-                double sim = Similarity.jaccard(mA.fingerprints, mB.fingerprints);
-                if (sim > bestSim) {
-                    bestSim  = sim;
-                    bestName = mB.name;
-                }
-            }
-            records.add(new MatchRecord(mA.name, bestName, bestSim, mA.size()));
-        }
-        return records;
-    }
-
-    private static double weightedAverage(List<MatchRecord> records) {
-        double totalWeight = 0, weightedSum = 0;
-        for (MatchRecord r : records) {
-            weightedSum += r.similarity * r.weightA;
-            totalWeight += r.weightA;
-        }
-        return totalWeight == 0 ? 0.0 : weightedSum / totalWeight;
+        return Similarity.jaccard(apiA, apiB);
     }
 }

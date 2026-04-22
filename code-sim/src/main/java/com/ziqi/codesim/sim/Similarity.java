@@ -28,12 +28,14 @@ public class Similarity {
         return (double) intersection.size() / union.size();
     }
 
-    // Overload: directly accept two hash sets (used by SubtreeHasher)
-    public static double jaccard(Set<Long> a, Set<Long> b) {
+    // Generic overload: any Set<T> — handles Set<Long> (SubtreeHasher/S2)
+    // and Set<String> (ApiCallSimilarity/S5). Java type erasure prevents
+    // having both a Set<Long> and a Set<T> overload simultaneously.
+    public static <T> double jaccard(Set<T> a, Set<T> b) {
         if (a.isEmpty() && b.isEmpty()) return 1.0;
-        Set<Long> intersection = new HashSet<>(a);
+        Set<T> intersection = new HashSet<>(a);
         intersection.retainAll(b);
-        Set<Long> union = new HashSet<>(a);
+        Set<T> union = new HashSet<>(a);
         union.addAll(b);
         return (double) intersection.size() / union.size();
     }
