@@ -17,7 +17,7 @@
 // Pipeline:
 //   1. Extract every MethodDeclaration from both CompilationUnits.
 //   2. Convert each method's AST subtree to a Node<StringNodeData> tree
-//      (same label normalisation as SubtreeHasher / previous TedNode version).
+//      (same label normalisation as SubtreeHasher for consistency).
 //   3. Compute pairwise APTED edit distance for every method pair.
 //   4. Symmetric best-match pairing (forward A→B + backward B→A), weighted by
 //      method tree size, identical to MethodLevelSimilarity's aggregation strategy.
