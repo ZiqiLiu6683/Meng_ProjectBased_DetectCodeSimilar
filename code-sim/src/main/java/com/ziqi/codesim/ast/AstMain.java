@@ -1,10 +1,11 @@
 // Ziqi Liu Meng Project-Based Software Engineering
 // AST-based similarity detection entry point.
-// Runs four complementary structural strategies:
+// Runs five complementary structural strategies:
 //   1. AST-token Winnowing   – serialise AST to token sequence, then Winnow
 //   2. Exact Subtree Match   – canonical subtree hashes, Jaccard set overlap
 //   3. Method-level Winnow   – per-method token Winnowing + best-match pairing
-//   4. Method-level TED      – per-method Tree Edit Distance + best-match pairing
+//   4. Method-level TED      – per-method Tree Edit Distance (APTED) + best-match
+//   5. API Call Sequence     – per-method call sequence Winnowing + best-match
 package com.ziqi.codesim.ast;
 
 import java.util.List;
@@ -61,10 +62,16 @@ public class AstMain {
         double simS3 = mlResult.similarity;
 
         // ================================================================
-        // Strategy 4 – Method-level TED (APTED-style) + Best-match
+        // Strategy 4 – Method-level TED (APTED) + Best-match
         // ================================================================
         AptedSimilarity.Result aptedResult = AptedSimilarity.compute(cuA, cuB);
         double simS4 = aptedResult.similarity;
+
+        // ================================================================
+        // Strategy 5 – API Call Sequence Winnowing + Best-match
+        // ================================================================
+        ApiCallSimilarity.Result apiResult = ApiCallSimilarity.compute(cuA, cuB);
+        double simS5 = apiResult.similarity;
 
         // ================================================================
         // Output
@@ -101,13 +108,12 @@ public class AstMain {
         System.out.printf("  Similarity  : %.2f%%%n%n", simS3 * 100);
 
         // --- Strategy 4 ---
-        System.out.println("-- Strategy 4: Method-level TED (APTED-style) --");
+        System.out.println("-- Strategy 4: Method-level TED (APTED) --");
         System.out.println("  Forward (A → B):");
         for (AptedSimilarity.MatchRecord r : aptedResult.forwardMatches) {
             System.out.printf("    %-20s → %-20s  sim=%.2f%%  TED=%d  sizes=(%d,%d)%n",
                     r.methodA + "()", r.methodB + "()",
                     r.similarity * 100, r.tedDist, r.sizeA,
-                    // find matching tree size from B
                     AptedSimilarity.extractMethods(cuB).stream()
                         .filter(m -> m.name.equals(r.methodB))
                         .mapToInt(m -> m.treeSize).findFirst().orElse(-1));
@@ -123,6 +129,34 @@ public class AstMain {
         }
         System.out.printf("  Similarity  : %.2f%%%n%n", simS4 * 100);
 
+        // --- Strategy 5 ---
+        // Pre-compute method info lists once to avoid repeated extraction
+        List<ApiCallSimilarity.MethodCallInfo> apiMethodsA = ApiCallSimilarity.extractMethods(cuA);
+        List<ApiCallSimilarity.MethodCallInfo> apiMethodsB = ApiCallSimilarity.extractMethods(cuB);
+
+        System.out.println("-- Strategy 5: API Call Sequence Winnowing (external calls only) --");
+        System.out.println("  Forward (A → B):");
+        for (ApiCallSimilarity.MatchRecord r : apiResult.forwardMatches) {
+            int extA = apiMethodsA.stream().filter(m -> m.name.equals(r.methodA))
+                .mapToInt(ApiCallSimilarity.MethodCallInfo::size).findFirst().orElse(0);
+            int extB = apiMethodsB.stream().filter(m -> m.name.equals(r.methodB))
+                .mapToInt(ApiCallSimilarity.MethodCallInfo::size).findFirst().orElse(0);
+            System.out.printf("    %-20s → %-20s  %.2f%%  ext-calls=(%d,%d)%n",
+                    r.methodA + "()", r.methodB + "()",
+                    r.similarity * 100, extA, extB);
+        }
+        System.out.println("  Backward (B → A):");
+        for (ApiCallSimilarity.MatchRecord r : apiResult.backwardMatches) {
+            int extA = apiMethodsB.stream().filter(m -> m.name.equals(r.methodA))
+                .mapToInt(ApiCallSimilarity.MethodCallInfo::size).findFirst().orElse(0);
+            int extB = apiMethodsA.stream().filter(m -> m.name.equals(r.methodB))
+                .mapToInt(ApiCallSimilarity.MethodCallInfo::size).findFirst().orElse(0);
+            System.out.printf("    %-20s → %-20s  %.2f%%  ext-calls=(%d,%d)%n",
+                    r.methodA + "()", r.methodB + "()",
+                    r.similarity * 100, extA, extB);
+        }
+        System.out.printf("  Similarity  : %.2f%%%n%n", simS5 * 100);
+
         // ================================================================
         // Summary
         // ================================================================
@@ -131,7 +165,8 @@ public class AstMain {
         System.out.printf("  S2 Exact Subtree Matching       : %.2f%%%n", simS2 * 100);
         System.out.printf("  S3 Method-level Winnowing       : %.2f%%%n", simS3 * 100);
         System.out.printf("  S4 Method-level TED (APTED)     : %.2f%%%n", simS4 * 100);
-        double combined = (simS1 + simS2 + simS3 + simS4) / 4.0;
+        System.out.printf("  S5 API Call Sequence            : %.2f%%%n", simS5 * 100);
+        double combined = (simS1 + simS2 + simS3 + simS4 + simS5) / 5.0;
         System.out.printf("  Combined Structural Score        : %.2f%%%n", combined * 100);
     }
 }
