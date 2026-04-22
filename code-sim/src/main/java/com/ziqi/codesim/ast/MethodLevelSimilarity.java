@@ -88,7 +88,7 @@ public class MethodLevelSimilarity {
     // Public API
     // -----------------------------------------------------------------------
 
-    /**
+    /*
      * Extract all MethodDeclarations from a CompilationUnit and build
      * MethodInfo records (tokens + Winnowing fingerprints).
      */
