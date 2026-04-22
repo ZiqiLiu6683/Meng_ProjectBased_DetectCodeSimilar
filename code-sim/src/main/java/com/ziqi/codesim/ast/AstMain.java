@@ -110,7 +110,7 @@ public class AstMain {
                     // find matching tree size from B
                     AptedSimilarity.extractMethods(cuB).stream()
                         .filter(m -> m.name.equals(r.methodB))
-                        .mapToInt(m -> m.tree.size()).findFirst().orElse(-1));
+                        .mapToInt(m -> m.treeSize).findFirst().orElse(-1));
         }
         System.out.println("  Backward (B → A):");
         for (AptedSimilarity.MatchRecord r : aptedResult.backwardMatches) {
@@ -119,7 +119,7 @@ public class AstMain {
                     r.similarity * 100, r.tedDist, r.sizeA,
                     AptedSimilarity.extractMethods(cuA).stream()
                         .filter(m -> m.name.equals(r.methodB))
-                        .mapToInt(m -> m.tree.size()).findFirst().orElse(-1));
+                        .mapToInt(m -> m.treeSize).findFirst().orElse(-1));
         }
         System.out.printf("  Similarity  : %.2f%%%n%n", simS4 * 100);
 

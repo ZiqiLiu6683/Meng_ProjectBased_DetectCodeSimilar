@@ -31,6 +31,13 @@
       <artifactId>javaparser-symbol-solver-core</artifactId>
       <version>3.25.10</version>
     </dependency>
+
+    <!-- Official APTED library (installed locally via mvn install:install-file) -->
+    <dependency>
+      <groupId>com.github.DatabaseGroup</groupId>
+      <artifactId>apted</artifactId>
+      <version>1.0</version>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
