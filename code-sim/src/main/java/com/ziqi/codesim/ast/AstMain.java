@@ -141,15 +141,32 @@ public class AstMain {
         System.out.printf("  Similarity  : %.2f%%%n%n", simS5 * 100);
 
         // ================================================================
-        // Summary
+        // Summary — three-layer aggregation
         // ================================================================
+        double tokenLayer      = (simS1 + simS3) / 2.0;
+        double structuralLayer = (simS2 + simS4) / 2.0;
+
+        // S5 is excluded from the combined score when both files have no
+        // external API calls (apiCallsA and apiCallsB both empty), because
+        // 0.0 in that case means "no signal", not "no similarity".
+        boolean s5HasSignal = !(apiCallsA.isEmpty() && apiCallsB.isEmpty());
+        double combined = s5HasSignal
+            ? (tokenLayer + structuralLayer + simS5) / 3.0
+            : (tokenLayer + structuralLayer) / 2.0;
+
         System.out.println("=== Summary ===");
         System.out.printf("  S1 AST-token Winnowing (file)  : %.2f%%%n", simS1 * 100);
         System.out.printf("  S2 Exact Subtree Matching       : %.2f%%%n", simS2 * 100);
         System.out.printf("  S3 Method-level Winnowing       : %.2f%%%n", simS3 * 100);
         System.out.printf("  S4 Method-level TED (APTED)     : %.2f%%%n", simS4 * 100);
-        System.out.printf("  S5 API Call Vocabulary (file)   : %.2f%%%n", simS5 * 100);
-        double combined = (simS1 + simS2 + simS3 + simS4 + simS5) / 5.0;
-        System.out.printf("  Combined Structural Score        : %.2f%%%n", combined * 100);
+        System.out.printf("  S5 API Call Vocabulary (file)   : %s%n",
+            s5HasSignal ? String.format("%.2f%%", simS5 * 100) : "N/A (no external API calls)");
+        System.out.println("  ---");
+        System.out.printf("  Token     layer (S1+S3)/2       : %.2f%%%n", tokenLayer * 100);
+        System.out.printf("  Structural layer (S2+S4)/2      : %.2f%%%n", structuralLayer * 100);
+        System.out.printf("  API       layer  S5              : %s%n",
+            s5HasSignal ? String.format("%.2f%%", simS5 * 100) : "N/A");
+        System.out.printf("  Combined Score (%s)     : %.2f%%%n",
+            s5HasSignal ? "3-layer avg" : "2-layer avg", combined * 100);
     }
 }
