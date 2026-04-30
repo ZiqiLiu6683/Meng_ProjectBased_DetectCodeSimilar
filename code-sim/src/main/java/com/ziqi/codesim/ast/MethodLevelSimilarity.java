@@ -23,6 +23,7 @@ import com.ziqi.codesim.sim.Similarity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class MethodLevelSimilarity {
 
@@ -30,6 +31,9 @@ public class MethodLevelSimilarity {
     // need a finer granularity to avoid too-sparse fingerprint sets.
     private static final int K = 4;
     private static final int W = 3;
+
+    // Minimum subtree size for S2 per-method exact subtree Jaccard.
+    private static final int MIN_SUBTREE_SIZE = 3;
 
     // -----------------------------------------------------------------------
     // Public data structures
@@ -40,11 +44,15 @@ public class MethodLevelSimilarity {
         public final String name;
         public final List<String> tokens;
         public final List<Winnowing.Fingerprint> fingerprints;
+        // S2: exact subtree hashes for this method (used to compute structural_exactness)
+        public final Set<Long> subtreeHashes;
 
-        MethodInfo(String name, List<String> tokens, List<Winnowing.Fingerprint> fps) {
-            this.name         = name;
-            this.tokens       = tokens;
-            this.fingerprints = fps;
+        MethodInfo(String name, List<String> tokens,
+                   List<Winnowing.Fingerprint> fps, Set<Long> subtreeHashes) {
+            this.name          = name;
+            this.tokens        = tokens;
+            this.fingerprints  = fps;
+            this.subtreeHashes = subtreeHashes;
         }
 
         /** Token count used as weight in the aggregation step. */
@@ -55,13 +63,15 @@ public class MethodLevelSimilarity {
     public static class MatchRecord {
         public final String methodA;
         public final String methodB;   // best match in the other file
-        public final double similarity;
-        public final int    weightA;   // token count of methodA
+        public final double similarity; // S3 Winnowing Jaccard
+        public final double s2;         // exact subtree Jaccard for this pair
+        public final int    weightA;    // token count of methodA
 
-        MatchRecord(String a, String b, double sim, int w) {
+        MatchRecord(String a, String b, double sim, double s2, int w) {
             this.methodA    = a;
             this.methodB    = b;
             this.similarity = sim;
+            this.s2         = s2;
             this.weightA    = w;
         }
     }
@@ -90,14 +100,16 @@ public class MethodLevelSimilarity {
 
     /*
      * Extract all MethodDeclarations from a CompilationUnit and build
-     * MethodInfo records (tokens + Winnowing fingerprints).
+     * MethodInfo records (tokens + Winnowing fingerprints + exact subtree hashes).
      */
     public static List<MethodInfo> extractMethods(CompilationUnit cu) {
         List<MethodInfo> methods = new ArrayList<>();
         cu.findAll(MethodDeclaration.class).forEach(md -> {
             List<String> tokens = AstTokenizer.tokenize(md);
             List<Winnowing.Fingerprint> fps = Winnowing.fingerprintTokens(tokens, K, W);
-            methods.add(new MethodInfo(md.getNameAsString(), tokens, fps));
+            // S2: compute per-method exact subtree hashes (used for structural_exactness)
+            Set<Long> subtreeHashes = SubtreeHasher.extractSubtreeHashes(md, MIN_SUBTREE_SIZE);
+            methods.add(new MethodInfo(md.getNameAsString(), tokens, fps, subtreeHashes));
         });
         return methods;
     }
@@ -138,22 +150,27 @@ public class MethodLevelSimilarity {
 
     /**
      * For every method in {@code from}, find the method in {@code to} with
-     * the highest Jaccard fingerprint similarity and record the match.
+     * the highest S3 Winnowing Jaccard similarity and record the match.
+     * Also computes S2 (exact subtree Jaccard) for the matched pair, which
+     * feeds into structural_exactness = S2/S4 in Stage 2.
      */
     private static List<MatchRecord> bestMatchPass(List<MethodInfo> from,
                                                     List<MethodInfo> to) {
         List<MatchRecord> records = new ArrayList<>();
         for (MethodInfo mA : from) {
-            double bestSim  = 0.0;
-            String bestName = "(none)";
+            double bestSim    = 0.0;
+            double bestS2     = 0.0;
+            String bestName   = "(none)";
             for (MethodInfo mB : to) {
                 double sim = Similarity.jaccard(mA.fingerprints, mB.fingerprints);
                 if (sim > bestSim) {
                     bestSim  = sim;
                     bestName = mB.name;
+                    // Record S2 for this best-matched pair
+                    bestS2   = Similarity.jaccard(mA.subtreeHashes, mB.subtreeHashes);
                 }
             }
-            records.add(new MatchRecord(mA.name, bestName, bestSim, mA.size()));
+            records.add(new MatchRecord(mA.name, bestName, bestSim, bestS2, mA.size()));
         }
         return records;
     }

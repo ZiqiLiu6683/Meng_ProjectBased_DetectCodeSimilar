@@ -73,20 +73,33 @@ public class ApiCallSimilarity {
     }
 
     /**
+     * Sentinel value returned by {@link #compute} when S5 is NOT_APPLICABLE
+     * (i.e. union(apiA, apiB) is empty — both files have zero external API calls).
+     * The caller (AstMain) must check for this value and exclude S5 from the
+     * combined score rather than treating it as 0% similarity.
+     */
+    public static final double NOT_APPLICABLE = -1.0;
+
+    /**
      * Compute file-level API call similarity between two compilation units.
-     * Returns the Jaccard index of their external API call name sets.
+     * Returns the Jaccard index of their external API call name sets, or
+     * {@link #NOT_APPLICABLE} when union(apiA, apiB) is empty.
      *
      * Edge cases:
-     *   Both empty  → 0.0  (no API vocabulary present → no S5 signal; returning 1.0
-     *                        would artificially inflate the combined score for files
-     *                        that simply contain no external library calls)
-     *   One empty   → 0.0  (completely disjoint API vocabularies)
+     *   Both empty  → NOT_APPLICABLE (-1.0): no API vocabulary at all; exclude
+     *                 from combined score (common for BCB single-method fragments
+     *                 and pure-algorithm code with no external library calls).
+     *   One empty   → 0.0 (Jaccard naturally: intersection=0, union>0).
+     *                 This IS a real signal — the files use completely different
+     *                 API families — so it IS included in the combined score.
+     *   Both non-empty → normal Jaccard.
      */
     public static double compute(CompilationUnit cuA, CompilationUnit cuB) {
         Set<String> apiA = extractApiCallSet(cuA);
         Set<String> apiB = extractApiCallSet(cuB);
 
-        if (apiA.isEmpty() || apiB.isEmpty()) return 0.0;
+        // union empty ↔ both empty: no signal at all
+        if (apiA.isEmpty() && apiB.isEmpty()) return NOT_APPLICABLE;
 
         return Similarity.jaccard(apiA, apiB);
     }
