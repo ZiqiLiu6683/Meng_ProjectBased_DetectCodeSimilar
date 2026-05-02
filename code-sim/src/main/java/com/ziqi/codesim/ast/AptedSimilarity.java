@@ -29,9 +29,9 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.type.PrimitiveType;
 
-import distance.APTED;
-import node.StringNodeData;
-import costmodel.StringUnitCostModel;
+import eu.mihosoft.ext.apted.distance.APTED;
+import eu.mihosoft.ext.apted.node.StringNodeData;
+import eu.mihosoft.ext.apted.costmodel.StringUnitCostModel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,10 +45,10 @@ public class AptedSimilarity {
     /** One extracted method together with its APTED node tree. */
     public static class MethodTreeInfo {
         public final String name;
-        public final node.Node<StringNodeData> tree;
+        public final eu.mihosoft.ext.apted.node.Node<StringNodeData> tree;
         public final int treeSize;
 
-        MethodTreeInfo(String name, node.Node<StringNodeData> tree, int size) {
+        MethodTreeInfo(String name, eu.mihosoft.ext.apted.node.Node<StringNodeData> tree, int size) {
             this.name     = name;
             this.tree     = tree;
             this.treeSize = size;
@@ -96,7 +96,7 @@ public class AptedSimilarity {
     public static List<MethodTreeInfo> extractMethods(CompilationUnit cu) {
         List<MethodTreeInfo> methods = new ArrayList<>();
         cu.findAll(MethodDeclaration.class).forEach(md -> {
-            node.Node<StringNodeData> tree = toAptedNode(md);
+            eu.mihosoft.ext.apted.node.Node<StringNodeData> tree = toAptedNode(md);
             int size = countNodes(tree);
             methods.add(new MethodTreeInfo(md.getNameAsString(), tree, size));
         });
@@ -138,9 +138,9 @@ public class AptedSimilarity {
      *   - Leaf value nodes (literals, names) → abstract category token
      *   - Structural nodes → class simple name (e.g. "IfStmt", "ForStmt")
      */
-    public static node.Node<StringNodeData> toAptedNode(Node javaParserNode) {
-        node.Node<StringNodeData> aptedNode =
-            new node.Node<>(new StringNodeData(normalizeLabel(javaParserNode)));
+    public static eu.mihosoft.ext.apted.node.Node<StringNodeData> toAptedNode(Node javaParserNode) {
+        eu.mihosoft.ext.apted.node.Node<StringNodeData> aptedNode =
+            new eu.mihosoft.ext.apted.node.Node<>(new StringNodeData(normalizeLabel(javaParserNode)));
         for (Node child : javaParserNode.getChildNodes()) {
             aptedNode.addChild(toAptedNode(child));
         }
@@ -206,8 +206,8 @@ public class AptedSimilarity {
      * Creates a fresh APTED instance per call (the library is not thread-safe
      * across calls on the same instance).
      */
-    private static int computeAptedDist(node.Node<StringNodeData> t1,
-                                         node.Node<StringNodeData> t2) {
+    private static int computeAptedDist(eu.mihosoft.ext.apted.node.Node<StringNodeData> t1,
+                                         eu.mihosoft.ext.apted.node.Node<StringNodeData> t2) {
         APTED<StringUnitCostModel, StringNodeData> apted =
             new APTED<>(new StringUnitCostModel());
         float dist = apted.computeEditDistance(t1, t2);
@@ -227,9 +227,9 @@ public class AptedSimilarity {
     // Utility: count nodes in an APTED tree
     // -----------------------------------------------------------------------
 
-    private static int countNodes(node.Node<StringNodeData> n) {
+    private static int countNodes(eu.mihosoft.ext.apted.node.Node<StringNodeData> n) {
         int count = 1;
-        for (node.Node<StringNodeData> child : n.getChildren()) {
+        for (eu.mihosoft.ext.apted.node.Node<StringNodeData> child : n.getChildren()) {
             count += countNodes(child);
         }
         return count;

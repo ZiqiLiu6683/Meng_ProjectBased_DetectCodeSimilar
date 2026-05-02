@@ -7,6 +7,10 @@
   <version>1.0-SNAPSHOT</version>
   <name>code-sim</name>
   <url>http://maven.apache.org</url>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -26,11 +30,11 @@
       <version>3.25.10</version>
     </dependency>
 
-    <!-- Official APTED library (installed locally via mvn install:install-file) -->
+    <!-- APTED library for method-level tree edit distance. -->
     <dependency>
-      <groupId>com.github.DatabaseGroup</groupId>
+      <groupId>eu.mihosoft.ext.apted</groupId>
       <artifactId>apted</artifactId>
-      <version>1.0</version>
+      <version>0.1</version>
     </dependency>
   </dependencies>
   <build>

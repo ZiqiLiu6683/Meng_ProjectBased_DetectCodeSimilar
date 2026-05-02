@@ -1,0 +1,12 @@
+package com.ziqi.codesim.pipeline;
+
+public enum Stage0Flag {
+    CLASS_CONTEXT_WEAK,
+    CLASS_CONTEXT_STRONG,
+    BOILERPLATE_HEAVY,
+    TRIVIAL_METHOD_HEAVY,
+    S4_COST_RISK,
+    API_DENSE,
+    ASYMMETRIC_FILE_SIZE,
+    ASYMMETRIC_METHOD_PRESENCE
+}
