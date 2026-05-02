@@ -5,22 +5,26 @@ public class PipelineRunner {
     private final Stage1Measurement stage1Measurement;
     private final Stage2FeatureExtractor stage2FeatureExtractor;
     private final Stage3Aggregator stage3Aggregator;
+    private final Stage4Classifier stage4Classifier;
 
     public PipelineRunner() {
         this(new Stage0Profiler(),
                 new Stage1Measurement(),
                 new Stage2FeatureExtractor(),
-                new Stage3Aggregator());
+                new Stage3Aggregator(),
+                new Stage4Classifier());
     }
 
     PipelineRunner(Stage0Profiler stage0Profiler,
                    Stage1Measurement stage1Measurement,
                    Stage2FeatureExtractor stage2FeatureExtractor,
-                   Stage3Aggregator stage3Aggregator) {
+                   Stage3Aggregator stage3Aggregator,
+                   Stage4Classifier stage4Classifier) {
         this.stage0Profiler = stage0Profiler;
         this.stage1Measurement = stage1Measurement;
         this.stage2FeatureExtractor = stage2FeatureExtractor;
         this.stage3Aggregator = stage3Aggregator;
+        this.stage4Classifier = stage4Classifier;
     }
 
     public PipelineResult run(String sourceA, String sourceB) {
@@ -36,6 +40,22 @@ public class PipelineRunner {
         Stage2Result stage2 = stage2FeatureExtractor.compute(stage1);
         Stage3Result stage3 = stage3Aggregator.compute(stage1, stage2);
         return new PipelineResult(stage0, stage1, stage2, stage3);
+    }
+
+    public FullPipelineResult runFull(String sourceA, String sourceB) {
+        PipelineResult result = run(sourceA, sourceB);
+        Stage4Result stage4 = stage4Classifier.classify(
+                result.stage0(),
+                result.stage1(),
+                result.stage3()
+        );
+        return new FullPipelineResult(
+                result.stage0(),
+                result.stage1(),
+                result.stage2(),
+                result.stage3(),
+                stage4
+        );
     }
 
     private static Stage1Result emptyStage1() {

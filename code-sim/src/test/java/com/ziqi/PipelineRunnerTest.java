@@ -4,6 +4,7 @@ import com.ziqi.codesim.pipeline.PipelineResult;
 import com.ziqi.codesim.pipeline.PipelineRunner;
 import com.ziqi.codesim.pipeline.SignalStatus;
 import com.ziqi.codesim.pipeline.Stage0Mode;
+import com.ziqi.codesim.pipeline.FullPipelineResult;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,5 +37,9 @@ public class PipelineRunnerTest {
         assertEquals(SignalStatus.COMPUTED, result.stage3().status());
         assertFalse(result.stage3().mergedPairs().isEmpty());
         assertTrue(result.stage3().matchScoreAvg() > 0.0);
+
+        FullPipelineResult full = new PipelineRunner().runFull(sourceA, sourceB);
+        assertEquals(result.stage0().primaryMode(), full.stage0().primaryMode());
+        assertTrue(full.stage4().confidence() > 0.0);
     }
 }
