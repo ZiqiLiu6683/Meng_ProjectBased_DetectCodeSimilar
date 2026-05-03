@@ -7,14 +7,27 @@ public class PipelineMain {
         if (args.length < 2) {
             System.out.println("Usage: mvn -q exec:java "
                     + "-Dexec.mainClass=\"com.ziqi.codesim.pipeline.PipelineMain\" "
-                    + "-Dexec.args=\"A.java B.java\"");
+                    + "-Dexec.args=\"[--json] A.java B.java\"");
             return;
         }
 
-        String sourceA = FileUtils.readAll(args[0]);
-        String sourceB = FileUtils.readAll(args[1]);
+        boolean json = "--json".equals(args[0]);
+        int offset = json ? 1 : 0;
+        if (args.length - offset < 2) {
+            System.out.println("Usage: mvn -q exec:java "
+                    + "-Dexec.mainClass=\"com.ziqi.codesim.pipeline.PipelineMain\" "
+                    + "-Dexec.args=\"[--json] A.java B.java\"");
+            return;
+        }
+
+        String fileA = args[offset];
+        String fileB = args[offset + 1];
+        String sourceA = FileUtils.readAll(fileA);
+        String sourceB = FileUtils.readAll(fileB);
         FullPipelineResult result = new PipelineRunner().runFull(sourceA, sourceB);
-        String report = new TextReportFormatter().format(result, args[0], args[1]);
+        String report = json
+                ? new JsonReportFormatter().format(result, fileA, fileB)
+                : new TextReportFormatter().format(result, fileA, fileB);
         System.out.print(report);
     }
 }
