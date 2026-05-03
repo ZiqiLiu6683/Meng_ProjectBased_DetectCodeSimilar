@@ -121,7 +121,7 @@ public class WebAppMain {
                       background: var(--panel);
                     }
                     .bar {
-                      max-width: 1180px;
+                      max-width: 1320px;
                       margin: 0 auto;
                       padding: 16px 20px;
                       display: flex;
@@ -135,13 +135,13 @@ public class WebAppMain {
                       font-weight: 700;
                     }
                     main {
-                      max-width: 1180px;
+                      max-width: 1320px;
                       margin: 0 auto;
                       padding: 20px;
                     }
                     .workspace {
                       display: grid;
-                      grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+                      grid-template-columns: minmax(0, 1fr) minmax(460px, 560px);
                       gap: 18px;
                       align-items: start;
                     }
@@ -207,7 +207,64 @@ public class WebAppMain {
                     .summary {
                       padding: 16px;
                       display: grid;
-                      gap: 12px;
+                      gap: 14px;
+                    }
+                    #resultPanel { overflow: hidden; }
+                    .status-banner {
+                      border: 1px solid var(--line);
+                      border-left: 8px solid var(--accent);
+                      border-radius: 8px;
+                      padding: 14px;
+                      background: #f7fbfa;
+                    }
+                    .status-banner.warn {
+                      border-left-color: var(--warn);
+                      background: #fffaf2;
+                    }
+                    .status-banner.bad {
+                      border-left-color: var(--bad);
+                      background: #fff7f6;
+                    }
+                    .status-kicker {
+                      color: var(--muted);
+                      font-size: 12px;
+                      font-weight: 700;
+                      text-transform: uppercase;
+                      letter-spacing: .05em;
+                    }
+                    .status-title {
+                      margin-top: 4px;
+                      font-size: 26px;
+                      line-height: 1.1;
+                      font-weight: 800;
+                    }
+                    .status-subtitle {
+                      margin-top: 8px;
+                      color: var(--muted);
+                      line-height: 1.4;
+                    }
+                    .metric-strip {
+                      display: grid;
+                      grid-template-columns: repeat(3, minmax(0, 1fr));
+                      gap: 10px;
+                    }
+                    .big-cell {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 12px;
+                      background: #fbfcfd;
+                    }
+                    .big-value {
+                      margin-top: 4px;
+                      font-size: 24px;
+                      line-height: 1;
+                      font-weight: 800;
+                    }
+                    .big-note {
+                      margin-top: 6px;
+                      color: var(--muted);
+                      font-size: 12px;
+                      line-height: 1.35;
                     }
                     .decision {
                       border-bottom: 1px solid var(--line);
@@ -270,6 +327,17 @@ public class WebAppMain {
                       font-weight: 700;
                       margin: 4px 0 8px;
                     }
+                    .section-head {
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: baseline;
+                      gap: 12px;
+                      margin: 4px 0 8px;
+                    }
+                    .section-note {
+                      color: var(--muted);
+                      font-size: 12px;
+                    }
                     .metric {
                       border-bottom: 1px solid var(--line);
                       padding-bottom: 10px;
@@ -305,6 +373,21 @@ public class WebAppMain {
                       border-radius: 6px;
                       padding: 10px;
                     }
+                    .method-row {
+                      display: grid;
+                      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+                      gap: 10px;
+                      align-items: center;
+                    }
+                    .method-side {
+                      min-width: 0;
+                      overflow-wrap: anywhere;
+                      font-weight: 700;
+                    }
+                    .method-arrow {
+                      color: var(--accent);
+                      font-weight: 800;
+                    }
                     .pair strong {
                       display: block;
                       overflow-wrap: anywhere;
@@ -319,6 +402,33 @@ public class WebAppMain {
                       margin: 0;
                       padding-left: 18px;
                       line-height: 1.55;
+                    }
+                    .evidence-summary {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 10px;
+                    }
+                    .evidence-card {
+                      border: 1px solid var(--line);
+                      border-left: 5px solid var(--accent);
+                      border-radius: 8px;
+                      padding: 10px;
+                      background: #fbfcfd;
+                    }
+                    .evidence-card.warn { border-left-color: var(--warn); }
+                    .evidence-card.bad { border-left-color: var(--bad); }
+                    .evidence-card.scope { border-left-color: #2563eb; }
+                    .evidence-card.muted { border-left-color: #94a3b8; }
+                    .evidence-count {
+                      font-size: 20px;
+                      font-weight: 800;
+                      margin-top: 4px;
+                    }
+                    .evidence-text {
+                      color: var(--muted);
+                      font-size: 12px;
+                      line-height: 1.35;
+                      margin-top: 4px;
                     }
                     details {
                       border-top: 1px solid var(--line);
@@ -342,6 +452,7 @@ public class WebAppMain {
                     .error { color: var(--bad); }
                     @media (max-width: 900px) {
                       .workspace, .editors { grid-template-columns: 1fr; }
+                      .metric-strip, .evidence-summary { grid-template-columns: 1fr; }
                       textarea { min-height: 320px; }
                       .bar { align-items: flex-start; flex-direction: column; }
                     }
@@ -438,7 +549,8 @@ public class WebAppMain {
                       const scope = scopeText(summary.scopeType);
                       const partial = partialText(summary.scopeType, stage3.partialCloneSignal);
                       const decision = decisionText(summary.cloneType, summary.scopeType, summary.confidenceLevel);
-                      const overview = [
+                      const fileCoverage = (Number(stage3.coverageA) + Number(stage3.coverageB)) / 2;
+                      const detailedSignals = [
                         ['Confidence', summary.confidence],
                         ['Method Correspondence', stage3.matchScoreAvg],
                         ['Code Text Similarity', stage3.centroidS3],
@@ -450,42 +562,61 @@ public class WebAppMain {
                       const pairs = stage3.mergedPairs.slice(0, 6).map((pair, index) => `
                         <div class="pair">
                           <div class="label">Matched Method ${index + 1} - ${directionText(pair.direction)}</div>
-                          <strong>${escapeHtml(pair.methodAId)}</strong>
-                          <strong>${escapeHtml(pair.methodBId)}</strong>
+                          <div class="method-row">
+                            <div class="method-side">${escapeHtml(shortMethod(pair.methodAId))}</div>
+                            <div class="method-arrow">-></div>
+                            <div class="method-side">${escapeHtml(shortMethod(pair.methodBId))}</div>
+                          </div>
                           <div class="pair-meta">
-                            Match ${percent(pair.matchScore)} · Token ${percent(pair.feature.s3)} · Structure ${percent(pair.feature.s4)}
+                            Match ${percent(pair.matchScore)} - Text ${percent(pair.feature.s3)} - Structure ${percent(pair.feature.s4)}
                             <br>${pairReason(pair)}
                           </div>
                         </div>`).join('');
+                      const evidenceSummary = evidenceSummaryCards(stage4.evidenceChain);
                       const evidence = evidenceList(stage4.evidenceChain);
                       resultPanel.innerHTML = `
                         <div class="summary">
-                          <div class="decision">
-                            <div class="decision-title">Analysis Result</div>
-                            <div class="decision-text">${decision}</div>
-                            <div class="decision-note">${clone.description} ${scope.description}</div>
+                          <div class="status-banner ${statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel)}">
+                            <div class="status-kicker">Analysis Result</div>
+                            <div class="status-title">${decision}</div>
+                            <div class="status-subtitle">${clone.short} - ${scope.short}</div>
                           </div>
                           <div class="badges">
-                            <span class="badge">Type: ${summary.cloneType} · ${clone.short}</span>
-                            <span class="badge">Scope: ${summary.scopeType} · ${scope.short}</span>
+                            <span class="badge">Type: ${summary.cloneType} - ${clone.short}</span>
+                            <span class="badge">Scope: ${summary.scopeType} - ${scope.short}</span>
                             <span class="badge">Partial: ${partial}</span>
-                            <span class="badge">Confidence: ${summary.confidenceLevel} · ${percent(summary.confidence)}</span>
+                            <span class="badge">Confidence: ${summary.confidenceLevel} - ${percent(summary.confidence)}</span>
                           </div>
-                          <div class="grid">
-                            ${cell('Clone Type', `${summary.cloneType} · ${clone.short}`)}
-                            ${cell('Scope', `${summary.scopeType} · ${scope.short}`)}
-                            ${cell('Confidence', `${percent(summary.confidence)} ${summary.confidenceLevel}`)}
-                            ${cell('Method Pairs', String(summary.methodPairCount))}
-                          </div>
-                          <div>
-                            <div class="section-title">Similarity Overview</div>
-                            ${overview}
+                          <div class="metric-strip">
+                            ${metricCard('Confidence', summary.confidence, summary.confidenceLevel)}
+                            ${metricCard('Method Correspondence', stage3.matchScoreAvg, `${summary.methodPairCount} selected match${summary.methodPairCount === 1 ? '' : 'es'}`)}
+                            ${metricCard('File Coverage', fileCoverage, 'Average of both files')}
                           </div>
                           <div>
-                            <div class="section-title">Matched Methods</div>
+                            <div class="section-head">
+                              <div class="section-title">Scope Snapshot</div>
+                              <div class="section-note">How much code was matched</div>
+                            </div>
+                            ${scoreBar('File A Matched', stage3.coverageA)}
+                            ${scoreBar('File B Matched', stage3.coverageB)}
+                            ${scoreBar('Partial Match Signal', stage3.partialCloneSignal)}
+                          </div>
+                          <div>
+                            <div class="section-head">
+                              <div class="section-title">Matched Methods</div>
+                              <div class="section-note">${summary.methodPairCount} selected</div>
+                            </div>
                             <div class="pairs">${pairs || '<div class="empty">No matched method pairs.</div>'}</div>
                           </div>
+                          <div>
+                            <div class="section-title">Evidence Summary</div>
+                            ${evidenceSummary}
+                          </div>
                         </div>
+                        <details>
+                          <summary>Detailed Signals</summary>
+                          <div class="summary">${detailedSignals}</div>
+                        </details>
                         <details>
                           <summary>Analyze Details</summary>
                           <div class="summary">
@@ -509,12 +640,15 @@ public class WebAppMain {
                         </details>`;
                     }
                     function decisionText(cloneType, scopeType, confidenceLevel) {
-                      const confidence = confidenceLevel === 'HIGH' ? 'High confidence'
-                        : confidenceLevel === 'MEDIUM' ? 'Medium confidence' : 'Low confidence';
-                      if (cloneType === 'NON_CLONE') return `${confidence}: no clear similarity`;
-                      if (scopeType === 'PARTIAL') return `${confidence}: partial similarity detected`;
-                      if (scopeType === 'MIXED') return `${confidence}: mixed-scope similarity detected`;
-                      return `${confidence}: the two files are broadly similar`;
+                      if (cloneType === 'NON_CLONE') return 'NO CLEAR SIMILARITY';
+                      if (scopeType === 'PARTIAL') return 'PARTIAL SIMILARITY';
+                      if (scopeType === 'MIXED') return 'MIXED-SCOPE SIMILARITY';
+                      return 'BROADLY SIMILAR';
+                    }
+                    function statusClass(cloneType, scopeType, confidenceLevel) {
+                      if (cloneType === 'NON_CLONE') return 'bad';
+                      if (confidenceLevel !== 'HIGH' || scopeType === 'PARTIAL' || scopeType === 'MIXED') return 'warn';
+                      return '';
                     }
                     function cloneText(type) {
                       const map = {
@@ -549,9 +683,16 @@ public class WebAppMain {
                       return map[mode] || mode;
                     }
                     function partialText(scopeType, signal) {
-                      if (scopeType === 'PARTIAL') return `Yes · ${percent(signal)}`;
-                      if (scopeType === 'MIXED') return `Possible · ${percent(signal)}`;
-                      return `No · ${percent(signal)}`;
+                      if (scopeType === 'PARTIAL') return `Yes - ${percent(signal)}`;
+                      if (scopeType === 'MIXED') return `Possible - ${percent(signal)}`;
+                      return `No - ${percent(signal)}`;
+                    }
+                    function metricCard(label, value, note) {
+                      return `<div class="big-cell">
+                        <div class="label">${escapeHtml(label)}</div>
+                        <div class="big-value">${percent(value)}</div>
+                        <div class="big-note">${escapeHtml(note)}</div>
+                      </div>`;
                     }
                     function scoreBar(label, value) {
                       const n = Number(value) || 0;
@@ -572,6 +713,35 @@ public class WebAppMain {
                       if (pair.matchScore >= 0.5) return 'Assessment: possible correspondence; manual review is recommended.';
                       return 'Assessment: weak correspondence; use as supporting context only.';
                     }
+                    function shortMethod(methodId) {
+                      const hash = methodId.indexOf('#');
+                      if (hash < 0) return methodId;
+                      const type = methodId.slice(0, hash);
+                      const rest = methodId.slice(hash + 1).replace(/#\\d+$/, '');
+                      return `${type}.${rest}`;
+                    }
+                    function evidenceSummaryCards(chain) {
+                      return `<div class="evidence-summary">
+                        ${evidenceCard('Supports Similarity', chain.supportingEvidence.length, strongest(chain.supportingEvidence), '')}
+                        ${evidenceCard('Suggests Modification', chain.opposingEvidence.length, strongest(chain.opposingEvidence), 'warn')}
+                        ${evidenceCard('Supports Scope', chain.scopeEvidence.length, strongest(chain.scopeEvidence), 'scope')}
+                        ${evidenceCard('Reliability Warnings', chain.reliabilityWarnings.length, strongest(chain.reliabilityWarnings), chain.reliabilityWarnings.length ? 'bad' : 'muted')}
+                      </div>`;
+                    }
+                    function evidenceCard(title, count, strength, cls) {
+                      const note = count === 0 ? 'No signals in this group' : `${strength} signal${count === 1 ? '' : 's'}`;
+                      return `<div class="evidence-card ${cls}">
+                        <div class="label">${escapeHtml(title)}</div>
+                        <div class="evidence-count">${count}</div>
+                        <div class="evidence-text">${escapeHtml(note)}</div>
+                      </div>`;
+                    }
+                    function strongest(items) {
+                      if (items.some(item => item.strength === 'HIGH')) return 'High';
+                      if (items.some(item => item.strength === 'MEDIUM')) return 'Medium';
+                      if (items.some(item => item.strength === 'LOW')) return 'Low';
+                      return 'No';
+                    }
                     function evidenceList(chain) {
                       const groups = [
                         ['Supporting Evidence', chain.supportingEvidence],
@@ -587,7 +757,7 @@ public class WebAppMain {
                     }
                     function evidenceItem(item) {
                       return `<li><strong>${escapeHtml(signalDisplay(item.signal))}</strong> = ${escapeHtml(item.value)}
-                        <br>${escapeHtml(interpretationDisplay(item))} · Supports: ${escapeHtml(supportsDisplay(item.supports))}</li>`;
+                        <br>${escapeHtml(interpretationDisplay(item))} - Supports: ${escapeHtml(supportsDisplay(item.supports))}</li>`;
                     }
                     function signalDisplay(signal) {
                       const map = {
