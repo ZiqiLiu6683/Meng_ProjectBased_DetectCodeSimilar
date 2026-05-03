@@ -20,7 +20,7 @@ public class TextReportFormatterTest {
         assertTrue(report.contains("=== Final Decision ==="));
         assertTrue(report.contains("Clone Type"));
         assertTrue(report.contains("=== Evidence Chain ==="));
-        assertTrue(report.contains("=== Method Correspondence ==="));
+        assertTrue(report.contains("=== Matched Method Pairs ==="));
         assertTrue(report.contains("=== Diagnostic Feature Summary ==="));
         assertTrue(report.contains("=== Pipeline Details ==="));
     }

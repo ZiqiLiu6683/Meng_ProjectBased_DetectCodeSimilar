@@ -69,32 +69,33 @@ public class TextReportFormatter {
     }
 
     private static void appendMethodPairs(StringBuilder out, List<MergedPairFeature> pairs) {
-        out.append("=== Method Correspondence ===\n");
+        out.append("=== Matched Method Pairs ===\n");
         if (pairs.isEmpty()) {
             out.append("(no method-level correspondences)\n\n");
             return;
         }
-        out.append(String.format(
-                "%-28s %-28s %-16s %8s %14s %8s %8s %8s %8s %10s %10s %8s%n",
-                "A Method", "B Method", "Direction", "Match", "Reason",
-                "S2", "S3", "S4", "Mag", "A_in_B", "B_in_A", "Size"));
-        for (MergedPairFeature pair : pairs) {
+        for (int i = 0; i < pairs.size(); i++) {
+            MergedPairFeature pair = pairs.get(i);
             MethodPairFeature f = pair.feature();
-            out.append(String.format(
-                    "%-28s %-28s %-16s %8.2f %14s %8.2f %8.2f %8.2f %8.2f %10.2f %10.2f %8.2f%n",
-                    pair.methodAId(),
-                    pair.methodBId(),
-                    pair.direction(),
-                    pair.matchScore() * 100.0,
-                    pair.matchReason(),
-                    f.s2() * 100.0,
-                    f.s3() * 100.0,
-                    f.s4() * 100.0,
-                    f.magnitude() * 100.0,
-                    f.containmentAInB() * 100.0,
-                    f.containmentBInA() * 100.0,
-                    f.sizeRatio() * 100.0
-            ));
+            out.append("Pair ").append(i + 1).append(":\n");
+            out.append("  A Method : ").append(pair.methodAId()).append('\n');
+            out.append("  B Method : ").append(pair.methodBId()).append('\n');
+            out.append("  Direction: ").append(pair.direction())
+                    .append(", Match: ").append(percent(pair.matchScore()))
+                    .append(", Reason: ").append(pair.matchReason()).append('\n');
+            out.append("  Signals  : S2=").append(percent(f.s2()))
+                    .append(", S3=").append(percent(f.s3()))
+                    .append(", S4=").append(percent(f.s4()))
+                    .append(", Magnitude=").append(percent(f.magnitude())).append('\n');
+            out.append("  Contain  : A_in_B=").append(percent(f.containmentAInB()))
+                    .append(", B_in_A=").append(percent(f.containmentBInA()))
+                    .append(", Size ratio=").append(percent(f.sizeRatio())).append('\n');
+            if (!f.flags().isEmpty()) {
+                out.append("  Flags    : ").append(formatList(f.flags().stream()
+                        .map(Enum::name)
+                        .sorted()
+                        .toList())).append('\n');
+            }
         }
         out.append('\n');
     }
