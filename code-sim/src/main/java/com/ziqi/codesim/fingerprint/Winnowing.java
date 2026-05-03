@@ -1,15 +1,9 @@
-// Ziqi Liu Meng Project-Based Software Engineering
-// This file is used for selecting the minimum hash values as fingerprints (Winnowing)
-// Choose rightmost if tie
 package com.ziqi.codesim.fingerprint;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.ArrayList;
 
 public class Winnowing {
-    // Get fingerprints and their positions from tokens
     public static class Fingerprint {
         public final long hash;
         public final int pos;
@@ -22,7 +16,6 @@ public class Winnowing {
         List<Fingerprint> fpsList = new ArrayList<>();
         long[] kgramHashes = RollingHash.kgramHashes(tokens, k);
         int n = kgramHashes.length;
-        // Set<Long> fingerprints = new HashSet<>();
         if (n == 0 || w == 0) return fpsList;
         if (n <= w) {
             int idx  = minRightmost(kgramHashes, 0, n);
@@ -39,7 +32,7 @@ public class Winnowing {
         }
         return fpsList;    
     }
-    // Find the index of the minimum hash (choose rightmost if tie)
+    // Winnowing chooses the rightmost minimum when hashes tie.
     private static int minRightmost(long[] a, int start, int end) {
         long min = a[start];
         int idx = start;

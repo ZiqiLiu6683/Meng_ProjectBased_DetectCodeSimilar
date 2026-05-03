@@ -22,15 +22,12 @@ public class Main {
         String b = FileUtils.readAll(args[1]);
         List<String> tokensA = Tokenizer.tokenizeForBaseline(a, Lang.detect(args[0]));
         List<String> tokensB = Tokenizer.tokenizeForBaseline(b, Lang.detect(args[1]));
-        // Read Files
         System.out.println("File A: " + args[0]);
         System.out.println("Chars A: " + a.length());
         System.out.println("File B: " + args[1]);
         System.out.println("Chars B: " + b.length());
-        // Token
         System.out.println("First 10 tokens of A: \n" + tokensA.subList(0, Math.min(10, tokensA.size())));
         System.out.println("First 10 tokens of B: \n" + tokensB.subList(0, Math.min(10, tokensB.size())));
-        // Hash
         int k = 6; 
         long[] hashesA = RollingHash.kgramHashes(tokensA, k);
         long[] hashesB = RollingHash.kgramHashes(tokensB, k);
@@ -46,7 +43,6 @@ public class Main {
         for (int i = 0; i < 5; i++) {
             System.out.println("B[" + i + "] = " + Long.toUnsignedString(hashesB[i]));
         }
-        // Winnowing Fingerprints
         int w = 5; 
         List<Winnowing.Fingerprint> fpA = Winnowing.fingerprintTokens(tokensA, k, w);
         List<Winnowing.Fingerprint> fpB = Winnowing.fingerprintTokens(tokensB, k, w);
@@ -66,7 +62,6 @@ public class Main {
             System.out.println(Long.toUnsignedString(fp.hash) + " (pos " + fp.pos + ")");
             if (++count >= 10) break;
         }
-        // Similarity
         double sim = Similarity.jaccard(fpA, fpB);
         System.out.println(String.format("\nSimilarity (Jaccard) = %.2f%%\n", sim * 100));
     }

@@ -1,24 +1,3 @@
-// Ziqi Liu Meng Project-Based Software Engineering
-// AST-based similarity detection entry point -- redesigned S1-S5 pipeline.
-//
-// Strategy summary (post-redesign, 2026-Apr-27):
-//   S1  Non-method-body Token Winnowing (class-level context)
-//         Only import/field/annotation/static-init tokens; MethodDeclaration
-//         bodies are filtered out entirely. Fully decoupled from S3.
-//   S2  Method-level Exact Subtree Jaccard (Type diagnosis, NOT standalone score)
-//         Computed per method-pair inside MethodLevelSimilarity.
-//         structural_exactness = S2/S4 distinguishes Type-2 (rename-only) from
-//         Type-3 (rename + statement changes). Reported in method-pair table only.
-//   S3  Method-level Local Fragment Similarity (Winnowing, position-agnostic)
-//         Detects partial clones and control-structure substitutions that S4
-//         (global TED) would miss. Core Token-layer metric.
-//   S4  Method-level Global Structural Similarity (APTED/TED, best-match)
-//         Continuous structural edit cost; primary Type-3 detector. Kept unchanged.
-//         Note: methods >150 nodes are skipped (O(n^2) complexity constraint).
-//   S5  API Call Vocabulary Jaccard (weak semantic signal, CLAN-inspired)
-//         Bug fixed: NOT_APPLICABLE when union(apiA,apiB) is empty (both have
-//         no external API calls), rather than forcing 0 into the combined average.
-//   S6  Decompilation normalisation -- deferred (dynamic-analysis layer).
 package com.ziqi.codesim.ast;
 
 import java.util.List;
@@ -52,54 +31,32 @@ public class AstMain {
         CompilationUnit cuA = AstTokenizer.parse(srcA);
         CompilationUnit cuB = AstTokenizer.parse(srcB);
 
-        // ================================================================
-        // S1 -- Non-method-body Token Winnowing (class-level context)
-        //      Only tokens OUTSIDE MethodDeclaration bodies.
-        //      Captures import/field/annotation/static-init similarity.
-        //      Returns 0 for BCB single-method fragments (expected -- no import).
-        // ================================================================
+        // S1: non-method-body class-level context.
         List<String> nmTokensA = AstTokenizer.tokenizeNonMethod(cuA);
         List<String> nmTokensB = AstTokenizer.tokenizeNonMethod(cuB);
         List<Winnowing.Fingerprint> fpA = Winnowing.fingerprintTokens(nmTokensA, K_FILE, W_FILE);
         List<Winnowing.Fingerprint> fpB = Winnowing.fingerprintTokens(nmTokensB, K_FILE, W_FILE);
         double simS1 = Similarity.jaccard(fpA, fpB);
 
-        // ================================================================
-        // S3 + S2(per-pair) -- Method-level Token Winnowing + best-match
-        //      S2 (exact subtree Jaccard) is now computed per method-pair
-        //      inside MethodLevelSimilarity and stored in each MatchRecord.
-        //      structural_exactness = S2/S4 is computed in the summary below.
-        // ================================================================
+        // S3 and S2: method-level token and exact-subtree signals.
         MethodLevelSimilarity.Result mlResult = MethodLevelSimilarity.compute(cuA, cuB);
         double simS3 = mlResult.similarity;
 
-        // ================================================================
-        // S4 -- Method-level TED (APTED) + best-match
-        //      Note: methods with >150 AST nodes are skipped (O(n^2) limit).
-        //      This is an engineering constraint, not a design defect.
-        // ================================================================
+        // S4: method-level TED/APTED structural similarity.
         AptedSimilarity.Result aptedResult = AptedSimilarity.compute(cuA, cuB);
         double simS4 = aptedResult.similarity;
 
-        // ================================================================
-        // S5 -- API Call Vocabulary Jaccard (weak semantic signal)
-        //      Returns ApiCallSimilarity.NOT_APPLICABLE (-1.0) when
-        //      union(apiA, apiB) is empty; caller handles this sentinel.
-        // ================================================================
+        // S5: file-level API call vocabulary signal.
         Set<String> apiCallsA = ApiCallSimilarity.extractApiCallSet(cuA);
         Set<String> apiCallsB = ApiCallSimilarity.extractApiCallSet(cuB);
         double simS5 = ApiCallSimilarity.compute(cuA, cuB);
         boolean s5Applicable = (simS5 != ApiCallSimilarity.NOT_APPLICABLE);
 
-        // ================================================================
-        // Output
-        // ================================================================
         System.out.println("=== AST Similarity Report ===");
         System.out.printf("File A : %s%n", args[0]);
         System.out.printf("File B : %s%n", args[1]);
         System.out.println();
 
-        // --- S1 ---
         System.out.println("-- S1: Non-method-body Token Winnowing (class-level context) --");
         System.out.printf("  Non-method tokens : A=%d, B=%d%n", nmTokensA.size(), nmTokensB.size());
         System.out.printf("  Fingerprints      : A=%d, B=%d%n", fpA.size(), fpB.size());
@@ -108,7 +65,6 @@ public class AstMain {
         }
         System.out.printf("  S1 Similarity     : %.2f%%%n%n", simS1 * 100);
 
-        // --- S3 + S2 per method-pair ---
         System.out.println("-- S3: Method-level Token Winnowing (+ S2 exact subtree per pair) --");
         System.out.println("  Forward (A -> B):");
         for (MethodLevelSimilarity.MatchRecord r : mlResult.forwardMatches) {
@@ -124,8 +80,7 @@ public class AstMain {
         }
         System.out.printf("  S3 Similarity     : %.2f%%%n%n", simS3 * 100);
 
-        // --- S4 ---
-        System.out.println("-- S4: Method-level TED/APTED (global structural, methods >150 nodes skipped) --");
+        System.out.println("-- S4: Method-level TED/APTED (global structural) --");
         List<AptedSimilarity.MethodTreeInfo> methodsB = AptedSimilarity.extractMethods(cuB);
         List<AptedSimilarity.MethodTreeInfo> methodsA = AptedSimilarity.extractMethods(cuA);
         System.out.println("  Forward (A -> B):");
@@ -148,7 +103,6 @@ public class AstMain {
         }
         System.out.printf("  S4 Similarity     : %.2f%%%n%n", simS4 * 100);
 
-        // --- S5 ---
         System.out.println("-- S5: API Call Vocabulary Jaccard (weak semantic signal, CLAN-inspired) --");
         System.out.printf("  API calls : A=%d unique, B=%d unique%n",
                 apiCallsA.size(), apiCallsB.size());
@@ -163,13 +117,7 @@ public class AstMain {
             System.out.println();
         }
 
-        // ================================================================
-        // Summary -- three-layer aggregation + structural_exactness
-        // ================================================================
-
-        // structural_exactness: weighted average of S2/S4 per forward method pair.
-        // High (>=0.8) -> Type-2 signal (rename-only, structure preserved).
-        // Low  (<0.4)  -> Type-3 signal (structural changes present).
+        // structural_exactness helps separate Type-2-like and Type-3-like signals.
         double structExactNum = 0.0, structExactDen = 0.0;
         for (MethodLevelSimilarity.MatchRecord r : mlResult.forwardMatches) {
             double s4ForPair = aptedResult.forwardMatches.stream()
@@ -182,8 +130,7 @@ public class AstMain {
         }
         double structuralExactness = (structExactDen > 0) ? structExactNum / structExactDen : 0.0;
 
-        // Token layer: S1 (class skeleton) + S3 (method bodies), averaged.
-        // Structural layer: S4 only (S2 demoted to diagnostic feature).
+        // S2 remains diagnostic; S4 carries the structural layer score.
         double tokenLayer      = (simS1 + simS3) / 2.0;
         double structuralLayer = simS4;
         double combined;
