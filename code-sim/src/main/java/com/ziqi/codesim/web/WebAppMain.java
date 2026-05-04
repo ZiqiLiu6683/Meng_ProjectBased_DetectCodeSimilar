@@ -360,22 +360,32 @@ public class WebAppMain {
                       font-weight: 800;
                     }
                     .summary-lead {
-                      font-size: 22px;
-                      line-height: 1.35;
+                      display: grid;
+                      gap: 8px;
+                    }
+                    .summary-decision {
+                      font-size: 36px;
+                      line-height: 1.05;
                       font-weight: 800;
                     }
-                    .summary-lead strong {
+                    .summary-sentence {
+                      color: var(--muted);
+                      font-size: 19px;
+                      line-height: 1.35;
+                      font-weight: 700;
+                    }
+                    .summary-sentence strong {
                       color: var(--accent);
                     }
-                    .summary-lead.warn strong {
+                    .summary-sentence.warn strong {
                       color: var(--warn);
                     }
-                    .summary-lead.bad strong {
+                    .summary-sentence.bad strong {
                       color: var(--bad);
                     }
                     .focus-grid {
                       display: grid;
-                      grid-template-columns: 1.25fr 1.25fr .9fr;
+                      grid-template-columns: repeat(3, minmax(0, 1fr));
                       gap: 14px;
                     }
                     .focus-card {
@@ -644,9 +654,7 @@ public class WebAppMain {
                       gap: 12px;
                     }
                     .evidence-hero {
-                      display: grid;
-                      grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 16px;
+                      display: block;
                       margin-bottom: 18px;
                     }
                     .evidence-panel {
@@ -661,34 +669,99 @@ public class WebAppMain {
                     .evidence-panel.concern {
                       border-left: 7px solid var(--warn);
                     }
-                    .ring-panel {
+                    .breakdown-panel {
                       border: 1px solid var(--line);
                       border-radius: 8px;
-                      padding: 18px;
+                      padding: 20px;
                       background: #fbfcfd;
                       display: grid;
-                      grid-template-columns: 108px minmax(0, 1fr);
-                      gap: 18px;
+                      grid-template-columns: 156px minmax(0, 1fr);
+                      gap: 24px;
                       align-items: center;
                     }
-                    .ring {
-                      width: 96px;
-                      height: 96px;
+                    .reason-donut {
+                      width: 136px;
+                      height: 136px;
                       border-radius: 50%;
                       display: grid;
                       place-items: center;
-                      background:
-                        radial-gradient(circle at center, #fbfcfd 0 58%, transparent 59%),
-                        conic-gradient(var(--ring-color) var(--ring-value), #e7ebf0 0);
+                      background: var(--donut);
                     }
-                    .ring strong {
-                      font-size: 17px;
+                    .reason-center {
+                      width: 88px;
+                      height: 88px;
+                      border-radius: 50%;
+                      background: #fbfcfd;
+                      display: grid;
+                      place-items: center;
+                      text-align: center;
+                      line-height: 1.1;
                     }
-                    .ring-panel.support {
-                      --ring-color: var(--accent);
+                    .reason-center strong {
+                      display: block;
+                      font-size: 30px;
+                      line-height: 1;
                     }
-                    .ring-panel.concern {
-                      --ring-color: var(--warn);
+                    .reason-center span {
+                      color: var(--muted);
+                      font-size: 12px;
+                      font-weight: 700;
+                    }
+                    .legend-grid {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 10px;
+                      margin-top: 14px;
+                    }
+                    .legend-row {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 10px;
+                      background: white;
+                      font-size: 13px;
+                    }
+                    .legend-head {
+                      display: grid;
+                      grid-template-columns: 12px minmax(0, 1fr) auto;
+                      gap: 9px;
+                      align-items: center;
+                    }
+                    .legend-dot {
+                      width: 10px;
+                      height: 10px;
+                      border-radius: 50%;
+                      background: var(--dot-color);
+                    }
+                    .reason-mini-list {
+                      display: grid;
+                      gap: 6px;
+                      margin-top: 9px;
+                      padding-top: 8px;
+                      border-top: 1px solid #edf0f4;
+                    }
+                    .reason-mini {
+                      display: grid;
+                      grid-template-columns: minmax(0, 1fr) auto;
+                      gap: 8px;
+                      align-items: start;
+                      color: var(--muted);
+                      line-height: 1.3;
+                    }
+                    .reason-mini-main {
+                      min-width: 0;
+                    }
+                    .reason-mini-name {
+                      display: block;
+                      color: var(--text);
+                      font-weight: 700;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    }
+                    .reason-mini-score {
+                      display: block;
+                      margin-top: 2px;
+                      font-size: 12px;
                     }
                     .evidence-score {
                       font-size: 34px;
@@ -761,6 +834,10 @@ public class WebAppMain {
                       background: #f1f3f6;
                       color: var(--muted);
                     }
+                    .signal-pill.note {
+                      background: #eef2f6;
+                      color: #4b5563;
+                    }
                     .evidence-item {
                       border: 1px solid var(--line);
                       border-radius: 8px;
@@ -808,7 +885,10 @@ public class WebAppMain {
                       .signal-row {
                         grid-template-columns: 1fr;
                       }
-                      .ring-panel {
+                      .breakdown-panel {
+                        grid-template-columns: 1fr;
+                      }
+                      .legend-grid {
                         grid-template-columns: 1fr;
                       }
                       textarea {
@@ -1066,7 +1146,10 @@ public class WebAppMain {
                       return `<section class="section">
                         <div class="status-card ${statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel)}">
                           <div class="label">General Summary</div>
-                          <div class="summary-lead ${leadClass}">${summarySentence(summary, clone, scope)}</div>
+                          <div class="summary-lead">
+                            <div class="summary-decision">${escapeHtml(capitalize(clone.short))}</div>
+                            <div class="summary-sentence ${leadClass}">${summarySentence(summary, clone, scope)}</div>
+                          </div>
                           <div class="tag-row">
                             <span class="tag">${decisionText(summary.cloneType, summary.scopeType)}</span>
                             <span class="tag">Confidence: ${summary.confidenceLevel}</span>
@@ -1074,11 +1157,6 @@ public class WebAppMain {
                           </div>
                         </div>
                         <div class="focus-grid">
-                          <div class="focus-card">
-                            <div class="label">What Kind Of Match?</div>
-                            <div class="focus-value">${clone.short}</div>
-                            <div class="muted">${clone.description}</div>
-                          </div>
                           <div class="focus-card">
                             <div class="label">How Broad Is It?</div>
                             <div class="focus-value">${scope.short}</div>
@@ -1088,6 +1166,11 @@ public class WebAppMain {
                             <div class="label">Confidence</div>
                             <div class="metric-number">${percent(summary.confidence)}</div>
                             <div class="muted">How sure the analyzer is about this result.</div>
+                          </div>
+                          <div class="focus-card">
+                            <div class="label">Main Difference</div>
+                            <div class="focus-value">${differenceSummary(summary.cloneType)}</div>
+                            <div class="muted">${clone.description}</div>
                           </div>
                         </div>
                         <div class="summary-columns">
@@ -1174,16 +1257,13 @@ public class WebAppMain {
                       const stage4 = data.stage4;
                       const signalCount = chain.supportingEvidence.length + chain.opposingEvidence.length
                         + chain.scopeEvidence.length + chain.reliabilityWarnings.length;
-                      const supportScore = evidenceGroupScore(chain.supportingEvidence.concat(chain.scopeEvidence));
-                      const concernScore = evidenceGroupScore(chain.opposingEvidence.concat(chain.reliabilityWarnings));
                       return `<section class="section">
                         <div class="section-head">
                           <h3>Why This Result?</h3>
                           <div class="muted">The main checks behind the report</div>
                         </div>
                         <div class="evidence-hero">
-                          ${ringPanel('Reasons These Files Look Related', supportScore, chain.supportingEvidence.length + chain.scopeEvidence.length + ' strong reasons found.', 'support')}
-                          ${ringPanel('Reasons To Be Careful', concernScore, chain.opposingEvidence.length + chain.reliabilityWarnings.length + ' caution signs found.', 'concern')}
+                          ${reasonBreakdownPanel(chain)}
                         </div>
                         ${signalCount === 0 ? `<div class="evidence-panel concern" style="margin-bottom:18px">
                           <div class="label">No Strong Reasons Were Highlighted</div>
@@ -1214,13 +1294,6 @@ public class WebAppMain {
                               ${scoreBar('Signs of real editing', stage3.tokenExactGapAvg)}
                             </div>
                           </div>
-                        </div>
-                        <div class="section-head" style="margin-top:22px">
-                          <h3>Highlighted Reasons</h3>
-                          <div class="muted">Short names here, full raw data in Developer JSON.</div>
-                        </div>
-                        <div class="signal-table">
-                          ${signalRows(chain)}
                         </div>
                         <div class="sub-panel" style="margin-top:22px">
                           <div class="section-head">
@@ -1273,9 +1346,24 @@ public class WebAppMain {
                     function summarySentence(summary, clone, scope) {
                       const confidence = `<strong>${percent(summary.confidence)}</strong>`;
                       if (summary.cloneType === 'NON_CLONE') {
-                        return `We are ${confidence} confident that the files do not show a clear clone pattern.`;
+                        return `We are ${confidence} confident that the files do not show a clear copy pattern.`;
                       }
-                      return `We are ${confidence} confident that these files look like ${escapeHtml(clone.short.toLowerCase())}, and ${escapeHtml(scope.sentence)}.`;
+                      return `We are ${confidence} confident, and ${escapeHtml(scope.sentence)}.`;
+                    }
+                    function differenceSummary(cloneType) {
+                      const map = {
+                        T1: 'Almost none',
+                        T2: 'Mostly renamed',
+                        T3: 'Real edits',
+                        T4_WEAK: 'Different shape',
+                        NON_CLONE: 'No clear match',
+                        INCONCLUSIVE: 'Unclear'
+                      };
+                      return map[cloneType] || 'Unclear';
+                    }
+                    function capitalize(value) {
+                      const text = String(value || '');
+                      return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
                     }
                     function typeRankings(scores) {
                       const values = scores || {};
@@ -1310,15 +1398,75 @@ public class WebAppMain {
                         <div class="track"><div class="fill ${cls}" style="width:${Math.max(0, Math.min(100, value * 100))}%"></div></div>
                       </div>`;
                     }
-                    function ringPanel(title, value, note, cls) {
-                      const n = Math.max(0, Math.min(1, Number(value) || 0));
-                      return `<div class="ring-panel ${cls}" style="--ring-value:${(n * 100).toFixed(2)}%">
-                        <div class="ring"><strong>${percent(n)}</strong></div>
+                    function reasonBreakdownPanel(chain) {
+                      const parts = [
+                        ['Why it looks similar', chain.supportingEvidence, '#0f766e'],
+                        ['Where it changed', chain.opposingEvidence, '#9a5b00'],
+                        ['How much matched', chain.scopeEvidence, '#4b6f9f'],
+                        ['What to check', chain.reliabilityWarnings, '#b42318']
+                      ];
+                      const total = parts.reduce((sum, part) => sum + part[1].length, 0);
+                      const donut = donutGradient(parts, total);
+                      return `<div class="breakdown-panel">
+                        <div class="reason-donut" style="--donut:${donut}">
+                          <div class="reason-center">
+                            <div><strong>${total}</strong><span>reasons</span></div>
+                          </div>
+                        </div>
                         <div>
-                          <div class="label">${escapeHtml(title)}</div>
-                          <div class="muted" style="margin-top:8px">${escapeHtml(note)}</div>
+                          <div class="label">Reason Breakdown</div>
+                          <div class="muted" style="margin-top:8px">Each ring segment shows how many highlighted reasons came from that group. The items below name those reasons directly.</div>
+                          <div class="legend-grid">
+                            ${parts.map(part => legendRow(part[0], part[1], part[2])).join('')}
+                          </div>
                         </div>
                       </div>`;
+                    }
+                    function donutGradient(parts, total) {
+                      if (total <= 0) {
+                        return 'conic-gradient(#e7ebf0 0 100%)';
+                      }
+                      let cursor = 0;
+                      const stops = [];
+                      for (const part of parts) {
+                        const count = part[1].length;
+                        if (count <= 0) continue;
+                        const start = cursor;
+                        cursor += count / total * 100;
+                        stops.push(`${part[2]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`);
+                      }
+                      return `conic-gradient(${stops.join(', ')})`;
+                    }
+                    function legendRow(label, items, color) {
+                      const count = items.length;
+                      return `<div class="legend-row">
+                        <div class="legend-head">
+                          <span class="legend-dot" style="--dot-color:${color}"></span>
+                          <span>${escapeHtml(label)}</span>
+                          <strong>${count}</strong>
+                        </div>
+                        <div class="reason-mini-list">
+                          ${items.length ? items.map(reasonMini).join('') : '<div class="muted">No reasons in this group.</div>'}
+                        </div>
+                      </div>`;
+                    }
+                    function reasonMini(item) {
+                      const tagOnly = isTagOnlyEvidence(item);
+                      return `<div class="reason-mini" title="${escapeHtml(interpretationDisplay(item))}">
+                        <span class="reason-mini-main">
+                          <span class="reason-mini-name">${escapeHtml(signalDisplay(item.signal))}</span>
+                          <span class="reason-mini-score">${escapeHtml(reasonScoreText(item))}</span>
+                        </span>
+                        ${tagOnly ? '<span class="signal-pill note">NOTE</span>'
+                          : `<span class="signal-pill ${item.strength.toLowerCase()}">${escapeHtml(item.strength)}</span>`}
+                      </div>`;
+                    }
+                    function reasonScoreText(item) {
+                      if (isTagOnlyEvidence(item)) return 'Reliability note';
+                      return `Score ${percent(Number(item.value))}`;
+                    }
+                    function isTagOnlyEvidence(item) {
+                      return item.value === 'true' || item.category === 'RELIABILITY_WARNING';
                     }
                     function decisionText(cloneType, scopeType) {
                       if (cloneType === 'NON_CLONE') return 'NO CLEAR SIMILARITY';
@@ -1496,16 +1644,6 @@ public class WebAppMain {
                       const text = interpretationDisplay(item);
                       return text.length > 92 ? `${text.slice(0, 89)}...` : text;
                     }
-                    function evidenceGroupScore(items) {
-                      if (!items.length) return 0.0;
-                      const total = items.reduce((sum, item) => {
-                        if (item.strength === 'HIGH') return sum + 1.0;
-                        if (item.strength === 'MEDIUM') return sum + 0.65;
-                        if (item.strength === 'LOW') return sum + 0.3;
-                        return sum + 0.0;
-                      }, 0.0);
-                      return Math.min(1.0, total / Math.max(2, items.length));
-                    }
                     function strongest(items) {
                       if (items.some(item => item.strength === 'HIGH')) return 'High';
                       if (items.some(item => item.strength === 'MEDIUM')) return 'Medium';
@@ -1514,19 +1652,28 @@ public class WebAppMain {
                     }
                     function signalDisplay(signal) {
                       const map = {
-                        structural_exactness_avg: 'The code shape is very similar',
-                        method_similarity_strength: 'Matched functions look alike',
-                        modification_strength: 'There are signs of editing',
-                        confirmed_ratio: 'Matches work in both directions',
-                        'coverage_A/B': 'Both files have matching areas',
-                        S5_NOT_APPLICABLE: 'Library-call check was not useful',
-                        S1_if_reliable: 'Surrounding code also looks similar',
-                        partial_clone_signal: 'The overlap may be only partial',
-                        match_score_avg: 'Matched functions are strong',
-                        magnitude_avg: 'Overall match strength',
-                        scope_confidence: 'How clear the matched area is',
+                        file_exact_normalized_match: 'Exact cleaned-code match',
+                        structural_exactness_avg: 'Structure match',
+                        method_similarity_strength: 'Function-to-function match',
+                        modification_strength: 'Evidence of edits',
+                        S5: 'Shared API usage',
+                        coverage_strength: 'Unmatched code amount',
+                        partial_clone_signal: 'Partial-copy pattern',
+                        coverage_asymmetry: 'One-sided coverage',
+                        confirmed_ratio: 'Two-way confirmation',
+                        'coverage_A/B': 'Coverage in both files',
+                        spread_avg: 'Mixed method results',
+                        CLASS_CONTEXT_WEAK: 'Weak class context',
+                        TRIVIAL_METHOD_HEAVY: 'Too many tiny methods',
+                        S4_COST_RISK: 'Expensive structure check',
+                        S5_NOT_APPLICABLE: 'Not enough API usage',
+                        LOW_EVIDENCE: 'Limited supporting clues',
+                        S1_if_reliable: 'File context',
+                        match_score_avg: 'Match score',
+                        magnitude_avg: 'Overall match',
+                        scope_confidence: 'Match area',
                         evidence_strength: 'Reason strength',
-                        pipeline_reliability: 'Checks completed'
+                        pipeline_reliability: 'Checks run'
                       };
                       return map[signal] || signal.replaceAll('_', ' ');
                     }
