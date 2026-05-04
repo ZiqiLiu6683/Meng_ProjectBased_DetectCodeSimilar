@@ -413,20 +413,22 @@ public class WebAppMain {
                     }
                     .method-layout {
                       display: grid;
-                      grid-template-columns: 280px minmax(0, 1fr);
-                      gap: 14px;
+                      gap: 18px;
                     }
                     .pair-list {
-                      display: grid;
-                      gap: 8px;
+                      display: flex;
+                      gap: 10px;
+                      overflow-x: auto;
+                      padding: 2px 2px 8px;
                     }
                     .pair-button {
+                      min-width: 260px;
                       border: 1px solid var(--line);
                       border-radius: 8px;
                       background: white;
                       color: var(--text);
                       text-align: left;
-                      padding: 10px;
+                      padding: 12px;
                     }
                     .pair-button:hover {
                       background: #f4f7fa;
@@ -449,20 +451,26 @@ public class WebAppMain {
                     }
                     .pair-detail {
                       display: grid;
-                      gap: 12px;
+                      gap: 16px;
                     }
                     .pair-title {
                       border: 1px solid var(--line);
                       border-radius: 8px;
-                      padding: 12px;
+                      padding: 16px;
                       background: #fbfcfd;
                       display: grid;
-                      gap: 8px;
+                      gap: 12px;
+                    }
+                    .match-summary-grid {
+                      display: grid;
+                      grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+                      gap: 16px;
+                      align-items: center;
                     }
                     .method-map {
                       display: grid;
-                      grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
-                      gap: 10px;
+                      grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+                      gap: 14px;
                       align-items: center;
                     }
                     .method-name {
@@ -472,11 +480,11 @@ public class WebAppMain {
                     }
                     .method-name.left {
                       border-left: 4px solid var(--left-file);
-                      padding-left: 8px;
+                      padding-left: 10px;
                     }
                     .method-name.right {
                       border-left: 4px solid var(--right-file);
-                      padding-left: 8px;
+                      padding-left: 10px;
                     }
                     .arrow {
                       color: var(--muted);
@@ -486,7 +494,7 @@ public class WebAppMain {
                     .code-grid {
                       display: grid;
                       grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 12px;
+                      gap: 16px;
                     }
                     .code-card {
                       border: 1px solid var(--line);
@@ -510,7 +518,8 @@ public class WebAppMain {
                     }
                     pre.code {
                       margin: 0;
-                      max-height: 520px;
+                      max-height: 620px;
+                      min-height: 320px;
                       overflow: auto;
                       padding: 0;
                       background: white;
@@ -887,16 +896,20 @@ public class WebAppMain {
                       const detail = selected ? `
                         <div class="pair-detail">
                           <div class="pair-title">
-                            <div class="label">Selected Match</div>
-                            <div class="method-map">
-                              <div class="method-name left">${escapeHtml(shortMethod(selected.methodAId))}</div>
-                              <div class="arrow">-></div>
-                              <div class="method-name right">${escapeHtml(shortMethod(selected.methodBId))}</div>
-                            </div>
-                            <div class="tag-row">
-                              <span class="tag">Match ${percent(selected.matchScore)}</span>
-                              <span class="tag">Text ${percent(selected.feature.s3)}</span>
-                              <span class="tag">Structure ${percent(selected.feature.s4)}</span>
+                            <div class="match-summary-grid">
+                              <div>
+                                <div class="label">Selected Match</div>
+                                <div class="method-map" style="margin-top:8px">
+                                  <div class="method-name left">${escapeHtml(shortMethod(selected.methodAId))}</div>
+                                  <div class="arrow">-></div>
+                                  <div class="method-name right">${escapeHtml(shortMethod(selected.methodBId))}</div>
+                                </div>
+                              </div>
+                              <div class="tag-row">
+                                <span class="tag">Match ${percent(selected.matchScore)}</span>
+                                <span class="tag">Text ${percent(selected.feature.s3)}</span>
+                                <span class="tag">Structure ${percent(selected.feature.s4)}</span>
+                              </div>
                             </div>
                             <div class="muted">The highlighted method blocks are an interface preview based on method names. Exact line mapping can be added next.</div>
                           </div>
@@ -911,7 +924,10 @@ public class WebAppMain {
                           <div class="muted">${pairs.length} selected</div>
                         </div>
                         <div class="method-layout">
-                          <div class="pair-list">${pairList}</div>
+                          <div>
+                            <div class="label" style="margin-bottom:8px">Method Pair Selector</div>
+                            <div class="pair-list">${pairList}</div>
+                          </div>
                           ${detail}
                         </div>
                       </section>`;
