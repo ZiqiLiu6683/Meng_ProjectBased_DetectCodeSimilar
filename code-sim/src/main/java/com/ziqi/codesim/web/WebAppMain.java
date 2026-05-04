@@ -99,15 +99,19 @@ public class WebAppMain {
                   <style>
                     :root {
                       color-scheme: light;
-                      --bg: #f6f7f9;
+                      --bg: #f5f7fa;
                       --panel: #ffffff;
-                      --line: #d8dde5;
+                      --line: #d7dde5;
                       --text: #1f2933;
-                      --muted: #5d6978;
+                      --muted: #5f6b7a;
                       --accent: #0f766e;
-                      --accent-dark: #0b5f59;
-                      --warn: #9f580a;
+                      --accent-soft: #edf8f6;
+                      --warn: #9a5b00;
+                      --warn-soft: #fff7e8;
                       --bad: #b42318;
+                      --bad-soft: #fff1f0;
+                      --left-file: #2563eb;
+                      --right-file: #0f766e;
                     }
                     * { box-sizing: border-box; }
                     body {
@@ -117,197 +121,278 @@ public class WebAppMain {
                       font-family: Arial, Helvetica, sans-serif;
                     }
                     header {
-                      border-bottom: 1px solid var(--line);
                       background: var(--panel);
+                      border-bottom: 1px solid var(--line);
                     }
-                    .bar {
+                    .topbar {
                       max-width: 1320px;
                       margin: 0 auto;
-                      padding: 16px 20px;
+                      padding: 16px 22px;
                       display: flex;
-                      align-items: center;
                       justify-content: space-between;
+                      align-items: center;
                       gap: 16px;
                     }
-                    h1 {
+                    h1, h2, h3 {
                       margin: 0;
+                    }
+                    h1 {
                       font-size: 20px;
-                      font-weight: 700;
+                      font-weight: 800;
                     }
                     main {
                       max-width: 1320px;
                       margin: 0 auto;
-                      padding: 20px;
-                    }
-                    .workspace {
-                      display: grid;
-                      grid-template-columns: minmax(0, 1fr) minmax(460px, 560px);
-                      gap: 18px;
-                      align-items: start;
-                    }
-                    .editors {
-                      display: grid;
-                      grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 14px;
-                    }
-                    .panel {
-                      background: var(--panel);
-                      border: 1px solid var(--line);
-                      border-radius: 8px;
-                    }
-                    .panel-head {
-                      padding: 12px;
-                      border-bottom: 1px solid var(--line);
-                      display: flex;
-                      gap: 10px;
-                      align-items: center;
-                    }
-                    input, textarea, button {
-                      font: inherit;
-                    }
-                    input {
-                      width: 100%;
-                      border: 1px solid var(--line);
-                      border-radius: 6px;
-                      padding: 8px 10px;
-                    }
-                    textarea {
-                      width: 100%;
-                      min-height: 520px;
-                      border: 0;
-                      resize: vertical;
-                      padding: 12px;
-                      line-height: 1.45;
-                      font-family: Consolas, "Courier New", monospace;
-                      font-size: 13px;
-                      color: #111827;
+                      padding: 28px 24px;
                     }
                     button {
+                      font: inherit;
                       border: 1px solid var(--accent);
-                      background: var(--accent);
-                      color: white;
                       border-radius: 6px;
                       padding: 9px 13px;
+                      background: var(--accent);
+                      color: white;
                       cursor: pointer;
-                      white-space: nowrap;
                     }
                     button.secondary {
                       background: white;
                       color: var(--accent);
                     }
-                    button:hover { background: var(--accent-dark); }
+                    button:hover {
+                      border-color: #0b5f59;
+                      background: #0b5f59;
+                    }
                     button.secondary:hover {
-                      background: #eef8f6;
-                      color: var(--accent-dark);
+                      background: var(--accent-soft);
+                      color: #0b5f59;
                     }
                     .actions {
                       display: flex;
                       gap: 10px;
+                      flex-wrap: wrap;
                     }
-                    .summary {
-                      padding: 16px;
+                    .input-view {
                       display: grid;
-                      gap: 14px;
+                      gap: 16px;
                     }
-                    #resultPanel { overflow: hidden; }
-                    .status-banner {
+                    .editor-grid {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 16px;
+                    }
+                    .panel {
+                      background: var(--panel);
                       border: 1px solid var(--line);
-                      border-left: 8px solid var(--accent);
                       border-radius: 8px;
+                      overflow: hidden;
+                    }
+                    .panel-head {
+                      padding: 12px;
+                      border-bottom: 1px solid var(--line);
+                    }
+                    input, textarea {
+                      width: 100%;
+                      font: inherit;
+                    }
+                    input {
+                      border: 1px solid var(--line);
+                      border-radius: 6px;
+                      padding: 8px 10px;
+                    }
+                    textarea {
+                      min-height: 560px;
+                      border: 0;
+                      resize: vertical;
                       padding: 14px;
-                      background: #f7fbfa;
+                      line-height: 1.45;
+                      font-family: Consolas, "Courier New", monospace;
+                      font-size: 13px;
+                      color: #111827;
                     }
-                    .status-banner.warn {
-                      border-left-color: var(--warn);
-                      background: #fffaf2;
+                    .report-view {
+                      display: none;
+                      gap: 18px;
                     }
-                    .status-banner.bad {
-                      border-left-color: var(--bad);
-                      background: #fff7f6;
+                    .report-shell {
+                      display: grid;
+                      grid-template-columns: 230px minmax(0, 1fr);
+                      gap: 24px;
+                      align-items: start;
                     }
-                    .status-kicker {
+                    .report-head {
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: flex-start;
+                      gap: 16px;
+                      margin-bottom: 18px;
+                    }
+                    .report-title {
+                      display: grid;
+                      gap: 8px;
+                    }
+                    .compare-line {
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      flex-wrap: wrap;
+                    }
+                    .file-pill {
+                      display: inline-flex;
+                      max-width: 220px;
+                      border: 1px solid var(--line);
+                      border-radius: 999px;
+                      padding: 7px 10px;
+                      background: white;
+                      font-size: 13px;
+                      font-weight: 700;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    }
+                    .file-pill.left {
+                      border-color: var(--left-file);
+                    }
+                    .file-pill.right {
+                      border-color: var(--right-file);
+                    }
+                    .vs {
                       color: var(--muted);
                       font-size: 12px;
                       font-weight: 700;
                       text-transform: uppercase;
-                      letter-spacing: .05em;
                     }
-                    .status-title {
-                      margin-top: 4px;
-                      font-size: 26px;
-                      line-height: 1.1;
-                      font-weight: 800;
-                    }
-                    .status-subtitle {
-                      margin-top: 8px;
-                      color: var(--muted);
-                      line-height: 1.4;
-                    }
-                    .metric-strip {
-                      display: grid;
-                      grid-template-columns: repeat(3, minmax(0, 1fr));
-                      gap: 10px;
-                    }
-                    .big-cell {
+                    .side-nav {
+                      position: sticky;
+                      top: 18px;
+                      background: var(--panel);
                       border: 1px solid var(--line);
                       border-radius: 8px;
-                      padding: 12px;
-                      background: #fbfcfd;
+                      padding: 8px;
+                      display: grid;
+                      gap: 6px;
                     }
-                    .big-value {
-                      margin-top: 4px;
-                      font-size: 24px;
-                      line-height: 1;
-                      font-weight: 800;
+                    .nav-button {
+                      width: 100%;
+                      border: 0;
+                      border-radius: 6px;
+                      background: transparent;
+                      color: var(--text);
+                      text-align: left;
+                      padding: 10px 11px;
+                      font-weight: 700;
                     }
-                    .big-note {
-                      margin-top: 6px;
-                      color: var(--muted);
-                      font-size: 12px;
-                      line-height: 1.35;
+                    .nav-button:hover {
+                      background: #eef2f6;
+                      color: var(--text);
                     }
-                    .decision {
-                      border-bottom: 1px solid var(--line);
-                      padding-bottom: 14px;
+                    .nav-button.active {
+                      background: var(--accent-soft);
+                      color: #0b5f59;
                     }
-                    .decision-title {
-                      font-size: 14px;
-                      color: var(--muted);
-                      margin-bottom: 4px;
+                    .content {
+                      display: grid;
+                      gap: 22px;
                     }
-                    .decision-text {
-                      font-size: 30px;
-                      line-height: 1.15;
-                      font-weight: 800;
+                    .section {
+                      background: var(--panel);
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 24px;
                     }
-                    .decision-note {
-                      margin-top: 8px;
+                    .section-head {
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: baseline;
+                      gap: 12px;
+                      margin-bottom: 14px;
+                    }
+                    .muted {
                       color: var(--muted);
                       line-height: 1.45;
                     }
-                    .badges {
+                    .label {
+                      color: var(--muted);
+                      font-size: 12px;
+                      font-weight: 700;
+                      letter-spacing: .04em;
+                      text-transform: uppercase;
+                    }
+                    .status-card {
+                      border: 1px solid var(--line);
+                      border-left: 8px solid var(--accent);
+                      border-radius: 8px;
+                      padding: 18px;
+                      background: #f8fcfb;
+                      display: grid;
+                      gap: 8px;
+                    }
+                    .status-card.warn {
+                      border-left-color: var(--warn);
+                      background: var(--warn-soft);
+                    }
+                    .status-card.bad {
+                      border-left-color: var(--bad);
+                      background: var(--bad-soft);
+                    }
+                    .status-title {
+                      font-size: 32px;
+                      line-height: 1.05;
+                      font-weight: 800;
+                    }
+                    .tag-row {
                       display: flex;
                       flex-wrap: wrap;
                       gap: 8px;
                     }
-                    .badge {
+                    .tag {
                       border: 1px solid var(--line);
                       border-radius: 999px;
                       padding: 6px 9px;
-                      background: #fbfcfd;
-                      font-size: 12px;
+                      background: white;
                       color: var(--muted);
+                      font-size: 12px;
                     }
-                    .score {
+                    .metric-grid {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 16px;
+                    }
+                    .metric-card {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 18px;
+                      background: #fbfcfd;
+                    }
+                    .metric-number {
+                      margin: 6px 0;
+                      font-size: 30px;
+                      line-height: 1;
+                      font-weight: 800;
+                      color: var(--accent);
+                    }
+                    .metric-card.warn .metric-number {
+                      color: var(--warn);
+                    }
+                    .metric-card.bad .metric-number {
+                      color: var(--bad);
+                    }
+                    .bar-list {
+                      display: grid;
+                      gap: 14px;
+                    }
+                    .score-row {
                       display: grid;
                       gap: 6px;
                     }
-                    .score-row {
+                    .score-top {
                       display: flex;
-                      align-items: center;
                       justify-content: space-between;
                       gap: 12px;
-                      font-size: 13px;
+                      align-items: baseline;
+                      font-size: 14px;
+                    }
+                    .score-question {
+                      line-height: 1.35;
                     }
                     .track {
                       height: 8px;
@@ -320,179 +405,349 @@ public class WebAppMain {
                       border-radius: 999px;
                       background: var(--accent);
                     }
-                    .fill.warn { background: var(--warn); }
-                    .fill.bad { background: var(--bad); }
-                    .section-title {
-                      font-size: 13px;
-                      font-weight: 700;
-                      margin: 4px 0 8px;
+                    .fill.warn {
+                      background: var(--warn);
                     }
-                    .section-head {
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: baseline;
-                      gap: 12px;
-                      margin: 4px 0 8px;
+                    .fill.bad {
+                      background: var(--bad);
                     }
-                    .section-note {
-                      color: var(--muted);
-                      font-size: 12px;
-                    }
-                    .metric {
-                      border-bottom: 1px solid var(--line);
-                      padding-bottom: 10px;
-                    }
-                    .label {
-                      color: var(--muted);
-                      font-size: 12px;
-                      text-transform: uppercase;
-                      letter-spacing: .04em;
-                    }
-                    .value {
-                      margin-top: 4px;
-                      font-size: 28px;
-                      font-weight: 700;
-                    }
-                    .grid {
+                    .method-layout {
                       display: grid;
-                      grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 10px;
+                      grid-template-columns: 280px minmax(0, 1fr);
+                      gap: 14px;
                     }
-                    .cell {
-                      border: 1px solid var(--line);
-                      border-radius: 6px;
-                      padding: 10px;
-                      background: #fbfcfd;
-                    }
-                    .pairs {
+                    .pair-list {
                       display: grid;
                       gap: 8px;
                     }
-                    .pair {
+                    .pair-button {
                       border: 1px solid var(--line);
-                      border-radius: 6px;
+                      border-radius: 8px;
+                      background: white;
+                      color: var(--text);
+                      text-align: left;
                       padding: 10px;
                     }
-                    .method-row {
-                      display: grid;
-                      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-                      gap: 10px;
-                      align-items: center;
+                    .pair-button:hover {
+                      background: #f4f7fa;
+                      border-color: var(--line);
+                      color: var(--text);
                     }
-                    .method-side {
-                      min-width: 0;
-                      overflow-wrap: anywhere;
-                      font-weight: 700;
+                    .pair-button.active {
+                      border-color: var(--accent);
+                      background: var(--accent-soft);
                     }
-                    .method-arrow {
-                      color: var(--accent);
+                    .pair-name {
                       font-weight: 800;
-                    }
-                    .pair strong {
-                      display: block;
                       overflow-wrap: anywhere;
                     }
                     .pair-meta {
                       margin-top: 6px;
                       color: var(--muted);
-                      line-height: 1.45;
-                      font-size: 13px;
+                      font-size: 12px;
+                      line-height: 1.35;
                     }
-                    .insight-list {
-                      margin: 0;
-                      padding-left: 18px;
-                      line-height: 1.55;
+                    .pair-detail {
+                      display: grid;
+                      gap: 12px;
                     }
-                    .evidence-summary {
+                    .pair-title {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 12px;
+                      background: #fbfcfd;
+                      display: grid;
+                      gap: 8px;
+                    }
+                    .method-map {
+                      display: grid;
+                      grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
+                      gap: 10px;
+                      align-items: center;
+                    }
+                    .method-name {
+                      min-width: 0;
+                      overflow-wrap: anywhere;
+                      font-weight: 800;
+                    }
+                    .method-name.left {
+                      border-left: 4px solid var(--left-file);
+                      padding-left: 8px;
+                    }
+                    .method-name.right {
+                      border-left: 4px solid var(--right-file);
+                      padding-left: 8px;
+                    }
+                    .arrow {
+                      color: var(--muted);
+                      text-align: center;
+                      font-weight: 800;
+                    }
+                    .code-grid {
                       display: grid;
                       grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 10px;
+                      gap: 12px;
+                    }
+                    .code-card {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      overflow: hidden;
+                      background: #fbfcfd;
+                    }
+                    .code-head {
+                      padding: 9px 11px;
+                      border-bottom: 1px solid var(--line);
+                      font-weight: 800;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    }
+                    .code-head.left {
+                      border-left: 5px solid var(--left-file);
+                    }
+                    .code-head.right {
+                      border-left: 5px solid var(--right-file);
+                    }
+                    pre.code {
+                      margin: 0;
+                      max-height: 520px;
+                      overflow: auto;
+                      padding: 0;
+                      background: white;
+                      font-family: Consolas, "Courier New", monospace;
+                      font-size: 12px;
+                      line-height: 1.45;
+                    }
+                    .code-line {
+                      display: grid;
+                      grid-template-columns: 42px minmax(0, 1fr);
+                      min-height: 18px;
+                    }
+                    .line-no {
+                      color: #8a95a3;
+                      background: #f3f5f8;
+                      border-right: 1px solid #e1e6ed;
+                      text-align: right;
+                      padding-right: 8px;
+                      user-select: none;
+                    }
+                    .line-code {
+                      padding-left: 10px;
+                      white-space: pre;
+                    }
+                    .code-line.hl .line-code {
+                      background: #e9f7f4;
+                    }
+                    .evidence-board {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 12px;
+                    }
+                    .evidence-hero {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 16px;
+                      margin-bottom: 18px;
+                    }
+                    .evidence-panel {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 18px;
+                      background: #fbfcfd;
+                    }
+                    .evidence-panel.support {
+                      border-left: 7px solid var(--accent);
+                    }
+                    .evidence-panel.concern {
+                      border-left: 7px solid var(--warn);
+                    }
+                    .evidence-score {
+                      font-size: 34px;
+                      font-weight: 800;
+                      line-height: 1;
+                      margin: 8px 0;
                     }
                     .evidence-card {
                       border: 1px solid var(--line);
-                      border-left: 5px solid var(--accent);
+                      border-left: 6px solid var(--accent);
                       border-radius: 8px;
-                      padding: 10px;
+                      padding: 14px;
                       background: #fbfcfd;
                     }
-                    .evidence-card.warn { border-left-color: var(--warn); }
-                    .evidence-card.bad { border-left-color: var(--bad); }
-                    .evidence-card.scope { border-left-color: #2563eb; }
-                    .evidence-card.muted { border-left-color: #94a3b8; }
-                    .evidence-count {
-                      font-size: 20px;
-                      font-weight: 800;
-                      margin-top: 4px;
+                    .evidence-card.warn {
+                      border-left-color: var(--warn);
                     }
-                    .evidence-text {
+                    .evidence-card.bad {
+                      border-left-color: var(--bad);
+                    }
+                    .evidence-card.info {
+                      border-left-color: #4b6f9f;
+                    }
+                    .evidence-count {
+                      font-size: 30px;
+                      font-weight: 800;
+                      margin: 6px 0;
+                    }
+                    .evidence-list {
+                      display: grid;
+                      gap: 10px;
+                      margin-top: 14px;
+                    }
+                    .signal-table {
+                      display: grid;
+                      gap: 8px;
+                    }
+                    .signal-row {
+                      display: grid;
+                      grid-template-columns: minmax(220px, 1.4fr) 90px 90px minmax(160px, 1fr);
+                      gap: 12px;
+                      align-items: center;
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 11px 12px;
+                      background: white;
+                    }
+                    .signal-name {
+                      font-weight: 800;
+                    }
+                    .signal-pill {
+                      display: inline-flex;
+                      justify-content: center;
+                      border-radius: 999px;
+                      padding: 5px 8px;
+                      background: #eef2f6;
                       color: var(--muted);
                       font-size: 12px;
-                      line-height: 1.35;
-                      margin-top: 4px;
-                    }
-                    details {
-                      border-top: 1px solid var(--line);
-                      padding: 12px 16px;
-                    }
-                    summary {
-                      cursor: pointer;
                       font-weight: 700;
                     }
-                    pre {
-                      margin: 10px 0 0;
+                    .signal-pill.high {
+                      background: var(--accent-soft);
+                      color: #0b5f59;
+                    }
+                    .signal-pill.medium {
+                      background: var(--warn-soft);
+                      color: var(--warn);
+                    }
+                    .signal-pill.low {
+                      background: #f1f3f6;
+                      color: var(--muted);
+                    }
+                    .evidence-item {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 12px;
+                      background: white;
+                    }
+                    .detail-grid {
+                      display: grid;
+                      grid-template-columns: repeat(3, minmax(0, 1fr));
+                      gap: 12px;
+                    }
+                    .detail-card {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 12px;
+                      background: #fbfcfd;
+                    }
+                    .json-box {
+                      max-height: 680px;
                       overflow: auto;
-                      max-height: 360px;
+                      margin: 0;
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 12px;
+                      background: white;
                       font-size: 12px;
                       line-height: 1.45;
                     }
-                    .empty, .error {
-                      color: var(--muted);
-                      line-height: 1.5;
+                    .hidden {
+                      display: none;
                     }
-                    .error { color: var(--bad); }
-                    @media (max-width: 900px) {
-                      .workspace, .editors { grid-template-columns: 1fr; }
-                      .metric-strip, .evidence-summary { grid-template-columns: 1fr; }
-                      textarea { min-height: 320px; }
-                      .bar { align-items: flex-start; flex-direction: column; }
+                    @media (max-width: 980px) {
+                      .editor-grid,
+                      .report-shell,
+                      .method-layout,
+                      .code-grid,
+                      .metric-grid,
+                      .evidence-board,
+                      .evidence-hero,
+                      .detail-grid {
+                        grid-template-columns: 1fr;
+                      }
+                      .signal-row {
+                        grid-template-columns: 1fr;
+                      }
+                      textarea {
+                        min-height: 360px;
+                      }
+                      .side-nav {
+                        position: static;
+                      }
                     }
                   </style>
                 </head>
                 <body>
                   <header>
-                    <div class="bar">
+                    <div class="topbar">
                       <h1>Code Similarity Analyzer</h1>
-                      <div class="actions">
+                      <div class="actions" id="inputActions">
                         <button class="secondary" id="sampleBtn" type="button">Load Sample</button>
                         <button id="analyzeBtn" type="button">Analyze</button>
+                      </div>
+                      <div class="actions hidden" id="reportActions">
+                        <button class="secondary" id="backBtn" type="button">Back to Input</button>
+                        <button id="rerunBtn" type="button">Run Again</button>
                       </div>
                     </div>
                   </header>
                   <main>
-                    <div class="workspace">
-                      <section class="editors">
+                    <section class="input-view" id="inputView">
+                      <div class="editor-grid">
                         <div class="panel">
-                          <div class="panel-head"><input id="fileA" value="A.java" aria-label="File A name"></div>
-                          <textarea id="sourceA" spellcheck="false" aria-label="Source A"></textarea>
+                          <div class="panel-head"><input id="fileA" value="B1.java" aria-label="File 1 name"></div>
+                          <textarea id="sourceA" spellcheck="false" aria-label="Source 1"></textarea>
                         </div>
                         <div class="panel">
-                          <div class="panel-head"><input id="fileB" value="B.java" aria-label="File B name"></div>
-                          <textarea id="sourceB" spellcheck="false" aria-label="Source B"></textarea>
+                          <div class="panel-head"><input id="fileB" value="B2.java" aria-label="File 2 name"></div>
+                          <textarea id="sourceB" spellcheck="false" aria-label="Source 2"></textarea>
                         </div>
-                      </section>
-                      <aside class="panel" id="resultPanel">
-                        <div class="summary">
-                          <div class="empty">Paste two Java files and run analysis.</div>
+                      </div>
+                    </section>
+                    <section class="report-view" id="reportView">
+                      <div class="report-head">
+                        <div class="report-title">
+                          <h2>Similarity Report</h2>
+                          <div class="compare-line" id="reportCompare"></div>
                         </div>
-                      </aside>
-                    </div>
+                      </div>
+                      <div class="report-shell">
+                        <nav class="side-nav" id="sectionNav"></nav>
+                        <div class="content" id="sectionContent"></div>
+                      </div>
+                    </section>
                   </main>
                   <script>
                     const sourceA = document.querySelector('#sourceA');
                     const sourceB = document.querySelector('#sourceB');
                     const fileA = document.querySelector('#fileA');
                     const fileB = document.querySelector('#fileB');
-                    const resultPanel = document.querySelector('#resultPanel');
+                    const inputView = document.querySelector('#inputView');
+                    const reportView = document.querySelector('#reportView');
+                    const inputActions = document.querySelector('#inputActions');
+                    const reportActions = document.querySelector('#reportActions');
+                    const sectionNav = document.querySelector('#sectionNav');
+                    const sectionContent = document.querySelector('#sectionContent');
+                    const reportCompare = document.querySelector('#reportCompare');
+                    let reportData = null;
+                    let activeSection = 'summary';
+                    let selectedPairIndex = 0;
+                    const sections = [
+                      ['summary', 'General Summary'],
+                      ['methods', 'Matched Methods'],
+                      ['evidence', 'Evidence'],
+                      ['details', 'Analysis Details'],
+                      ['json', 'Developer JSON']
+                    ];
                     const sampleA = `import java.util.List;
                 class B1 {
                     List<Integer> filterPositive(int[] nums) {
@@ -520,11 +775,24 @@ public class WebAppMain {
                       fileB.value = 'B2.java';
                     });
                     document.querySelector('#analyzeBtn').addEventListener('click', analyze);
+                    document.querySelector('#rerunBtn').addEventListener('click', analyze);
+                    document.querySelector('#backBtn').addEventListener('click', showInput);
+                    function showInput() {
+                      reportView.style.display = 'none';
+                      inputView.style.display = 'grid';
+                      reportActions.classList.add('hidden');
+                      inputActions.classList.remove('hidden');
+                    }
+                    function showReport() {
+                      inputView.style.display = 'none';
+                      reportView.style.display = 'grid';
+                      inputActions.classList.add('hidden');
+                      reportActions.classList.remove('hidden');
+                    }
                     async function analyze() {
-                      resultPanel.innerHTML = '<div class="summary"><div class="empty">Analyzing...</div></div>';
                       const body = new URLSearchParams({
-                        fileA: fileA.value || 'A.java',
-                        fileB: fileB.value || 'B.java',
+                        fileA: fileA.value || 'Left Code',
+                        fileB: fileB.value || 'Right Code',
                         sourceA: sourceA.value,
                         sourceB: sourceB.value
                       });
@@ -536,110 +804,218 @@ public class WebAppMain {
                         });
                         const data = await response.json();
                         if (!response.ok) throw new Error(data.error || 'Analysis failed');
-                        render(data);
+                        reportData = data;
+                        selectedPairIndex = 0;
+                        activeSection = 'summary';
+                        showReport();
+                        renderReport();
                       } catch (err) {
-                        resultPanel.innerHTML = `<div class="summary"><div class="error">${escapeHtml(err.message)}</div></div>`;
+                        alert(err.message);
                       }
                     }
-                    function render(data) {
+                    function renderReport() {
+                      if (!reportData) return;
+                      const files = fileInfo(reportData);
+                      reportCompare.innerHTML = `${filePill(files.left, 'left')}<span class="vs">vs</span>${filePill(files.right, 'right')}`;
+                      sectionNav.innerHTML = sections.map(([id, label]) =>
+                        `<button class="nav-button ${id === activeSection ? 'active' : ''}" data-section="${id}" type="button">${label}</button>`
+                      ).join('');
+                      sectionNav.querySelectorAll('button').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                          activeSection = btn.dataset.section;
+                          renderReport();
+                        });
+                      });
+                      if (activeSection === 'summary') sectionContent.innerHTML = renderSummary(reportData, files);
+                      if (activeSection === 'methods') sectionContent.innerHTML = renderMethods(reportData, files);
+                      if (activeSection === 'evidence') sectionContent.innerHTML = renderEvidence(reportData);
+                      if (activeSection === 'details') sectionContent.innerHTML = renderDetails(reportData);
+                      if (activeSection === 'json') sectionContent.innerHTML = renderJson(reportData);
+                      bindSectionEvents();
+                    }
+                    function renderSummary(data, files) {
                       const summary = data.summary;
                       const stage3 = data.stage3;
                       const stage4 = data.stage4;
                       const clone = cloneText(summary.cloneType);
                       const scope = scopeText(summary.scopeType);
-                      const partial = partialText(summary.scopeType, stage3.partialCloneSignal);
-                      const decision = decisionText(summary.cloneType, summary.scopeType, summary.confidenceLevel);
-                      const fileCoverage = (Number(stage3.coverageA) + Number(stage3.coverageB)) / 2;
-                      const detailedSignals = [
-                        ['Confidence', summary.confidence],
-                        ['Method Correspondence', stage3.matchScoreAvg],
-                        ['Code Text Similarity', stage3.centroidS3],
-                        ['Code Structure Similarity', stage3.centroidS4],
-                        ['File A Matched', stage3.coverageA],
-                        ['File B Matched', stage3.coverageB],
-                        ['Partial Match Signal', stage3.partialCloneSignal]
-                      ].map(([label, value]) => scoreBar(label, value)).join('');
-                      const pairs = stage3.mergedPairs.slice(0, 6).map((pair, index) => `
-                        <div class="pair">
-                          <div class="label">Matched Method ${index + 1} - ${directionText(pair.direction)}</div>
-                          <div class="method-row">
-                            <div class="method-side">${escapeHtml(shortMethod(pair.methodAId))}</div>
-                            <div class="method-arrow">-></div>
-                            <div class="method-side">${escapeHtml(shortMethod(pair.methodBId))}</div>
-                          </div>
-                          <div class="pair-meta">
-                            Match ${percent(pair.matchScore)} - Text ${percent(pair.feature.s3)} - Structure ${percent(pair.feature.s4)}
-                            <br>${pairReason(pair)}
-                          </div>
-                        </div>`).join('');
-                      const evidenceSummary = evidenceSummaryCards(stage4.evidenceChain);
-                      const evidence = evidenceList(stage4.evidenceChain);
-                      resultPanel.innerHTML = `
-                        <div class="summary">
-                          <div class="status-banner ${statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel)}">
-                            <div class="status-kicker">Analysis Result</div>
-                            <div class="status-title">${decision}</div>
-                            <div class="status-subtitle">${clone.short} - ${scope.short}</div>
-                          </div>
-                          <div class="badges">
-                            <span class="badge">Type: ${summary.cloneType} - ${clone.short}</span>
-                            <span class="badge">Scope: ${summary.scopeType} - ${scope.short}</span>
-                            <span class="badge">Partial: ${partial}</span>
-                            <span class="badge">Confidence: ${summary.confidenceLevel} - ${percent(summary.confidence)}</span>
-                          </div>
-                          <div class="metric-strip">
-                            ${metricCard('Confidence', summary.confidence, summary.confidenceLevel)}
-                            ${metricCard('Method Correspondence', stage3.matchScoreAvg, `${summary.methodPairCount} selected match${summary.methodPairCount === 1 ? '' : 'es'}`)}
-                            ${metricCard('File Coverage', fileCoverage, 'Average of both files')}
-                          </div>
-                          <div>
-                            <div class="section-head">
-                              <div class="section-title">Scope Snapshot</div>
-                              <div class="section-note">How much code was matched</div>
-                            </div>
-                            ${scoreBar('File A Matched', stage3.coverageA)}
-                            ${scoreBar('File B Matched', stage3.coverageB)}
-                            ${scoreBar('Partial Match Signal', stage3.partialCloneSignal)}
-                          </div>
-                          <div>
-                            <div class="section-head">
-                              <div class="section-title">Matched Methods</div>
-                              <div class="section-note">${summary.methodPairCount} selected</div>
-                            </div>
-                            <div class="pairs">${pairs || '<div class="empty">No matched method pairs.</div>'}</div>
-                          </div>
-                          <div>
-                            <div class="section-title">Evidence Summary</div>
-                            ${evidenceSummary}
+                      const coverage = (Number(stage3.coverageA) + Number(stage3.coverageB)) / 2;
+                      return `<section class="section">
+                        <div class="status-card ${statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel)}">
+                          <div class="label">General Summary</div>
+                          <div class="status-title">${decisionText(summary.cloneType, summary.scopeType)}</div>
+                          <div class="muted">${clone.short} - ${scope.short}</div>
+                          <div class="tag-row">
+                            <span class="tag">Type: ${summary.cloneType} - ${clone.short}</span>
+                            <span class="tag">Scope: ${summary.scopeType} - ${scope.short}</span>
+                            <span class="tag">Confidence: ${summary.confidenceLevel}</span>
                           </div>
                         </div>
-                        <details>
-                          <summary>Detailed Signals</summary>
-                          <div class="summary">${detailedSignals}</div>
-                        </details>
-                        <details>
-                          <summary>Analyze Details</summary>
-                          <div class="summary">
-                            <div class="grid">
-                              ${cell('Input Pattern', inputPatternText(data.stage0.primaryMode))}
-                              ${cell('Compared Method Pairs', String(data.stage1.pairMatrix.length))}
-                              ${cell('Computed Pair Features', String(data.stage2.pairFeatures.length))}
-                              ${cell('Selected Method Matches', String(stage3.mergedPairs.length))}
-                              ${cell('Evidence Strength', percent(stage4.evidenceStrength))}
-                              ${cell('Pipeline Reliability', percent(stage4.pipelineReliability))}
-                            </div>
+                        <div class="metric-grid">
+                          ${metricCard('Confidence', summary.confidence, 'How reliable the final decision is.', 'positive')}
+                          ${metricCard('Matched Functions', stage3.matchScoreAvg, 'High value means many functions line up.', 'risk')}
+                          ${metricCard('How Much Code Matches', coverage, 'High value means much of the files match.', 'risk')}
+                          ${metricCard('Partial-Only Match', stage3.partialCloneSignal, 'High value means the match is concentrated in part of the files.', 'risk')}
+                        </div>
+                        <div class="section">
+                          <div class="section-head">
+                            <h3>How Much Was Matched</h3>
+                            <div class="muted">Measured in both directions</div>
                           </div>
-                        </details>
-                        <details>
-                          <summary>Evidence</summary>
-                          <div class="summary">${evidence}</div>
-                        </details>
-                        <details>
-                          <summary>Developer JSON</summary>
-                          <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-                        </details>`;
+                          <div class="bar-list">
+                            ${directionalScore(files.left, files.right, stage3.coverageA)}
+                            ${directionalScore(files.right, files.left, stage3.coverageB)}
+                            ${scoreBar('Does this look like only part of one file matches?', stage3.partialCloneSignal)}
+                          </div>
+                        </div>
+                        <div class="evidence-board">
+                          ${evidenceCard('Supports Similarity', stage4.evidenceChain.supportingEvidence, '')}
+                          ${evidenceCard('Suggests Modification', stage4.evidenceChain.opposingEvidence, 'warn')}
+                          ${evidenceCard('Supports Scope', stage4.evidenceChain.scopeEvidence, 'info')}
+                          ${evidenceCard('Reliability Warnings', stage4.evidenceChain.reliabilityWarnings, stage4.evidenceChain.reliabilityWarnings.length ? 'bad' : '')}
+                        </div>
+                      </section>`;
                     }
-                    function decisionText(cloneType, scopeType, confidenceLevel) {
+                    function renderMethods(data, files) {
+                      const pairs = data.stage3.mergedPairs;
+                      const selected = pairs[selectedPairIndex] || null;
+                      const pairList = pairs.length ? pairs.map((pair, index) => `
+                        <button class="pair-button ${index === selectedPairIndex ? 'active' : ''}" data-pair="${index}" type="button">
+                          <div class="pair-name">${escapeHtml(methodNameOnly(pair.methodAId))} -> ${escapeHtml(methodNameOnly(pair.methodBId))}</div>
+                          <div class="pair-meta">Match ${percent(pair.matchScore)} - Text ${percent(pair.feature.s3)} - Structure ${percent(pair.feature.s4)}</div>
+                        </button>`).join('') : '<div class="muted">No matched methods were selected.</div>';
+                      const detail = selected ? `
+                        <div class="pair-detail">
+                          <div class="pair-title">
+                            <div class="label">Selected Match</div>
+                            <div class="method-map">
+                              <div class="method-name left">${escapeHtml(shortMethod(selected.methodAId))}</div>
+                              <div class="arrow">-></div>
+                              <div class="method-name right">${escapeHtml(shortMethod(selected.methodBId))}</div>
+                            </div>
+                            <div class="tag-row">
+                              <span class="tag">Match ${percent(selected.matchScore)}</span>
+                              <span class="tag">Text ${percent(selected.feature.s3)}</span>
+                              <span class="tag">Structure ${percent(selected.feature.s4)}</span>
+                            </div>
+                            <div class="muted">The highlighted method blocks are an interface preview based on method names. Exact line mapping can be added next.</div>
+                          </div>
+                          <div class="code-grid">
+                            ${codePanel(files.left, 'left', sourceA.value, selected.methodAId)}
+                            ${codePanel(files.right, 'right', sourceB.value, selected.methodBId)}
+                          </div>
+                        </div>` : '<div class="muted">Select a method pair to inspect source code.</div>';
+                      return `<section class="section">
+                        <div class="section-head">
+                          <h3>Matched Methods</h3>
+                          <div class="muted">${pairs.length} selected</div>
+                        </div>
+                        <div class="method-layout">
+                          <div class="pair-list">${pairList}</div>
+                          ${detail}
+                        </div>
+                      </section>`;
+                    }
+                    function renderEvidence(data) {
+                      const chain = data.stage4.evidenceChain;
+                      const supportScore = evidenceGroupScore(chain.supportingEvidence.concat(chain.scopeEvidence));
+                      const concernScore = evidenceGroupScore(chain.opposingEvidence.concat(chain.reliabilityWarnings));
+                      return `<section class="section">
+                        <div class="section-head">
+                          <h3>Evidence</h3>
+                          <div class="muted">The strongest reasons behind the decision</div>
+                        </div>
+                        <div class="evidence-hero">
+                          <div class="evidence-panel support">
+                            <div class="label">Evidence Supporting Similarity</div>
+                            <div class="evidence-score">${percent(supportScore)}</div>
+                            <div class="muted">${chain.supportingEvidence.length + chain.scopeEvidence.length} supporting signals found.</div>
+                          </div>
+                          <div class="evidence-panel concern">
+                            <div class="label">Evidence That Needs Review</div>
+                            <div class="evidence-score">${percent(concernScore)}</div>
+                            <div class="muted">${chain.opposingEvidence.length + chain.reliabilityWarnings.length} modifying or reliability signals found.</div>
+                          </div>
+                        </div>
+                        <div class="section-head" style="margin-top:22px">
+                          <h3>Key Signals</h3>
+                          <div class="muted">Compact view; raw JSON keeps the full detail.</div>
+                        </div>
+                        <div class="signal-table">
+                          ${signalRows(chain)}
+                        </div>
+                      </section>`;
+                    }
+                    function renderDetails(data) {
+                      const stage0 = data.stage0;
+                      const stage1 = data.stage1;
+                      const stage2 = data.stage2;
+                      const stage3 = data.stage3;
+                      const stage4 = data.stage4;
+                      return `<section class="section">
+                        <div class="section-head">
+                          <h3>Analysis Details</h3>
+                          <div class="muted">How the result was produced</div>
+                        </div>
+                        <h3>Input Overview</h3>
+                        <div class="detail-grid">
+                          ${detailCard('Input Pattern', inputPatternText(stage0.primaryMode), 'Overall shape of the comparison.')}
+                          ${detailCard('Methods in Left File', String(stage0.methodCountA), 'Detected method declarations.')}
+                          ${detailCard('Methods in Right File', String(stage0.methodCountB), 'Detected method declarations.')}
+                          ${detailCard('Compared Method Pairs', String(stage1.pairMatrix.length), 'All method pairs compared before selection.')}
+                          ${detailCard('Selected Method Matches', String(stage3.mergedPairs.length), 'Best matches retained for the report.')}
+                          ${detailCard('Pipeline Reliability', percent(stage4.pipelineReliability), 'Whether important signals were available.')}
+                        </div>
+                        <h3 style="margin-top:18px">Metric Breakdown</h3>
+                        <div class="bar-list">
+                          ${scoreBar('Code Text Similarity', stage3.centroidS3)}
+                          ${scoreBar('Code Structure Similarity', stage3.centroidS4)}
+                          ${scoreBar('Same Code Shape', stage3.structuralExactnessAvg)}
+                          ${scoreBar('Signs of Real Edits', stage3.tokenExactGapAvg)}
+                          ${scoreBar('Evidence Strength', stage4.evidenceStrength)}
+                          ${scoreBar('Evidence Consistency', stage4.evidenceConsistency)}
+                        </div>
+                        <h3 style="margin-top:18px">Signal Availability</h3>
+                        <div class="detail-grid">
+                          ${detailCard('File Context Signal', percent(stage3.s1), 'Class-level and non-method context.')}
+                          ${detailCard('API Signal', stage3.s5Status === 'APPLICABLE' ? percent(stage3.s5) : stage3.s5Status, 'External API vocabulary signal.')}
+                          ${detailCard('Exact File Match', String(stage1.fileExactNormalizedMatch), 'Whether normalized files are exactly equal.')}
+                        </div>
+                      </section>`;
+                    }
+                    function renderJson(data) {
+                      return `<section class="section">
+                        <div class="section-head">
+                          <h3>Developer JSON</h3>
+                          <div class="muted">Raw output for debugging or integration</div>
+                        </div>
+                        <pre class="json-box">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+                      </section>`;
+                    }
+                    function bindSectionEvents() {
+                      sectionContent.querySelectorAll('[data-pair]').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                          selectedPairIndex = Number(btn.dataset.pair);
+                          renderReport();
+                        });
+                      });
+                    }
+                    function fileInfo(data) {
+                      return {
+                        left: displayFileName(data.fileA, 'Left Code'),
+                        right: displayFileName(data.fileB, 'Right Code')
+                      };
+                    }
+                    function displayFileName(fileName, fallback) {
+                      const raw = fileName || fallback;
+                      const base = raw.split(/[\\\\/]/).pop() || fallback;
+                      const short = base.length > 20 ? `${base.slice(0, 17)}...` : base;
+                      return { raw, short };
+                    }
+                    function filePill(file, side) {
+                      return `<span class="file-pill ${side}" title="${escapeHtml(file.raw)}">${escapeHtml(file.short)}</span>`;
+                    }
+                    function decisionText(cloneType, scopeType) {
                       if (cloneType === 'NON_CLONE') return 'NO CLEAR SIMILARITY';
                       if (scopeType === 'PARTIAL') return 'PARTIAL SIMILARITY';
                       if (scopeType === 'MIXED') return 'MIXED-SCOPE SIMILARITY';
@@ -682,59 +1058,144 @@ public class WebAppMain {
                       };
                       return map[mode] || mode;
                     }
-                    function partialText(scopeType, signal) {
-                      if (scopeType === 'PARTIAL') return `Yes - ${percent(signal)}`;
-                      if (scopeType === 'MIXED') return `Possible - ${percent(signal)}`;
-                      return `No - ${percent(signal)}`;
+                    function directionalScore(fromFile, toFile, value) {
+                      return scoreBar(`How much of ${filePill(fromFile, 'left')} has matching code in ${filePill(toFile, 'right')}?`, value);
                     }
-                    function metricCard(label, value, note) {
-                      return `<div class="big-cell">
+                    function metricCard(label, value, help, polarity) {
+                      const n = Number(value) || 0;
+                      const cls = metricClass(n, polarity);
+                      return `<div class="metric-card ${cls}">
                         <div class="label">${escapeHtml(label)}</div>
-                        <div class="big-value">${percent(value)}</div>
-                        <div class="big-note">${escapeHtml(note)}</div>
+                        <div class="metric-number">${percent(n)}</div>
+                        <div class="muted">${escapeHtml(help)}</div>
+                      </div>`;
+                    }
+                    function metricClass(value, polarity) {
+                      if (polarity === 'risk') {
+                        if (value >= 0.75) return 'bad';
+                        if (value >= 0.4) return 'warn';
+                        return '';
+                      }
+                      if (value < 0.35) return 'bad';
+                      if (value < 0.65) return 'warn';
+                      return '';
+                    }
+                    function detailCard(label, value, help) {
+                      return `<div class="detail-card">
+                        <div class="label">${escapeHtml(label)}</div>
+                        <div style="font-size:20px;font-weight:800;margin:5px 0">${escapeHtml(value)}</div>
+                        <div class="muted">${escapeHtml(help)}</div>
                       </div>`;
                     }
                     function scoreBar(label, value) {
                       const n = Number(value) || 0;
                       const cls = n < 0.35 ? 'bad' : n < 0.65 ? 'warn' : '';
-                      return `<div class="score">
-                        <div class="score-row"><span>${escapeHtml(label)}</span><strong>${percent(n)}</strong></div>
+                      return `<div class="score-row">
+                        <div class="score-top"><span class="score-question">${label}</span><strong>${percent(n)}</strong></div>
                         <div class="track"><div class="fill ${cls}" style="width:${Math.max(0, Math.min(100, n * 100))}%"></div></div>
                       </div>`;
                     }
-                    function directionText(direction) {
-                      if (direction === 'BIDIRECTIONAL') return 'Bidirectional match';
-                      if (direction === 'A_TO_B_ONLY') return 'A method found in B';
-                      if (direction === 'B_TO_A_ONLY') return 'B method found in A';
-                      return direction;
-                    }
-                    function pairReason(pair) {
-                      if (pair.matchScore >= 0.8) return 'Assessment: likely the same function or a strong method correspondence.';
-                      if (pair.matchScore >= 0.5) return 'Assessment: possible correspondence; manual review is recommended.';
-                      return 'Assessment: weak correspondence; use as supporting context only.';
+                    function methodNameOnly(methodId) {
+                      const hash = methodId.indexOf('#');
+                      if (hash < 0) return methodId;
+                      return methodId.slice(hash + 1).replace(/#\\d+$/, '');
                     }
                     function shortMethod(methodId) {
                       const hash = methodId.indexOf('#');
                       if (hash < 0) return methodId;
                       const type = methodId.slice(0, hash);
-                      const rest = methodId.slice(hash + 1).replace(/#\\d+$/, '');
-                      return `${type}.${rest}`;
+                      return `${type}.${methodNameOnly(methodId)}`;
                     }
-                    function evidenceSummaryCards(chain) {
-                      return `<div class="evidence-summary">
-                        ${evidenceCard('Supports Similarity', chain.supportingEvidence.length, strongest(chain.supportingEvidence), '')}
-                        ${evidenceCard('Suggests Modification', chain.opposingEvidence.length, strongest(chain.opposingEvidence), 'warn')}
-                        ${evidenceCard('Supports Scope', chain.scopeEvidence.length, strongest(chain.scopeEvidence), 'scope')}
-                        ${evidenceCard('Reliability Warnings', chain.reliabilityWarnings.length, strongest(chain.reliabilityWarnings), chain.reliabilityWarnings.length ? 'bad' : 'muted')}
+                    function codePanel(file, side, source, methodId) {
+                      return `<div class="code-card">
+                        <div class="code-head ${side}" title="${escapeHtml(file.raw)}">${escapeHtml(file.short)}</div>
+                        <pre class="code">${renderCode(source, methodId)}</pre>
                       </div>`;
                     }
-                    function evidenceCard(title, count, strength, cls) {
-                      const note = count === 0 ? 'No signals in this group' : `${strength} signal${count === 1 ? '' : 's'}`;
+                    function renderCode(source, methodId) {
+                      const lines = source.split('\\n');
+                      const range = findMethodRange(lines, methodId);
+                      return lines.map((line, index) => {
+                        const lineNo = index + 1;
+                        const hl = range && lineNo >= range.start && lineNo <= range.end ? ' hl' : '';
+                        return `<span class="code-line${hl}"><span class="line-no">${lineNo}</span><span class="line-code">${escapeHtml(line || ' ')}</span></span>`;
+                      }).join('');
+                    }
+                    function findMethodRange(lines, methodId) {
+                      const name = methodNameOnly(methodId).replace(/\\(.*/, '');
+                      if (!name) return null;
+                      const pattern = new RegExp('\\\\b' + escapeRegExp(name) + '\\\\s*\\\\(');
+                      let start = -1;
+                      for (let i = 0; i < lines.length; i++) {
+                        if (pattern.test(lines[i])) {
+                          start = i;
+                          break;
+                        }
+                      }
+                      if (start < 0) return null;
+                      let depth = 0;
+                      let seenOpen = false;
+                      for (let i = start; i < lines.length; i++) {
+                        for (const ch of lines[i]) {
+                          if (ch === '{') {
+                            depth++;
+                            seenOpen = true;
+                          } else if (ch === '}') {
+                            depth--;
+                          }
+                        }
+                        if (seenOpen && depth <= 0) {
+                          return { start: start + 1, end: i + 1 };
+                        }
+                      }
+                      return { start: start + 1, end: start + 1 };
+                    }
+                    function evidenceCard(title, items, cls) {
+                      const strength = strongest(items);
+                      const note = items.length === 0 ? 'No signals in this group' : `${strength} signal${items.length === 1 ? '' : 's'}`;
                       return `<div class="evidence-card ${cls}">
                         <div class="label">${escapeHtml(title)}</div>
-                        <div class="evidence-count">${count}</div>
-                        <div class="evidence-text">${escapeHtml(note)}</div>
+                        <div class="evidence-count">${items.length}</div>
+                        <div class="muted">${escapeHtml(note)}</div>
                       </div>`;
+                    }
+                    function signalRows(chain) {
+                      const groups = [
+                        ['Support', chain.supportingEvidence],
+                        ['Review', chain.opposingEvidence],
+                        ['Scope', chain.scopeEvidence],
+                        ['Reliability', chain.reliabilityWarnings]
+                      ];
+                      const rows = groups.flatMap(([group, items]) => items.map(item => [group, item]));
+                      if (!rows.length) {
+                        return '<div class="muted">No evidence signals were produced.</div>';
+                      }
+                      return rows.map(([group, item]) => signalRow(group, item)).join('');
+                    }
+                    function signalRow(group, item) {
+                      return `<div class="signal-row">
+                        <div>
+                          <div class="signal-name">${escapeHtml(signalDisplay(item.signal))}</div>
+                          <div class="muted">${escapeHtml(shortInterpretation(item))}</div>
+                        </div>
+                        <div>${escapeHtml(item.value)}</div>
+                        <div><span class="signal-pill ${item.strength.toLowerCase()}">${escapeHtml(item.strength)}</span></div>
+                        <div class="muted">${escapeHtml(group)} - ${escapeHtml(supportsDisplay(item.supports))}</div>
+                      </div>`;
+                    }
+                    function shortInterpretation(item) {
+                      const text = interpretationDisplay(item);
+                      return text.length > 92 ? `${text.slice(0, 89)}...` : text;
+                    }
+                    function evidenceGroupScore(items) {
+                      if (!items.length) return 0.0;
+                      const total = items.reduce((sum, item) => {
+                        if (item.strength === 'HIGH') return sum + 1.0;
+                        if (item.strength === 'MEDIUM') return sum + 0.65;
+                        if (item.strength === 'LOW') return sum + 0.3;
+                        return sum + 0.0;
+                      }, 0.0);
+                      return Math.min(1.0, total / Math.max(2, items.length));
                     }
                     function strongest(items) {
                       if (items.some(item => item.strength === 'HIGH')) return 'High';
@@ -742,34 +1203,17 @@ public class WebAppMain {
                       if (items.some(item => item.strength === 'LOW')) return 'Low';
                       return 'No';
                     }
-                    function evidenceList(chain) {
-                      const groups = [
-                        ['Supporting Evidence', chain.supportingEvidence],
-                        ['Opposing or Weakening Evidence', chain.opposingEvidence],
-                        ['Scope Evidence', chain.scopeEvidence],
-                        ['Reliability Warnings', chain.reliabilityWarnings]
-                      ];
-                      return groups.map(([title, items]) => `
-                        <div>
-                          <div class="section-title">${title}</div>
-                          ${items.length ? `<ul class="insight-list">${items.map(evidenceItem).join('')}</ul>` : '<div class="empty">(none)</div>'}
-                        </div>`).join('');
-                    }
-                    function evidenceItem(item) {
-                      return `<li><strong>${escapeHtml(signalDisplay(item.signal))}</strong> = ${escapeHtml(item.value)}
-                        <br>${escapeHtml(interpretationDisplay(item))} - Supports: ${escapeHtml(supportsDisplay(item.supports))}</li>`;
-                    }
                     function signalDisplay(signal) {
                       const map = {
-                        structural_exactness_avg: 'Exact Structure Overlap',
-                        method_similarity_strength: 'Method Similarity Strength',
-                        modification_strength: 'Modification Signal',
-                        confirmed_ratio: 'Confirmed Match Ratio',
-                        'coverage_A/B': 'Two-Way File Match Coverage',
+                        structural_exactness_avg: 'Same Code Shape',
+                        method_similarity_strength: 'Matched Functions Look Similar',
+                        modification_strength: 'Signs of Real Edits',
+                        confirmed_ratio: 'Matches Work Both Ways',
+                        'coverage_A/B': 'Both Files Are Mostly Covered',
                         S5_NOT_APPLICABLE: 'API Signal Not Available',
                         S1_if_reliable: 'File Context Similarity',
-                        partial_clone_signal: 'Partial Match Signal',
-                        match_score_avg: 'Method Correspondence',
+                        partial_clone_signal: 'Signs of Partial Copying',
+                        match_score_avg: 'Matched Functions',
                         magnitude_avg: 'Overall Match Strength',
                         scope_confidence: 'Scope Confidence',
                         evidence_strength: 'Evidence Strength',
@@ -787,7 +1231,7 @@ public class WebAppMain {
                         S5_NOT_APPLICABLE: 'The files do not provide enough external API calls for this signal.',
                         S1_if_reliable: 'The non-method file context is also similar.',
                         partial_clone_signal: 'Only part of one file may correspond to the other.',
-                        match_score_avg: 'The selected method correspondences are strong overall.',
+                        match_score_avg: 'The selected function matches are strong overall.',
                         magnitude_avg: 'The combined method-level evidence is strong.'
                       };
                       return map[item.signal] || item.interpretation;
@@ -806,9 +1250,6 @@ public class WebAppMain {
                       };
                       return map[value] || value;
                     }
-                    function cell(label, value) {
-                      return `<div class="cell"><div class="label">${label}</div><div>${escapeHtml(value)}</div></div>`;
-                    }
                     function percent(value) {
                       return (Number(value) * 100).toFixed(2) + '%';
                     }
@@ -816,6 +1257,9 @@ public class WebAppMain {
                       return String(value).replace(/[&<>"']/g, ch => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
                       }[ch]));
+                    }
+                    function escapeRegExp(value) {
+                      return String(value).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
                     }
                   </script>
                 </body>
