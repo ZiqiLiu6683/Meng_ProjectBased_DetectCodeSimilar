@@ -406,6 +406,9 @@ public class WebAppMain {
                       grid-template-columns: repeat(2, minmax(0, 1fr));
                       gap: 16px;
                     }
+                    .summary-columns .detail-grid {
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
                     .ranking-list {
                       display: grid;
                       gap: 11px;
@@ -658,6 +661,35 @@ public class WebAppMain {
                     .evidence-panel.concern {
                       border-left: 7px solid var(--warn);
                     }
+                    .ring-panel {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 18px;
+                      background: #fbfcfd;
+                      display: grid;
+                      grid-template-columns: 108px minmax(0, 1fr);
+                      gap: 18px;
+                      align-items: center;
+                    }
+                    .ring {
+                      width: 96px;
+                      height: 96px;
+                      border-radius: 50%;
+                      display: grid;
+                      place-items: center;
+                      background:
+                        radial-gradient(circle at center, #fbfcfd 0 58%, transparent 59%),
+                        conic-gradient(var(--ring-color) var(--ring-value), #e7ebf0 0);
+                    }
+                    .ring strong {
+                      font-size: 17px;
+                    }
+                    .ring-panel.support {
+                      --ring-color: var(--accent);
+                    }
+                    .ring-panel.concern {
+                      --ring-color: var(--warn);
+                    }
                     .evidence-score {
                       font-size: 34px;
                       font-weight: 800;
@@ -776,6 +808,9 @@ public class WebAppMain {
                       .signal-row {
                         grid-template-columns: 1fr;
                       }
+                      .ring-panel {
+                        grid-template-columns: 1fr;
+                      }
                       textarea {
                         min-height: 360px;
                       }
@@ -857,8 +892,7 @@ public class WebAppMain {
                     const sections = [
                       ['summary', 'General Summary'],
                       ['methods', 'Matched Methods'],
-                      ['evidence', 'Evidence'],
-                      ['details', 'Analysis Details'],
+                      ['evidence', 'Why This Result?'],
                       ['json', 'Developer JSON']
                     ];
                     const sampleA = `import java.util.ArrayList;
@@ -1017,8 +1051,7 @@ public class WebAppMain {
                       });
                       if (activeSection === 'summary') sectionContent.innerHTML = renderSummary(reportData, files);
                       if (activeSection === 'methods') sectionContent.innerHTML = renderMethods(reportData, files);
-                      if (activeSection === 'evidence') sectionContent.innerHTML = renderEvidence(reportData);
-                      if (activeSection === 'details') sectionContent.innerHTML = renderDetails(reportData);
+                      if (activeSection === 'evidence') sectionContent.innerHTML = renderEvidence(reportData, files);
                       if (activeSection === 'json') sectionContent.innerHTML = renderJson(reportData);
                       bindSectionEvents();
                     }
@@ -1028,7 +1061,6 @@ public class WebAppMain {
                       const stage4 = data.stage4;
                       const clone = cloneText(summary.cloneType);
                       const scope = scopeText(summary.scopeType);
-                      const coverage = (Number(stage3.coverageA) + Number(stage3.coverageB)) / 2;
                       const leadClass = statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel);
                       const confidenceClass = metricClass(summary.confidence, 'positive');
                       return `<section class="section">
@@ -1038,51 +1070,51 @@ public class WebAppMain {
                           <div class="tag-row">
                             <span class="tag">${decisionText(summary.cloneType, summary.scopeType)}</span>
                             <span class="tag">Confidence: ${summary.confidenceLevel}</span>
-                            <span class="tag">Pipeline reliability: ${percent(stage4.pipelineReliability)}</span>
+                            <span class="tag">Checks completed: ${percent(stage4.pipelineReliability)}</span>
                           </div>
                         </div>
                         <div class="focus-grid">
                           <div class="focus-card">
-                            <div class="label">Most Likely Type</div>
+                            <div class="label">What Kind Of Match?</div>
                             <div class="focus-value">${clone.short}</div>
                             <div class="muted">${clone.description}</div>
                           </div>
                           <div class="focus-card">
-                            <div class="label">Similarity Scope</div>
+                            <div class="label">How Broad Is It?</div>
                             <div class="focus-value">${scope.short}</div>
                             <div class="muted">${scope.description}</div>
                           </div>
                           <div class="focus-card ${confidenceClass}">
                             <div class="label">Confidence</div>
                             <div class="metric-number">${percent(summary.confidence)}</div>
-                            <div class="muted">How reliable the final decision is.</div>
+                            <div class="muted">How sure the analyzer is about this result.</div>
                           </div>
                         </div>
                         <div class="summary-columns">
                           <div class="sub-panel">
                             <div class="section-head">
-                              <h3>Type Ranking</h3>
-                              <div class="muted">Best matches first</div>
+                              <h3>Possible Match Types</h3>
+                              <div class="muted">Most likely first</div>
                             </div>
                             <div class="ranking-list">${rankingList(typeRankings(stage4.typeScores), 'risk')}</div>
                           </div>
                           <div class="sub-panel">
                             <div class="section-head">
-                              <h3>Scope Ranking</h3>
-                              <div class="muted">How broad the match looks</div>
+                              <h3>How Much Is Shared?</h3>
+                              <div class="muted">Most likely first</div>
                             </div>
                             <div class="ranking-list">${rankingList(scopeRankings(stage4.scopeScores), 'risk')}</div>
                           </div>
                         </div>
                         <div class="sub-panel">
                           <div class="section-head">
-                            <h3>How Much Was Matched</h3>
+                            <h3>How Much Code Lines Up?</h3>
                             <div class="muted">Measured in both directions</div>
                           </div>
                           <div class="bar-list">
                             ${directionalScore(files.left, files.right, stage3.coverageA)}
                             ${directionalScore(files.right, files.left, stage3.coverageB)}
-                            ${scoreBar('Does this look like only part of one file matches?', stage3.partialCloneSignal)}
+                            ${scoreBar('Does the overlap seem concentrated in only one area?', stage3.partialCloneSignal)}
                           </div>
                         </div>
                       </section>`;
@@ -1127,83 +1159,82 @@ public class WebAppMain {
                         </div>
                         <div class="method-layout">
                           <div>
-                            <div class="label" style="margin-bottom:8px">Method Pair Selector</div>
+                            <div class="label" style="margin-bottom:8px">Pick A Matched Pair</div>
                             <div class="pair-list">${pairList}</div>
                           </div>
                           ${detail}
                         </div>
                       </section>`;
                     }
-                    function renderEvidence(data) {
+                    function renderEvidence(data, files) {
                       const chain = data.stage4.evidenceChain;
+                      const stage0 = data.stage0;
+                      const stage1 = data.stage1;
+                      const stage3 = data.stage3;
+                      const stage4 = data.stage4;
                       const signalCount = chain.supportingEvidence.length + chain.opposingEvidence.length
                         + chain.scopeEvidence.length + chain.reliabilityWarnings.length;
                       const supportScore = evidenceGroupScore(chain.supportingEvidence.concat(chain.scopeEvidence));
                       const concernScore = evidenceGroupScore(chain.opposingEvidence.concat(chain.reliabilityWarnings));
                       return `<section class="section">
                         <div class="section-head">
-                          <h3>Evidence</h3>
-                          <div class="muted">The strongest reasons behind the decision</div>
+                          <h3>Why This Result?</h3>
+                          <div class="muted">The main checks behind the report</div>
                         </div>
                         <div class="evidence-hero">
-                          <div class="evidence-panel support">
-                            <div class="label">Evidence Supporting Similarity</div>
-                            <div class="evidence-score">${percent(supportScore)}</div>
-                            <div class="muted">${chain.supportingEvidence.length + chain.scopeEvidence.length} supporting signals found.</div>
-                          </div>
-                          <div class="evidence-panel concern">
-                            <div class="label">Evidence That Needs Review</div>
-                            <div class="evidence-score">${percent(concernScore)}</div>
-                            <div class="muted">${chain.opposingEvidence.length + chain.reliabilityWarnings.length} modifying or reliability signals found.</div>
-                          </div>
+                          ${ringPanel('Reasons These Files Look Related', supportScore, chain.supportingEvidence.length + chain.scopeEvidence.length + ' strong reasons found.', 'support')}
+                          ${ringPanel('Reasons To Be Careful', concernScore, chain.opposingEvidence.length + chain.reliabilityWarnings.length + ' caution signs found.', 'concern')}
                         </div>
                         ${signalCount === 0 ? `<div class="evidence-panel concern" style="margin-bottom:18px">
-                          <div class="label">No Strong Evidence Items</div>
-                          <div class="muted">The final score may come from moderate signals that did not pass the evidence display thresholds. Developer JSON keeps the full numeric detail.</div>
+                          <div class="label">No Strong Reasons Were Highlighted</div>
+                          <div class="muted">The score may come from smaller checks that did not pass the display threshold. Developer JSON keeps the full numeric detail.</div>
                         </div>` : ''}
+                        <div class="summary-columns">
+                          <div class="sub-panel">
+                            <div class="section-head">
+                              <h3>What Was Compared?</h3>
+                              <div class="muted">${inputPatternText(stage0.primaryMode)}</div>
+                            </div>
+                            <div class="detail-grid">
+                              ${detailCard('Functions in ' + files.left.short, String(stage0.methodCountA), 'Functions found before comparison.')}
+                              ${detailCard('Functions in ' + files.right.short, String(stage0.methodCountB), 'Functions found before comparison.')}
+                              ${detailCard('Function Pairs Checked', String(stage1.pairMatrix.length), 'All possible function-to-function comparisons.')}
+                              ${detailCard('Chosen Matches', String(stage3.mergedPairs.length), 'Pairs kept for the final report.')}
+                            </div>
+                          </div>
+                          <div class="sub-panel">
+                            <div class="section-head">
+                              <h3>Main Measurements</h3>
+                              <div class="muted">The numbers that shaped the result</div>
+                            </div>
+                            <div class="bar-list">
+                              ${scoreBar('Names and tokens look alike', stage3.centroidS3)}
+                              ${scoreBar('Code structure looks alike', stage3.centroidS4)}
+                              ${scoreBar('Exact structure overlap', stage3.structuralExactnessAvg)}
+                              ${scoreBar('Signs of real editing', stage3.tokenExactGapAvg)}
+                            </div>
+                          </div>
+                        </div>
                         <div class="section-head" style="margin-top:22px">
-                          <h3>Key Signals</h3>
-                          <div class="muted">Compact view; raw JSON keeps the full detail.</div>
+                          <h3>Highlighted Reasons</h3>
+                          <div class="muted">Short names here, full raw data in Developer JSON.</div>
                         </div>
                         <div class="signal-table">
                           ${signalRows(chain)}
                         </div>
-                      </section>`;
-                    }
-                    function renderDetails(data) {
-                      const stage0 = data.stage0;
-                      const stage1 = data.stage1;
-                      const stage2 = data.stage2;
-                      const stage3 = data.stage3;
-                      const stage4 = data.stage4;
-                      return `<section class="section">
-                        <div class="section-head">
-                          <h3>Analysis Details</h3>
-                          <div class="muted">How the result was produced</div>
-                        </div>
-                        <h3>Input Overview</h3>
-                        <div class="detail-grid">
-                          ${detailCard('Input Pattern', inputPatternText(stage0.primaryMode), 'Overall shape of the comparison.')}
-                          ${detailCard('Methods in Left File', String(stage0.methodCountA), 'Detected method declarations.')}
-                          ${detailCard('Methods in Right File', String(stage0.methodCountB), 'Detected method declarations.')}
-                          ${detailCard('Compared Method Pairs', String(stage1.pairMatrix.length), 'All method pairs compared before selection.')}
-                          ${detailCard('Selected Method Matches', String(stage3.mergedPairs.length), 'Best matches retained for the report.')}
-                          ${detailCard('Pipeline Reliability', percent(stage4.pipelineReliability), 'Whether important signals were available.')}
-                        </div>
-                        <h3 style="margin-top:18px">Metric Breakdown</h3>
-                        <div class="bar-list">
-                          ${scoreBar('Code Text Similarity', stage3.centroidS3)}
-                          ${scoreBar('Code Structure Similarity', stage3.centroidS4)}
-                          ${scoreBar('Same Code Shape', stage3.structuralExactnessAvg)}
-                          ${scoreBar('Signs of Real Edits', stage3.tokenExactGapAvg)}
-                          ${scoreBar('Evidence Strength', stage4.evidenceStrength)}
-                          ${scoreBar('Evidence Consistency', stage4.evidenceConsistency)}
-                        </div>
-                        <h3 style="margin-top:18px">Signal Availability</h3>
-                        <div class="detail-grid">
-                          ${detailCard('File Context Signal', percent(stage3.s1), 'Class-level and non-method context.')}
-                          ${detailCard('API Signal', stage3.s5Status === 'APPLICABLE' ? percent(stage3.s5) : stage3.s5Status, 'External API vocabulary signal.')}
-                          ${detailCard('Exact File Match', String(stage1.fileExactNormalizedMatch), 'Whether normalized files are exactly equal.')}
+                        <div class="sub-panel" style="margin-top:22px">
+                          <div class="section-head">
+                            <h3>Checks Used</h3>
+                            <div class="muted">Useful when you want to audit the result</div>
+                          </div>
+                          <div class="detail-grid">
+                            ${detailCard('Whole-file check', percent(stage3.s1), 'Similarity outside individual functions.')}
+                            ${detailCard('Library/API check', stage3.s5Status === 'APPLICABLE' ? percent(stage3.s5) : friendlyStatus(stage3.s5Status), 'Whether shared library calls helped the decision.')}
+                            ${detailCard('Exactly same after cleanup', yesNo(stage1.fileExactNormalizedMatch), 'Whether spacing and simple cleanup made the files identical.')}
+                            ${detailCard('Reason strength', percent(stage4.evidenceStrength), 'How strong the displayed reasons are.')}
+                            ${detailCard('Reason agreement', percent(stage4.evidenceConsistency), 'Whether the reasons point in the same direction.')}
+                            ${detailCard('Checks completed', percent(stage4.pipelineReliability), 'Whether the analyzer had enough information to run its checks.')}
+                          </div>
                         </div>
                       </section>`;
                     }
@@ -1244,24 +1275,24 @@ public class WebAppMain {
                       if (summary.cloneType === 'NON_CLONE') {
                         return `We are ${confidence} confident that the files do not show a clear clone pattern.`;
                       }
-                      return `We are ${confidence} confident that the best label is ${escapeHtml(clone.short.toLowerCase())} with ${escapeHtml(scope.short.toLowerCase())}.`;
+                      return `We are ${confidence} confident that these files look like ${escapeHtml(clone.short.toLowerCase())}, and ${escapeHtml(scope.sentence)}.`;
                     }
                     function typeRankings(scores) {
                       const values = scores || {};
                       return [
                         ['T1', 'Exact clone', values.t1],
-                        ['T2', 'Renamed or reformatted clone', values.t2],
-                        ['T3', 'Modified clone', values.t3],
-                        ['T4_WEAK', 'Weak semantic clone', values.t4Weak],
+                        ['T2', 'Same code with renaming or formatting changes', values.t2],
+                        ['T3', 'Copied code with real edits', values.t3],
+                        ['T4_WEAK', 'Similar purpose, different code shape', values.t4Weak],
                         ['NON_CLONE', 'No clear clone', values.nonClone]
                       ].sort((a, b) => Number(b[2] || 0) - Number(a[2] || 0));
                     }
                     function scopeRankings(scores) {
                       const values = scores || {};
                       return [
-                        ['FULL', 'Full-file similarity', values.full],
-                        ['PARTIAL', 'Partial similarity', values.partial],
-                        ['MIXED', 'Mixed-scope similarity', values.mixed]
+                        ['FULL', 'Most of both files match', values.full],
+                        ['PARTIAL', 'Only part of a file matches', values.partial],
+                        ['MIXED', 'A mix of broad and partial matches', values.mixed]
                       ].sort((a, b) => Number(b[2] || 0) - Number(a[2] || 0));
                     }
                     function rankingList(items) {
@@ -1279,10 +1310,24 @@ public class WebAppMain {
                         <div class="track"><div class="fill ${cls}" style="width:${Math.max(0, Math.min(100, value * 100))}%"></div></div>
                       </div>`;
                     }
+                    function ringPanel(title, value, note, cls) {
+                      const n = Math.max(0, Math.min(1, Number(value) || 0));
+                      return `<div class="ring-panel ${cls}" style="--ring-value:${(n * 100).toFixed(2)}%">
+                        <div class="ring"><strong>${percent(n)}</strong></div>
+                        <div>
+                          <div class="label">${escapeHtml(title)}</div>
+                          <div class="muted" style="margin-top:8px">${escapeHtml(note)}</div>
+                        </div>
+                      </div>`;
+                    }
                     function decisionText(cloneType, scopeType) {
                       if (cloneType === 'NON_CLONE') return 'NO CLEAR SIMILARITY';
-                      if (scopeType === 'PARTIAL') return 'PARTIAL SIMILARITY';
-                      if (scopeType === 'MIXED') return 'MIXED-SCOPE SIMILARITY';
+                      if (cloneType === 'T1') return 'NEARLY IDENTICAL';
+                      if (cloneType === 'T2') return 'SAME CODE, RENAMED';
+                      if (cloneType === 'T3') return 'SIMILAR WITH EDITS';
+                      if (cloneType === 'T4_WEAK') return 'WEAK SIMILARITY';
+                      if (scopeType === 'PARTIAL') return 'PARTLY SIMILAR';
+                      if (scopeType === 'MIXED') return 'MIXED COVERAGE';
                       return 'BROADLY SIMILAR';
                     }
                     function statusClass(cloneType, scopeType, confidenceLevel) {
@@ -1292,33 +1337,33 @@ public class WebAppMain {
                     }
                     function cloneText(type) {
                       const map = {
-                        T1: ['Exact clone', 'The two files are almost identical.'],
-                        T2: ['Renamed or reformatted clone', 'The structure is mostly the same; differences are likely names, formatting, or literals.'],
-                        T3: ['Modified clone', 'The files still have clear correspondences, but statements, structure, or local logic changed.'],
-                        T4_WEAK: ['Weak semantic clone', 'Direct structural evidence is weak, but API or weak semantic signals may still indicate a relationship.'],
-                        NON_CLONE: ['No clear clone', 'The current evidence is not enough to mark the files as similar.']
+                        T1: ['nearly identical code', 'The two files are almost the same after cleanup.'],
+                        T2: ['same code with renamed parts', 'The code shape is mostly the same; changes are likely names, formatting, or small literals.'],
+                        T3: ['copied code with edits', 'The files still line up, but some statements or local logic changed.'],
+                        T4_WEAK: ['similar purpose, different shape', 'The code is not structurally close, but weaker signals still suggest a relationship.'],
+                        NON_CLONE: ['no clear clone', 'The current evidence is not enough to mark the files as similar.']
                       };
                       const item = map[type] || [type, 'The system produced a similarity decision.'];
                       return { short: item[0], description: item[1] };
                     }
                     function scopeText(type) {
                       const map = {
-                        FULL: ['Full-file similarity', 'Most important methods on both sides have corresponding matches.'],
-                        PARTIAL: ['Partial similarity', 'Only part of the methods or fragments have corresponding matches.'],
-                        MIXED: ['Mixed-scope similarity', 'The result contains both broad and partial similarity signals.'],
-                        NONE: ['No clear scope', 'The matches do not form a stable similarity scope.']
+                        FULL: ['most of both files match', 'Most important functions on both sides have matching functions.', 'the overlap covers most of both files'],
+                        PARTIAL: ['only part of a file matches', 'Only some functions or fragments have matching code.', 'the overlap is concentrated in part of the files'],
+                        MIXED: ['a mix of broad and partial matches', 'Some evidence looks broad, but some evidence is concentrated in smaller areas.', 'the overlap is mixed across the files'],
+                        NONE: ['the matching area is unclear', 'The matches do not form a stable area of similarity.', 'the matching area is unclear']
                       };
-                      const item = map[type] || [type, 'The scope decision comes from method coverage.'];
-                      return { short: item[0], description: item[1] };
+                      const item = map[type] || [type, 'The covered area comes from function matching.', 'the matching area is unclear'];
+                      return { short: item[0], description: item[1], sentence: item[2] };
                     }
                     function inputPatternText(mode) {
                       const map = {
-                        BCB_SINGLE_METHOD: 'Single method snippet',
-                        SINGLE_METHOD_REAL_FILE: 'One main method in a file',
-                        ONE_TO_MANY_METHOD: 'One method compared with multiple methods',
-                        MULTI_METHOD_BALANCED: 'Multiple methods on both sides',
-                        CLASS_CONTEXT_HEAVY: 'Class-level context is important',
-                        PARSE_UNSTABLE: 'Parsing was unstable'
+                        BCB_SINGLE_METHOD: 'One function was compared',
+                        SINGLE_METHOD_REAL_FILE: 'One file mainly contains one function',
+                        ONE_TO_MANY_METHOD: 'One function was compared against several functions',
+                        MULTI_METHOD_BALANCED: 'Both files contain several functions',
+                        CLASS_CONTEXT_HEAVY: 'The surrounding class code mattered',
+                        PARSE_UNSTABLE: 'Some code could not be parsed cleanly'
                       };
                       return map[mode] || mode;
                     }
@@ -1425,14 +1470,14 @@ public class WebAppMain {
                     }
                     function signalRows(chain) {
                       const groups = [
-                        ['Support', chain.supportingEvidence],
-                        ['Review', chain.opposingEvidence],
-                        ['Scope', chain.scopeEvidence],
-                        ['Reliability', chain.reliabilityWarnings]
+                        ['Supports similarity', chain.supportingEvidence],
+                        ['Needs review', chain.opposingEvidence],
+                        ['Shows how broad it is', chain.scopeEvidence],
+                        ['Check warning', chain.reliabilityWarnings]
                       ];
                       const rows = groups.flatMap(([group, items]) => items.map(item => [group, item]));
                       if (!rows.length) {
-                        return '<div class="muted">No evidence signals were produced.</div>';
+                        return '<div class="muted">No strong reasons were highlighted for this result.</div>';
                       }
                       return rows.map(([group, item]) => signalRow(group, item)).join('');
                     }
@@ -1469,50 +1514,63 @@ public class WebAppMain {
                     }
                     function signalDisplay(signal) {
                       const map = {
-                        structural_exactness_avg: 'Same Code Shape',
-                        method_similarity_strength: 'Matched Functions Look Similar',
-                        modification_strength: 'Signs of Real Edits',
-                        confirmed_ratio: 'Matches Work Both Ways',
-                        'coverage_A/B': 'Both Files Are Mostly Covered',
-                        S5_NOT_APPLICABLE: 'API Signal Not Available',
-                        S1_if_reliable: 'File Context Similarity',
-                        partial_clone_signal: 'Signs of Partial Copying',
-                        match_score_avg: 'Matched Functions',
-                        magnitude_avg: 'Overall Match Strength',
-                        scope_confidence: 'Scope Confidence',
-                        evidence_strength: 'Evidence Strength',
-                        pipeline_reliability: 'Pipeline Reliability'
+                        structural_exactness_avg: 'The code shape is very similar',
+                        method_similarity_strength: 'Matched functions look alike',
+                        modification_strength: 'There are signs of editing',
+                        confirmed_ratio: 'Matches work in both directions',
+                        'coverage_A/B': 'Both files have matching areas',
+                        S5_NOT_APPLICABLE: 'Library-call check was not useful',
+                        S1_if_reliable: 'Surrounding code also looks similar',
+                        partial_clone_signal: 'The overlap may be only partial',
+                        match_score_avg: 'Matched functions are strong',
+                        magnitude_avg: 'Overall match strength',
+                        scope_confidence: 'How clear the matched area is',
+                        evidence_strength: 'Reason strength',
+                        pipeline_reliability: 'Checks completed'
                       };
                       return map[signal] || signal.replaceAll('_', ' ');
                     }
                     function interpretationDisplay(item) {
                       const map = {
-                        structural_exactness_avg: 'Many method structures match exactly, which supports a rename-style similarity.',
-                        method_similarity_strength: 'The matched methods are strongly similar across text and structure signals.',
-                        modification_strength: 'There are signs of edits beyond simple renaming or formatting.',
-                        confirmed_ratio: 'Many method matches are confirmed in both comparison directions.',
-                        'coverage_A/B': 'Both files have a meaningful share of methods matched to the other file.',
-                        S5_NOT_APPLICABLE: 'The files do not provide enough external API calls for this signal.',
-                        S1_if_reliable: 'The non-method file context is also similar.',
+                        structural_exactness_avg: 'Many function structures match, which suggests copied code with light changes.',
+                        method_similarity_strength: 'The selected functions are similar in both text and structure.',
+                        modification_strength: 'The files show edits beyond simple renaming or formatting.',
+                        confirmed_ratio: 'Many matches are confirmed from both comparison directions.',
+                        'coverage_A/B': 'Both files have a meaningful amount of code matched to the other file.',
+                        S5_NOT_APPLICABLE: 'There were not enough shared library or API calls for this check to help.',
+                        S1_if_reliable: 'Code outside individual functions also looks similar.',
                         partial_clone_signal: 'Only part of one file may correspond to the other.',
                         match_score_avg: 'The selected function matches are strong overall.',
-                        magnitude_avg: 'The combined method-level evidence is strong.'
+                        magnitude_avg: 'The combined function-level checks are strong.'
                       };
                       return map[item.signal] || item.interpretation;
                     }
                     function supportsDisplay(value) {
                       const map = {
-                        T1: 'Exact Clone',
-                        T2: 'Renamed/Reformatted Clone',
-                        T3: 'Modified Clone',
-                        T4_WEAK: 'Weak Semantic Similarity',
-                        NON_CLONE: 'No Clear Clone',
-                        FULL: 'Full-file Similarity',
-                        PARTIAL: 'Partial Similarity',
-                        MIXED: 'Mixed-scope Similarity',
-                        LOWER_CONFIDENCE: 'Lower Confidence'
+                        T1: 'Nearly identical code',
+                        T2: 'Same code with renamed parts',
+                        T3: 'Copied code with edits',
+                        T4_WEAK: 'Similar purpose, different shape',
+                        NON_CLONE: 'No clear clone',
+                        FULL: 'Most of both files match',
+                        PARTIAL: 'Only part of a file matches',
+                        MIXED: 'Mixed coverage',
+                        LOWER_CONFIDENCE: 'Lower confidence'
                       };
                       return map[value] || value;
+                    }
+                    function friendlyStatus(value) {
+                      const map = {
+                        APPLICABLE: 'Used',
+                        NOT_APPLICABLE: 'Not useful here',
+                        DISABLED: 'Not used',
+                        SKIPPED: 'Skipped',
+                        COMPUTED: 'Used'
+                      };
+                      return map[value] || String(value).replaceAll('_', ' ').toLowerCase();
+                    }
+                    function yesNo(value) {
+                      return value === true || value === 'true' ? 'Yes' : 'No';
                     }
                     function percent(value) {
                       return (Number(value) * 100).toFixed(2) + '%';
