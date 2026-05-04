@@ -969,6 +969,8 @@ public class WebAppMain {
                     let reportData = null;
                     let activeSection = 'summary';
                     let selectedPairIndex = 0;
+                    let fileAEdited = false;
+                    let fileBEdited = false;
                     const sections = [
                       ['summary', 'General Summary'],
                       ['methods', 'Matched Methods'],
@@ -1076,7 +1078,13 @@ public class WebAppMain {
                       sourceB.value = sampleB;
                       fileA.value = 'OrderRiskA.java';
                       fileB.value = 'OrderRiskB.java';
+                      fileAEdited = false;
+                      fileBEdited = false;
                     });
+                    fileA.addEventListener('input', () => { fileAEdited = true; });
+                    fileB.addEventListener('input', () => { fileBEdited = true; });
+                    sourceA.addEventListener('input', () => updateInferredFileName(sourceA, fileA, 'Code 1.java', () => fileAEdited));
+                    sourceB.addEventListener('input', () => updateInferredFileName(sourceB, fileB, 'Code 2.java', () => fileBEdited));
                     document.querySelector('#analyzeBtn').addEventListener('click', analyze);
                     document.querySelector('#rerunBtn').addEventListener('click', analyze);
                     document.querySelector('#backBtn').addEventListener('click', showInput);
@@ -1092,10 +1100,21 @@ public class WebAppMain {
                       inputActions.classList.add('hidden');
                       reportActions.classList.remove('hidden');
                     }
+                    function updateInferredFileName(sourceEl, fileEl, fallback, edited) {
+                      if (edited()) return;
+                      fileEl.value = inferFileName(sourceEl.value, fallback);
+                    }
+                    function inferFileName(source, fallback) {
+                      const typeMatch = source.match(/\\b(?:class|interface|enum|record)\\s+([A-Za-z_$][\\w$]*)/);
+                      if (typeMatch) return `${typeMatch[1]}.java`;
+                      const methodMatch = source.match(/\\b(?:public|private|protected|static|final|synchronized|abstract|native|strictfp|\\s)+[A-Za-z_$][\\w$<>\\[\\], ?]*\\s+([A-Za-z_$][\\w$]*)\\s*\\(/);
+                      if (methodMatch) return `${methodMatch[1]}.java`;
+                      return fallback;
+                    }
                     async function analyze() {
                       const body = new URLSearchParams({
-                        fileA: fileA.value || 'Left Code',
-                        fileB: fileB.value || 'Right Code',
+                        fileA: fileA.value || inferFileName(sourceA.value, 'Code 1.java'),
+                        fileB: fileB.value || inferFileName(sourceB.value, 'Code 2.java'),
                         sourceA: sourceA.value,
                         sourceB: sourceB.value
                       });
