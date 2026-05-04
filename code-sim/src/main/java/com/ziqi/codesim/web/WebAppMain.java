@@ -173,12 +173,31 @@ public class WebAppMain {
                     }
                     .input-view {
                       display: grid;
+                      gap: 20px;
+                    }
+                    .input-intro {
+                      display: flex;
+                      justify-content: space-between;
+                      gap: 18px;
+                      align-items: flex-end;
+                    }
+                    .input-title {
+                      display: grid;
+                      gap: 6px;
+                    }
+                    .input-title h2 {
+                      font-size: 26px;
+                    }
+                    .input-footer {
+                      display: flex;
+                      justify-content: flex-end;
+                      align-items: center;
                       gap: 16px;
                     }
                     .editor-grid {
                       display: grid;
                       grid-template-columns: repeat(2, minmax(0, 1fr));
-                      gap: 16px;
+                      gap: 22px;
                     }
                     .panel {
                       background: var(--panel);
@@ -198,15 +217,16 @@ public class WebAppMain {
                       border: 1px solid var(--line);
                       border-radius: 6px;
                       padding: 8px 10px;
+                      font-weight: 800;
                     }
                     textarea {
-                      min-height: 560px;
+                      min-height: 640px;
                       border: 0;
                       resize: vertical;
-                      padding: 14px;
+                      padding: 18px;
                       line-height: 1.45;
                       font-family: Consolas, "Courier New", monospace;
-                      font-size: 13px;
+                      font-size: 14px;
                       color: #111827;
                     }
                     .report-view {
@@ -338,6 +358,74 @@ public class WebAppMain {
                       font-size: 32px;
                       line-height: 1.05;
                       font-weight: 800;
+                    }
+                    .summary-lead {
+                      font-size: 22px;
+                      line-height: 1.35;
+                      font-weight: 800;
+                    }
+                    .summary-lead strong {
+                      color: var(--accent);
+                    }
+                    .summary-lead.warn strong {
+                      color: var(--warn);
+                    }
+                    .summary-lead.bad strong {
+                      color: var(--bad);
+                    }
+                    .focus-grid {
+                      display: grid;
+                      grid-template-columns: 1.25fr 1.25fr .9fr;
+                      gap: 14px;
+                    }
+                    .focus-card {
+                      border: 1px solid var(--line);
+                      border-radius: 8px;
+                      padding: 16px;
+                      background: #fbfcfd;
+                      display: grid;
+                      gap: 7px;
+                    }
+                    .focus-card.warn .metric-number {
+                      color: var(--warn);
+                    }
+                    .focus-card.bad .metric-number {
+                      color: var(--bad);
+                    }
+                    .sub-panel {
+                      border-top: 1px solid var(--line);
+                      padding-top: 18px;
+                    }
+                    .focus-value {
+                      font-size: 24px;
+                      line-height: 1.12;
+                      font-weight: 800;
+                    }
+                    .summary-columns {
+                      display: grid;
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 16px;
+                    }
+                    .ranking-list {
+                      display: grid;
+                      gap: 11px;
+                    }
+                    .ranking-row {
+                      display: grid;
+                      gap: 6px;
+                    }
+                    .ranking-top {
+                      display: flex;
+                      justify-content: space-between;
+                      gap: 12px;
+                      align-items: baseline;
+                      font-size: 14px;
+                    }
+                    .ranking-name {
+                      font-weight: 800;
+                    }
+                    .ranking-row.dim {
+                      opacity: .55;
                     }
                     .tag-row {
                       display: flex;
@@ -677,6 +765,8 @@ public class WebAppMain {
                       .report-shell,
                       .method-layout,
                       .code-grid,
+                      .focus-grid,
+                      .summary-columns,
                       .metric-grid,
                       .evidence-board,
                       .evidence-hero,
@@ -689,6 +779,11 @@ public class WebAppMain {
                       textarea {
                         min-height: 360px;
                       }
+                      .input-intro,
+                      .input-footer {
+                        align-items: stretch;
+                        flex-direction: column;
+                      }
                       .side-nav {
                         position: static;
                       }
@@ -699,10 +794,6 @@ public class WebAppMain {
                   <header>
                     <div class="topbar">
                       <h1>Code Similarity Analyzer</h1>
-                      <div class="actions" id="inputActions">
-                        <button class="secondary" id="sampleBtn" type="button">Load Sample</button>
-                        <button id="analyzeBtn" type="button">Analyze</button>
-                      </div>
                       <div class="actions hidden" id="reportActions">
                         <button class="secondary" id="backBtn" type="button">Back to Input</button>
                         <button id="rerunBtn" type="button">Run Again</button>
@@ -711,6 +802,12 @@ public class WebAppMain {
                   </header>
                   <main>
                     <section class="input-view" id="inputView">
+                      <div class="input-intro">
+                        <div class="input-title">
+                          <h2>Compare Two Java Files</h2>
+                          <div class="muted">Paste code into both editors, then run the similarity analysis.</div>
+                        </div>
+                      </div>
                       <div class="editor-grid">
                         <div class="panel">
                           <div class="panel-head"><input id="fileA" value="B1.java" aria-label="File 1 name"></div>
@@ -719,6 +816,13 @@ public class WebAppMain {
                         <div class="panel">
                           <div class="panel-head"><input id="fileB" value="B2.java" aria-label="File 2 name"></div>
                           <textarea id="sourceB" spellcheck="false" aria-label="Source 2"></textarea>
+                        </div>
+                      </div>
+                      <div class="input-footer">
+                        <div class="muted">Use the sample to preview a multi-method comparison.</div>
+                        <div class="actions" id="inputActions">
+                          <button class="secondary" id="sampleBtn" type="button">Load Sample</button>
+                          <button id="analyzeBtn" type="button">Analyze</button>
                         </div>
                       </div>
                     </section>
@@ -757,22 +861,98 @@ public class WebAppMain {
                       ['details', 'Analysis Details'],
                       ['json', 'Developer JSON']
                     ];
-                    const sampleA = `import java.util.List;
-                class B1 {
-                    List<Integer> filterPositive(int[] nums) {
-                        List<Integer> out = new java.util.ArrayList<>();
-                        for (int n : nums) {
-                            if (n > 0) out.add(n);
+                    const sampleA = `import java.util.ArrayList;
+                import java.util.List;
+
+                class OrderRiskA {
+                    int scoreOrder(List<Integer> quantities, String email, String country) {
+                        int score = 0;
+                        score += quantityRisk(quantities);
+                        if (isSuspiciousEmail(email)) {
+                            score += 25;
                         }
-                        return out;
+                        if ("CN".equals(normalizeCountry(country))) {
+                            score += 5;
+                        }
+                        return Math.min(score, 100);
+                    }
+
+                    int quantityRisk(List<Integer> quantities) {
+                        int risk = 0;
+                        for (int amount : quantities) {
+                            if (amount > 20) {
+                                risk += 10;
+                            } else if (amount > 8) {
+                                risk += 4;
+                            }
+                        }
+                        return risk;
+                    }
+
+                    boolean isSuspiciousEmail(String email) {
+                        if (email == null) {
+                            return true;
+                        }
+                        String lower = email.toLowerCase();
+                        return lower.endsWith("@tempmail.com") || lower.contains("test");
+                    }
+
+                    String normalizeCountry(String country) {
+                        if (country == null || country.isBlank()) {
+                            return "UNKNOWN";
+                        }
+                        return country.trim().toUpperCase();
                     }
                 }`;
-                    const sampleB = `import java.util.List;
-                class B2 {
-                    List<Integer> getPositiveValues(int[] values) {
-                        List<Integer> result = new java.util.ArrayList<>();
-                        for (int value : values) {
-                            if (value > 0) result.add(value);
+                    const sampleB = `import java.util.ArrayList;
+                import java.util.List;
+
+                class OrderRiskB {
+                    int calculateRisk(List<Integer> items, String contact, String region) {
+                        int total = itemRiskScore(items);
+                        if (looksLikeTemporaryEmail(contact)) {
+                            total = total + 25;
+                        }
+                        String normalizedRegion = cleanRegion(region);
+                        if ("CN".equals(normalizedRegion)) {
+                            total = total + 5;
+                        }
+                        return Math.min(100, total);
+                    }
+
+                    int itemRiskScore(List<Integer> items) {
+                        int points = 0;
+                        for (int count : items) {
+                            if (count > 20) {
+                                points += 10;
+                            } else if (count > 8) {
+                                points += 4;
+                            }
+                        }
+                        return points;
+                    }
+
+                    boolean looksLikeTemporaryEmail(String contact) {
+                        if (contact == null) {
+                            return true;
+                        }
+                        String value = contact.toLowerCase();
+                        return value.contains("test") || value.endsWith("@tempmail.com");
+                    }
+
+                    String cleanRegion(String region) {
+                        if (region == null || region.isBlank()) {
+                            return "UNKNOWN";
+                        }
+                        return region.trim().toUpperCase();
+                    }
+
+                    List<Integer> keepLargeOrders(List<Integer> items) {
+                        List<Integer> result = new ArrayList<>();
+                        for (int count : items) {
+                            if (count > 8) {
+                                result.add(count);
+                            }
                         }
                         return result;
                     }
@@ -780,8 +960,8 @@ public class WebAppMain {
                     document.querySelector('#sampleBtn').addEventListener('click', () => {
                       sourceA.value = sampleA;
                       sourceB.value = sampleB;
-                      fileA.value = 'B1.java';
-                      fileB.value = 'B2.java';
+                      fileA.value = 'OrderRiskA.java';
+                      fileB.value = 'OrderRiskB.java';
                     });
                     document.querySelector('#analyzeBtn').addEventListener('click', analyze);
                     document.querySelector('#rerunBtn').addEventListener('click', analyze);
@@ -849,24 +1029,52 @@ public class WebAppMain {
                       const clone = cloneText(summary.cloneType);
                       const scope = scopeText(summary.scopeType);
                       const coverage = (Number(stage3.coverageA) + Number(stage3.coverageB)) / 2;
+                      const leadClass = statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel);
+                      const confidenceClass = metricClass(summary.confidence, 'positive');
                       return `<section class="section">
                         <div class="status-card ${statusClass(summary.cloneType, summary.scopeType, summary.confidenceLevel)}">
                           <div class="label">General Summary</div>
-                          <div class="status-title">${decisionText(summary.cloneType, summary.scopeType)}</div>
-                          <div class="muted">${clone.short} - ${scope.short}</div>
+                          <div class="summary-lead ${leadClass}">${summarySentence(summary, clone, scope)}</div>
                           <div class="tag-row">
-                            <span class="tag">Type: ${summary.cloneType} - ${clone.short}</span>
-                            <span class="tag">Scope: ${summary.scopeType} - ${scope.short}</span>
+                            <span class="tag">${decisionText(summary.cloneType, summary.scopeType)}</span>
                             <span class="tag">Confidence: ${summary.confidenceLevel}</span>
+                            <span class="tag">Pipeline reliability: ${percent(stage4.pipelineReliability)}</span>
                           </div>
                         </div>
-                        <div class="metric-grid">
-                          ${metricCard('Confidence', summary.confidence, 'How reliable the final decision is.', 'positive')}
-                          ${metricCard('Matched Functions', stage3.matchScoreAvg, 'High value means many functions line up.', 'risk')}
-                          ${metricCard('How Much Code Matches', coverage, 'High value means much of the files match.', 'risk')}
-                          ${metricCard('Partial-Only Match', stage3.partialCloneSignal, 'High value means the match is concentrated in part of the files.', 'risk')}
+                        <div class="focus-grid">
+                          <div class="focus-card">
+                            <div class="label">Most Likely Type</div>
+                            <div class="focus-value">${clone.short}</div>
+                            <div class="muted">${clone.description}</div>
+                          </div>
+                          <div class="focus-card">
+                            <div class="label">Similarity Scope</div>
+                            <div class="focus-value">${scope.short}</div>
+                            <div class="muted">${scope.description}</div>
+                          </div>
+                          <div class="focus-card ${confidenceClass}">
+                            <div class="label">Confidence</div>
+                            <div class="metric-number">${percent(summary.confidence)}</div>
+                            <div class="muted">How reliable the final decision is.</div>
+                          </div>
                         </div>
-                        <div class="section">
+                        <div class="summary-columns">
+                          <div class="sub-panel">
+                            <div class="section-head">
+                              <h3>Type Ranking</h3>
+                              <div class="muted">Best matches first</div>
+                            </div>
+                            <div class="ranking-list">${rankingList(typeRankings(stage4.typeScores), 'risk')}</div>
+                          </div>
+                          <div class="sub-panel">
+                            <div class="section-head">
+                              <h3>Scope Ranking</h3>
+                              <div class="muted">How broad the match looks</div>
+                            </div>
+                            <div class="ranking-list">${rankingList(scopeRankings(stage4.scopeScores), 'risk')}</div>
+                          </div>
+                        </div>
+                        <div class="sub-panel">
                           <div class="section-head">
                             <h3>How Much Was Matched</h3>
                             <div class="muted">Measured in both directions</div>
@@ -876,12 +1084,6 @@ public class WebAppMain {
                             ${directionalScore(files.right, files.left, stage3.coverageB)}
                             ${scoreBar('Does this look like only part of one file matches?', stage3.partialCloneSignal)}
                           </div>
-                        </div>
-                        <div class="evidence-board">
-                          ${evidenceCard('Supports Similarity', stage4.evidenceChain.supportingEvidence, '')}
-                          ${evidenceCard('Suggests Modification', stage4.evidenceChain.opposingEvidence, 'warn')}
-                          ${evidenceCard('Supports Scope', stage4.evidenceChain.scopeEvidence, 'info')}
-                          ${evidenceCard('Reliability Warnings', stage4.evidenceChain.reliabilityWarnings, stage4.evidenceChain.reliabilityWarnings.length ? 'bad' : '')}
                         </div>
                       </section>`;
                     }
@@ -934,6 +1136,8 @@ public class WebAppMain {
                     }
                     function renderEvidence(data) {
                       const chain = data.stage4.evidenceChain;
+                      const signalCount = chain.supportingEvidence.length + chain.opposingEvidence.length
+                        + chain.scopeEvidence.length + chain.reliabilityWarnings.length;
                       const supportScore = evidenceGroupScore(chain.supportingEvidence.concat(chain.scopeEvidence));
                       const concernScore = evidenceGroupScore(chain.opposingEvidence.concat(chain.reliabilityWarnings));
                       return `<section class="section">
@@ -953,6 +1157,10 @@ public class WebAppMain {
                             <div class="muted">${chain.opposingEvidence.length + chain.reliabilityWarnings.length} modifying or reliability signals found.</div>
                           </div>
                         </div>
+                        ${signalCount === 0 ? `<div class="evidence-panel concern" style="margin-bottom:18px">
+                          <div class="label">No Strong Evidence Items</div>
+                          <div class="muted">The final score may come from moderate signals that did not pass the evidence display thresholds. Developer JSON keeps the full numeric detail.</div>
+                        </div>` : ''}
                         <div class="section-head" style="margin-top:22px">
                           <h3>Key Signals</h3>
                           <div class="muted">Compact view; raw JSON keeps the full detail.</div>
@@ -1030,6 +1238,46 @@ public class WebAppMain {
                     }
                     function filePill(file, side) {
                       return `<span class="file-pill ${side}" title="${escapeHtml(file.raw)}">${escapeHtml(file.short)}</span>`;
+                    }
+                    function summarySentence(summary, clone, scope) {
+                      const confidence = `<strong>${percent(summary.confidence)}</strong>`;
+                      if (summary.cloneType === 'NON_CLONE') {
+                        return `We are ${confidence} confident that the files do not show a clear clone pattern.`;
+                      }
+                      return `We are ${confidence} confident that the best label is ${escapeHtml(clone.short.toLowerCase())} with ${escapeHtml(scope.short.toLowerCase())}.`;
+                    }
+                    function typeRankings(scores) {
+                      const values = scores || {};
+                      return [
+                        ['T1', 'Exact clone', values.t1],
+                        ['T2', 'Renamed or reformatted clone', values.t2],
+                        ['T3', 'Modified clone', values.t3],
+                        ['T4_WEAK', 'Weak semantic clone', values.t4Weak],
+                        ['NON_CLONE', 'No clear clone', values.nonClone]
+                      ].sort((a, b) => Number(b[2] || 0) - Number(a[2] || 0));
+                    }
+                    function scopeRankings(scores) {
+                      const values = scores || {};
+                      return [
+                        ['FULL', 'Full-file similarity', values.full],
+                        ['PARTIAL', 'Partial similarity', values.partial],
+                        ['MIXED', 'Mixed-scope similarity', values.mixed]
+                      ].sort((a, b) => Number(b[2] || 0) - Number(a[2] || 0));
+                    }
+                    function rankingList(items) {
+                      return items.map((item, index) => rankingRow(item, index)).join('');
+                    }
+                    function rankingRow(item, index) {
+                      const value = Number(item[2]) || 0;
+                      const cls = value >= 0.75 ? 'bad' : value >= 0.4 ? 'warn' : '';
+                      const dim = index > 2 ? ' dim' : '';
+                      return `<div class="ranking-row${dim}">
+                        <div class="ranking-top">
+                          <span class="ranking-name">${escapeHtml(item[1])}</span>
+                          <strong>${percent(value)}</strong>
+                        </div>
+                        <div class="track"><div class="fill ${cls}" style="width:${Math.max(0, Math.min(100, value * 100))}%"></div></div>
+                      </div>`;
                     }
                     function decisionText(cloneType, scopeType) {
                       if (cloneType === 'NON_CLONE') return 'NO CLEAR SIMILARITY';
