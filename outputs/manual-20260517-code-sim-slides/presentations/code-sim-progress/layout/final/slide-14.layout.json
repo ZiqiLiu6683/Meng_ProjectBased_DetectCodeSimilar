@@ -1,0 +1,926 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/tcxav7",
+    "id": "tcxav7",
+    "slide": 14,
+    "layoutId": "44840ebc-53dd-4ce0-9fe9-0b2fbb4c87b1",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Aptos",
+      "Aptos Display",
+      "Aptos Mono"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "44840ebc-53dd-4ce0-9fe9-0b2fbb4c87b1",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hcrmhk3q",
+      "id": "1",
+      "bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#E6EEF2",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/al87ed8b",
+      "id": "2",
+      "name": "kicker-marker",
+      "bbox": [
+        58,
+        48,
+        34,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#C9792E",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z61032ls",
+      "id": "3",
+      "name": "kicker-label",
+      "bbox": [
+        104,
+        37,
+        360,
+        26
+      ],
+      "geometry": "rect",
+      "text": "NEXT STEPS",
+      "textPreview": "NEXT STEPS",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "Aptos Mono",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "NEXT STEPS"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "NEXT STEPS",
+          "runs": [
+            {
+              "index": 1,
+              "text": "NEXT STEPS",
+              "fontSize": 14,
+              "typeface": "Aptos Mono",
+              "color": "#64748B",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sfil0rqd",
+      "id": "4",
+      "bbox": [
+        58,
+        86,
+        900,
+        110
+      ],
+      "geometry": "rect",
+      "text": "The next phase should calibrate the detector and extend evidence beyond static structure.",
+      "textPreview": "The next phase should calibrate the detector and extend evidence beyond static structure.",
+      "resolvedFontSize": 44,
+      "resolvedTextStyle": {
+        "fontSize": 44,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The next phase should calibrate the"
+          },
+          {
+            "index": 2,
+            "text": "detector and extend evidence beyond"
+          },
+          {
+            "index": 3,
+            "text": "static structure."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The next phase should calibrate the detector and extend evidence beyond static structure.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "The next phase should calibrate the detector and extend evidence beyond static structure.",
+              "fontSize": 44,
+              "typeface": "Aptos Display",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/h0fepkzu",
+      "id": "5",
+      "bbox": [
+        104,
+        260,
+        290,
+        230
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a9w3m94f",
+      "id": "6",
+      "bbox": [
+        104,
+        260,
+        290,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#315C8A",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zupwb2hw",
+      "id": "7",
+      "bbox": [
+        126,
+        298,
+        110,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Now",
+      "textPreview": "Now",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Now"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Now",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Now",
+              "fontSize": 32,
+              "typeface": "Aptos Display",
+              "color": "#315C8A",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/obm58z25",
+      "id": "8",
+      "bbox": [
+        126,
+        366,
+        230,
+        92
+      ],
+      "geometry": "rect",
+      "text": "Benchmark calibration\nmore edge-case tests\nperformance guardrails",
+      "textPreview": "Benchmark calibration | more edge-case tests | performance guardrails",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos Mono",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Benchmark calibration"
+          },
+          {
+            "index": 2,
+            "text": "more edge-case tests"
+          },
+          {
+            "index": 3,
+            "text": "performance guardrails"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Benchmark calibration",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Benchmark calibration",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text": "more edge-case tests",
+          "runs": [
+            {
+              "index": 1,
+              "text": "more edge-case tests",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text": "performance guardrails",
+          "runs": [
+            {
+              "index": 1,
+              "text": "performance guardrails",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hwfyxobm",
+      "id": "9",
+      "bbox": [
+        474,
+        260,
+        290,
+        230
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t83itgfm",
+      "id": "10",
+      "bbox": [
+        474,
+        260,
+        290,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#3E7C59",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4nap4r65",
+      "id": "11",
+      "bbox": [
+        496,
+        298,
+        110,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Next",
+      "textPreview": "Next",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Next"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Next",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Next",
+              "fontSize": 32,
+              "typeface": "Aptos Display",
+              "color": "#3E7C59",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/b2hwfyxo",
+      "id": "12",
+      "bbox": [
+        496,
+        366,
+        230,
+        92
+      ],
+      "geometry": "rect",
+      "text": "Control/data-flow features\nstronger partial clone handling\nclearer report language",
+      "textPreview": "Control/data-flow features | stronger partial clone handling | clearer report language",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos Mono",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Control/data-flow features"
+          },
+          {
+            "index": 2,
+            "text": "stronger partial clone"
+          },
+          {
+            "index": 3,
+            "text": "handling"
+          },
+          {
+            "index": 4,
+            "text": "clearer report language"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Control/data-flow features",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Control/data-flow features",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text": "stronger partial clone handling",
+          "runs": [
+            {
+              "index": 1,
+              "text": "stronger partial clone handling",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text": "clearer report language",
+          "runs": [
+            {
+              "index": 1,
+              "text": "clearer report language",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mhk3q5o7",
+      "id": "13",
+      "bbox": [
+        844,
+        260,
+        290,
+        230
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/twra5gbq",
+      "id": "14",
+      "bbox": [
+        844,
+        260,
+        290,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#C9792E",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4byhgn29",
+      "id": "15",
+      "bbox": [
+        866,
+        298,
+        110,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Later",
+      "textPreview": "Later",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Later"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Later",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Later",
+              "fontSize": 32,
+              "typeface": "Aptos Display",
+              "color": "#C9792E",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bq1oryts",
+      "id": "16",
+      "bbox": [
+        866,
+        366,
+        230,
+        92
+      ],
+      "geometry": "rect",
+      "text": "Dynamic monitoring\nexecution traces\nhybrid static + runtime evidence",
+      "textPreview": "Dynamic monitoring | execution traces | hybrid static + runtime evidence",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "Aptos Mono",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Dynamic monitoring"
+          },
+          {
+            "index": 2,
+            "text": "execution traces"
+          },
+          {
+            "index": 3,
+            "text": "hybrid static + runtime"
+          },
+          {
+            "index": 4,
+            "text": "evidence"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Dynamic monitoring",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Dynamic monitoring",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text": "execution traces",
+          "runs": [
+            {
+              "index": 1,
+              "text": "execution traces",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text": "hybrid static + runtime evidence",
+          "runs": [
+            {
+              "index": 1,
+              "text": "hybrid static + runtime evidence",
+              "fontSize": 17,
+              "typeface": "Aptos Mono",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m58z25kb",
+      "id": "17",
+      "bbox": [
+        394,
+        374,
+        80,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#64748B",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tsvu9kni",
+      "id": "18",
+      "bbox": [
+        764,
+        374,
+        80,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#64748B",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/47y1kre1",
+      "id": "19",
+      "bbox": [
+        160,
+        572,
+        940,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Dynamic monitoring is not a replacement for static detection; it can become a second evidence channel for behavior-level similarity.",
+      "textPreview": "Dynamic monitoring is not a replacement for static detection; it can become a second evidence channel for behavior-level similarity.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Dynamic monitoring is not a replacement for static detection; it can become a second evidence channel for"
+          },
+          {
+            "index": 2,
+            "text": "behavior-level similarity."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Dynamic monitoring is not a replacement for static detection; it can become a second evidence channel for behavior-level similarity.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Dynamic monitoring is not a replacement for static detection; it can become a second evidence channel for behavior-level similarity.",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g3ex0nux",
+      "id": "20",
+      "bbox": [
+        58,
+        662,
+        1050,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#CBD5E1",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5o7qpg3e",
+      "id": "21",
+      "bbox": [
+        58,
+        672,
+        600,
+        22
+      ],
+      "geometry": "rect",
+      "text": "Roadmap",
+      "textPreview": "Roadmap",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "Aptos Mono",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Roadmap"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Roadmap",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Roadmap",
+              "fontSize": 12,
+              "typeface": "Aptos Mono",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yxobm58z",
+      "id": "22",
+      "bbox": [
+        1150,
+        672,
+        70,
+        22
+      ],
+      "geometry": "rect",
+      "text": "14",
+      "textPreview": "14",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "Aptos Mono",
+        "alignment": "right"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "14"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "14",
+          "runs": [
+            {
+              "index": 1,
+              "text": "14",
+              "fontSize": 12,
+              "typeface": "Aptos Mono",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

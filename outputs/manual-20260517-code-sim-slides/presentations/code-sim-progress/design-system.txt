@@ -1,0 +1,40 @@
+Slide size
+1280x720.
+
+Design profile
+Engineering-platform review deck. Premium but restrained, with editorial claims, technical diagrams, and dense but readable proof objects.
+
+Typography
+Title: Aptos Display, large claim titles.
+Body: Aptos, compact labels and annotations.
+Mono: Aptos Mono for code-like tokens and stage labels.
+
+Palette
+Ink: #111827
+Paper: #F6F1E8
+Mist: #E6EEF2
+Blue: #315C8A
+Green: #3E7C59
+Amber: #C9792E
+Red: #B6534C
+Slate: #64748B
+Line: #CBD5E1
+White: #FFFFFF
+
+Usage
+Use paper background for narrative and review slides, ink background for chapter/architecture slides. Use blue for pipeline structure, green for evidence/support, amber for limitations or next-step emphasis, red sparingly for risk. Avoid a one-hue dashboard look.
+
+Chart and diagram grammar
+Use editable rectangles, rules, and direct labels. Avoid legends where labels can attach directly. Use thin rules and lane labels. Stages are shown as numbered blocks or horizontal rails. Evidence flow diagrams use left-to-right reading.
+
+Container grammar
+Use boxes only for real grouping: strategies, stages, limitations, roadmap phases. No nested cards. Radius is minimal through square rectangles.
+
+Footer grammar
+Small section marker at bottom left and page number at bottom right.
+
+Layout families
+Cover with stage rail, spectrum map, strategy matrix, split proof comparison, architecture rail, flow diagram, product UI journey, limitation map, roadmap, closing synthesis.
+
+Banned motifs
+No decorative gradient orbs, no pseudo logos, no stock imagery, no generic SaaS card grid.

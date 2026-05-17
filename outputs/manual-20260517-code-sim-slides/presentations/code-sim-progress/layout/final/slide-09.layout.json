@@ -1,0 +1,998 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/ci0mh9",
+    "id": "ci0mh9",
+    "slide": 9,
+    "layoutId": "44840ebc-53dd-4ce0-9fe9-0b2fbb4c87b1",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Aptos",
+      "Aptos Display",
+      "Aptos Mono"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "44840ebc-53dd-4ce0-9fe9-0b2fbb4c87b1",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "6b82dbc2-b4bd-4310-9925-df3d0e05a928",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yd0z6103",
+      "id": "1",
+      "bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#F6F1E8",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/90je9cvi",
+      "id": "2",
+      "name": "kicker-marker",
+      "bbox": [
+        58,
+        48,
+        34,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#315C8A",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gfmlkjm1",
+      "id": "3",
+      "name": "kicker-label",
+      "bbox": [
+        104,
+        37,
+        360,
+        26
+      ],
+      "geometry": "rect",
+      "text": "MEASUREMENT LAYER",
+      "textPreview": "MEASUREMENT LAYER",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "Aptos Mono",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MEASUREMENT LAYER"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MEASUREMENT LAYER",
+          "runs": [
+            {
+              "index": 1,
+              "text": "MEASUREMENT LAYER",
+              "fontSize": 14,
+              "typeface": "Aptos Mono",
+              "color": "#64748B",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rmhk3q5o",
+      "id": "4",
+      "bbox": [
+        58,
+        86,
+        900,
+        110
+      ],
+      "geometry": "rect",
+      "text": "Stage 1 and Stage 2 create evidence without making the final call.",
+      "textPreview": "Stage 1 and Stage 2 create evidence without making the final call.",
+      "resolvedFontSize": 44,
+      "resolvedTextStyle": {
+        "fontSize": 44,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Stage 1 and Stage 2 create evidence"
+          },
+          {
+            "index": 2,
+            "text": "without making the final call."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Stage 1 and Stage 2 create evidence without making the final call.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Stage 1 and Stage 2 create evidence without making the final call.",
+              "fontSize": 44,
+              "typeface": "Aptos Display",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1kre1w7",
+      "id": "5",
+      "bbox": [
+        78,
+        238,
+        315,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9s36hcrm",
+      "id": "6",
+      "bbox": [
+        78,
+        238,
+        5,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#315C8A",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g7adsji5",
+      "id": "7",
+      "bbox": [
+        96,
+        254,
+        283,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Stage 1 raw signals",
+      "textPreview": "Stage 1 raw signals",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Stage 1 raw signals"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Stage 1 raw signals",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Stage 1 raw signals",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nih4byhg",
+      "id": "8",
+      "bbox": [
+        96,
+        288,
+        281,
+        188
+      ],
+      "geometry": "rect",
+      "text": "S1 non-method context\nS2 subtree overlap\nS3 token winnowing\nS4 tree edit distance\nS5 API vocabulary\nexact normalized match",
+      "textPreview": "S1 non-method context | S2 subtree overlap | S3 token winnowing | S4 tree edit distance | S5 API vocabulary | exact normalized match",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "S1 non-method context"
+          },
+          {
+            "index": 2,
+            "text": "S2 subtree overlap"
+          },
+          {
+            "index": 3,
+            "text": "S3 token winnowing"
+          },
+          {
+            "index": 4,
+            "text": "S4 tree edit distance"
+          },
+          {
+            "index": 5,
+            "text": "S5 API vocabulary"
+          },
+          {
+            "index": 6,
+            "text": "exact normalized match"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "S1 non-method context",
+          "runs": [
+            {
+              "index": 1,
+              "text": "S1 non-method context",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text": "S2 subtree overlap",
+          "runs": [
+            {
+              "index": 1,
+              "text": "S2 subtree overlap",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text": "S3 token winnowing",
+          "runs": [
+            {
+              "index": 1,
+              "text": "S3 token winnowing",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text": "S4 tree edit distance",
+          "runs": [
+            {
+              "index": 1,
+              "text": "S4 tree edit distance",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "text": "S5 API vocabulary",
+          "runs": [
+            {
+              "index": 1,
+              "text": "S5 API vocabulary",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "text": "exact normalized match",
+          "runs": [
+            {
+              "index": 1,
+              "text": "exact normalized match",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yxobm58z",
+      "id": "9",
+      "bbox": [
+        482,
+        238,
+        315,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/obm58z25",
+      "id": "10",
+      "bbox": [
+        482,
+        238,
+        5,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#3E7C59",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hwfyxobm",
+      "id": "11",
+      "bbox": [
+        500,
+        254,
+        283,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Method pair matrix",
+      "textPreview": "Method pair matrix",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Method pair matrix"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Method pair matrix",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Method pair matrix",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65wjudg7",
+      "id": "12",
+      "bbox": [
+        500,
+        288,
+        281,
+        188
+      ],
+      "geometry": "rect",
+      "text": "Every method in A is compared with every method in B first. Candidate filtering is delayed so early pruning does not erase partial or one-to-many evidence.",
+      "textPreview": "Every method in A is compared with every method in B first. Candidate filtering is delayed so early pruning does not erase partial or one...",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Every method in A is compared with"
+          },
+          {
+            "index": 2,
+            "text": "every method in B first. Candidate"
+          },
+          {
+            "index": 3,
+            "text": "filtering is delayed so early pruning does"
+          },
+          {
+            "index": 4,
+            "text": "not erase partial or one-to-many"
+          },
+          {
+            "index": 5,
+            "text": "evidence."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Every method in A is compared with every method in B first. Candidate filtering is delayed so early pruning does not erase partial or one-to-many evidence.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Every method in A is compared with every method in B first. Candidate filtering is delayed so early pruning does not erase partial or one-to-many evidence.",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zqtcj6to",
+      "id": "13",
+      "bbox": [
+        886,
+        238,
+        315,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/oza1gvy9",
+      "id": "14",
+      "bbox": [
+        886,
+        238,
+        5,
+        250
+      ],
+      "geometry": "rect",
+      "fillColor": "#C9792E",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hk3q5o7q",
+      "id": "15",
+      "bbox": [
+        904,
+        254,
+        283,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Stage 2 features",
+      "textPreview": "Stage 2 features",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Stage 2 features"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Stage 2 features",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Stage 2 features",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#111827",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6xkf6dcb",
+      "id": "16",
+      "bbox": [
+        904,
+        288,
+        281,
+        188
+      ],
+      "geometry": "rect",
+      "text": "magnitude\nstructural exactness\ntoken exact gap\nspread\nsize ratio\ncontainment A/B",
+      "textPreview": "magnitude | structural exactness | token exact gap | spread | size ratio | containment A/B",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "magnitude"
+          },
+          {
+            "index": 2,
+            "text": "structural exactness"
+          },
+          {
+            "index": 3,
+            "text": "token exact gap"
+          },
+          {
+            "index": 4,
+            "text": "spread"
+          },
+          {
+            "index": 5,
+            "text": "size ratio"
+          },
+          {
+            "index": 6,
+            "text": "containment A/B"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "magnitude",
+          "runs": [
+            {
+              "index": 1,
+              "text": "magnitude",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "text": "structural exactness",
+          "runs": [
+            {
+              "index": 1,
+              "text": "structural exactness",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "text": "token exact gap",
+          "runs": [
+            {
+              "index": 1,
+              "text": "token exact gap",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "text": "spread",
+          "runs": [
+            {
+              "index": 1,
+              "text": "spread",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "text": "size ratio",
+          "runs": [
+            {
+              "index": 1,
+              "text": "size ratio",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "text": "containment A/B",
+          "runs": [
+            {
+              "index": 1,
+              "text": "containment A/B",
+              "fontSize": 15,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zed8v6ps",
+      "id": "17",
+      "bbox": [
+        393,
+        358,
+        88,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#CBD5E1",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/orytsvu9",
+      "id": "18",
+      "bbox": [
+        797,
+        358,
+        88,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#CBD5E1",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hcrmhk3q",
+      "id": "19",
+      "bbox": [
+        148,
+        566,
+        980,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Assumption: a complete method-pair matrix is safer than early top-k selection because real reuse patterns are often asymmetric.",
+      "textPreview": "Assumption: a complete method-pair matrix is safer than early top-k selection because real reuse patterns are often asymmetric.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Assumption: a complete method-pair matrix is safer than early top-k selection because real reuse patterns are often"
+          },
+          {
+            "index": 2,
+            "text": "asymmetric."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Assumption: a complete method-pair matrix is safer than early top-k selection because real reuse patterns are often asymmetric.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Assumption: a complete method-pair matrix is safer than early top-k selection because real reuse patterns are often asymmetric.",
+              "fontSize": 18,
+              "typeface": "Aptos",
+              "color": "#1F2937"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5gbq1ory",
+      "id": "20",
+      "bbox": [
+        58,
+        662,
+        1050,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#CBD5E1",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cvixczed",
+      "id": "21",
+      "bbox": [
+        58,
+        672,
+        600,
+        22
+      ],
+      "geometry": "rect",
+      "text": "Stage 1-2 evidence generation",
+      "textPreview": "Stage 1-2 evidence generation",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "Aptos Mono",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Stage 1-2 evidence generation"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Stage 1-2 evidence generation",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Stage 1-2 evidence generation",
+              "fontSize": 12,
+              "typeface": "Aptos Mono",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nap4r65w",
+      "id": "22",
+      "bbox": [
+        1150,
+        672,
+        70,
+        22
+      ],
+      "geometry": "rect",
+      "text": "09",
+      "textPreview": "09",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "Aptos Mono",
+        "alignment": "right"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "09"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "09",
+          "runs": [
+            {
+              "index": 1,
+              "text": "09",
+              "fontSize": 12,
+              "typeface": "Aptos Mono",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

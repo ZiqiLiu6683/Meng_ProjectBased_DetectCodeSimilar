@@ -1,0 +1,42 @@
+Deck
+code-sim-staged-detector-progress.pptx
+
+Task mode
+create
+
+Primary deck-profile
+engineering-platform
+
+Profile gate
+Pass for first draft: the deck uses technical proof objects, separates design assumptions from implementation, and keeps the narrative anchored in the actual staged pipeline.
+
+Rubric
+story: 4/5
+specificity: 4/5
+rhythm: 4/5
+whitespace: 4/5
+chart clarity: 4/5
+typography: 4/5
+restraint: 4/5
+precision: 4/5
+coherence: 4/5
+reference delta: n/a
+
+Total
+36/40 excluding reference delta. This is a strong first discussion draft, not a final defense deck.
+
+Package checks
+PPTX exists and is non-empty.
+Expected slide count: 15.
+Actual slide XML count: 15.
+Rendered previews generated for all slides.
+Contact sheet generated.
+
+Render checks
+Contact sheet reviewed. Two visual issues were corrected: slide 5 title crowding and slide 13 text overlap.
+Remaining layout warnings are tight-text or padding warnings; rendered slides remain readable in the preview.
+
+Known draft gaps
+The deck does not yet include screenshots from the live web page.
+The strategy review uses concise synthesis rather than detailed experimental results.
+The limitation and roadmap slides should be customized once the final reporting time limit and audience are known.

@@ -1,0 +1,25 @@
+Thesis
+The project has moved from computing a single similarity score to designing an explainable staged detection system for code similarity.
+
+Audience
+Graduate project review audience with mixed software engineering and research evaluation interests.
+
+One-line arc
+Start with strategy review, extract the design lesson, explain the current staged pipeline, show the web report as the user-facing explanation layer, then close with limitations and next research steps.
+
+Slide list
+1. Claim: Code similarity detection needs an explainable staged system, not just another score. Proof: title thesis with pipeline rail.
+2. Claim: Similarity is multi-dimensional, so one score collapses different clone behaviors. Proof: clone type spectrum.
+3. Claim: The first strategies each captured one useful signal but failed as a complete decision system. Proof: strategy review matrix.
+4. Claim: Token and winnowing signals are fast and local, but brittle under structural edits. Proof: benefit/risk comparison.
+5. Claim: AST and method-level signals improve structure awareness, but matching policy becomes the core problem. Proof: method matching diagram.
+6. Claim: API vocabulary adds semantic hints, but it must remain auxiliary evidence. Proof: signal role ladder.
+7. Claim: The key design lesson was to separate measurement, correspondence, and classification. Proof: before/after decision flow.
+8. Claim: The current pipeline routes inputs before interpreting scores. Proof: Stage 0-5 architecture.
+9. Claim: Stage 1 and Stage 2 turn raw code into method-pair evidence without making final decisions. Proof: signal inventory.
+10. Claim: Stage 3 is the bridge from pairwise scores to file-level diagnostics. Proof: bidirectional match and coverage diagram.
+11. Claim: Stage 4 makes clone classification explainable through components, confidence, and evidence. Proof: classification output stack.
+12. Claim: The web interface turns pipeline evidence into a readable report. Proof: UI journey diagram.
+13. Claim: The current prototype is functional, but the research risks are still visible. Proof: limitation map.
+14. Claim: The next step is a calibrated and richer hybrid detector. Proof: roadmap from static to dynamic monitoring.
+15. Claim: The project direction is now clear: explainability first, stronger evidence next. Proof: closing synthesis.
