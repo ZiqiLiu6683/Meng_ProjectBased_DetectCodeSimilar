@@ -7,15 +7,17 @@ public class Stage4Classifier {
     private static final double HIGH = 0.75;
     private static final double MEDIUM = 0.45;
     private static final double LOW = 0.30;
+    private static final double T4_WEAK_MIN = 0.65;
     private static final double DIRECTION_MARGIN = 0.10;
 
     public Stage4Result classify(Stage0Profile stage0, Stage1Result stage1, Stage3Result stage3) {
         ComponentScores components = components(stage0, stage3);
         ScopeScores scopeScores = scopeScores(stage3);
         ScopeType scopeType = chooseScope(stage3, scopeScores);
-        ContainmentDirection containmentDirection = chooseContainmentDirection(stage3, scopeType);
         TypeScores typeScores = typeScores(stage1, stage3, components);
         CloneType cloneType = chooseCloneType(stage0, stage1, stage3, components, typeScores);
+        scopeType = adjustScopeForCloneType(cloneType, scopeType);
+        ContainmentDirection containmentDirection = chooseContainmentDirection(stage3, scopeType);
 
         double evidenceStrength = evidenceStrength(cloneType, typeScores);
         double evidenceConsistency = evidenceConsistency(scopeType, stage3);
@@ -171,6 +173,12 @@ public class Stage4Classifier {
             return CloneType.T1;
         }
         boolean methodEvidenceUsable = stage3.status() == SignalStatus.COMPUTED;
+        if (scores.t4Weak() >= T4_WEAK_MIN
+                && scores.t4Weak() > scores.t2()
+                && scores.t4Weak() > scores.t3()
+                && components.methodSimilarityStrength() < HIGH) {
+            return CloneType.T4_WEAK;
+        }
         if (methodEvidenceUsable
                 && components.methodSimilarityStrength() >= MEDIUM
                 && components.coverageStrength() >= LOW) {
@@ -184,6 +192,13 @@ public class Stage4Classifier {
             return CloneType.NON_CLONE;
         }
         return CloneType.INCONCLUSIVE;
+    }
+
+    private static ScopeType adjustScopeForCloneType(CloneType cloneType, ScopeType scopeType) {
+        if (cloneType == CloneType.NON_CLONE) {
+            return ScopeType.UNKNOWN;
+        }
+        return scopeType;
     }
 
     private static double evidenceStrength(CloneType cloneType, TypeScores scores) {
@@ -264,9 +279,9 @@ public class Stage4Classifier {
             add(support, "S5", stage3.s5(),
                     "API vocabulary overlaps while method-level clone evidence is weaker.", "T4_WEAK");
         } else if (cloneType == CloneType.NON_CLONE) {
-            add(support, "method_similarity_strength", 1.0 - c.methodSimilarityStrength(),
+            add(support, "method_dissimilarity_strength", 1.0 - c.methodSimilarityStrength(),
                     "Method-level similarity evidence is weak.", "NON_CLONE");
-            add(support, "coverage_strength", 1.0 - c.coverageStrength(),
+            add(support, "uncovered_method_mass", 1.0 - c.coverageStrength(),
                     "Most method mass is not well covered by the opposite file.", "NON_CLONE");
         } else if (cloneType == CloneType.T1) {
             add(support, "file_exact_normalized_match", 1.0,
