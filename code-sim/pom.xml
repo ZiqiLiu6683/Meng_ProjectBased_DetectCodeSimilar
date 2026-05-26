@@ -10,6 +10,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <wala.version>1.7.1</wala.version>
+    <java-smt.version>6.0.0</java-smt.version>
   </properties>
   <dependencies>
     <dependency>
@@ -93,5 +95,80 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>semantic-analysis</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>add-semantic-source</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/semantic/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+              <execution>
+                <id>add-semantic-test-source</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/semantic-test/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <systemPropertyVariables>
+                <semantic.tests.enabled>true</semantic.tests.enabled>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <dependencies>
+        <!-- WALA provides bytecode IR, CFG, call graph, and ICFG infrastructure. -->
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.core</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.util</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.shrike</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+
+        <!-- JavaSMT keeps the BinHunt-style semantic verifier solver-agnostic. -->
+        <dependency>
+          <groupId>org.sosy-lab</groupId>
+          <artifactId>java-smt</artifactId>
+          <version>${java-smt.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 
 </project>
