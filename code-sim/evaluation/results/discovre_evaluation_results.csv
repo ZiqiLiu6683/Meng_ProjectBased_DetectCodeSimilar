@@ -1,0 +1,231 @@
+project,pair_id,expected_type,expected_scope,view,top_k,method_count,avg_exhaustive_similarity,avg_constrained_similarity,avg_similarity_delta,avg_candidate_reduction,total_exhaustive_candidate_pairs,total_constrained_candidate_pairs,runtime_ms,status,error,transformation_tag,difficulty,limitation_tag,notes
+T1,java_t1_format_01,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,4273,success,,CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3163,success,,CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"[ERROR] Failed to execute goal org.codehaus.mojo:exec-maven-plugin:3.3.0:java (default-cli) on project code-sim: An exception occurred while executing the Java class. /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t1_format_01/HYBRID_NUMERIC_HASH.csv: No space left on device -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException",CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"[ERROR] Failed to execute goal org.codehaus.mojo:exec-maven-plugin:3.3.0:java (default-cli) on project code-sim: An exception occurred while executing the Java class. /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t1_format_01/HYBRID_NUMERIC_HASH.csv: No space left on device -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException",CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"[ERROR] Failed to execute goal org.codehaus.mojo:exec-maven-plugin:3.3.0:java (default-cli) on project code-sim: An exception occurred while executing the Java class. /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t1_format_01/HYBRID_NUMERIC_HASH.csv: No space left on device -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException",CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_comment_02,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,3361,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
+T1,java_t1_comment_02,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3121,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
+T1,java_t1_comment_02,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,2846,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
+T1,java_t1_whitespace_03,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,2855,success,,CONTROL_FLOW_REORDER,L1,,Whitespace layout differs
+T1,java_t1_whitespace_03,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,2835,success,,CONTROL_FLOW_REORDER,L1,,Whitespace layout differs
+T1,java_t1_whitespace_03,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,2790,success,,CONTROL_FLOW_REORDER,L1,,Whitespace layout differs
+T1,java_t1_block_comment_04,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,3238,success,,CONTROL_FLOW_REORDER,L1,,Block comments inserted inside method
+T1,java_t1_block_comment_04,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3245,success,,CONTROL_FLOW_REORDER,L1,,Block comments inserted inside method
+T1,java_t1_block_comment_04,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3050,success,,CONTROL_FLOW_REORDER,L1,,Block comments inserted inside method
+T1,java_t1_compact_05,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,3029,success,,CONTROL_FLOW_REORDER,L1,,Single-line compact method
+T1,java_t1_compact_05,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3048,success,,CONTROL_FLOW_REORDER,L1,,Single-line compact method
+T1,java_t1_compact_05,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3327,success,,CONTROL_FLOW_REORDER,L1,,Single-line compact method
+T2,java_t2_rename_01,T2,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2844,success,,RENAMING,L1,,Class method and variable names differ
+T2,java_t2_rename_01,T2,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3455,success,,RENAMING,L1,,Class method and variable names differ
+T2,java_t2_rename_01,T2,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2992,success,,RENAMING,L1,,Class method and variable names differ
+T2,java_t2_rename_02,T2,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2989,success,,RENAMING,L1,,Loop variable names differ
+T2,java_t2_rename_02,T2,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3462,success,,RENAMING,L1,,Loop variable names differ
+T2,java_t2_rename_02,T2,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3310,success,,RENAMING,L1,,Loop variable names differ
+T2,java_t2_rename_03,T2,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.01428571428571429,41,40,3232,success,,RENAMING,L1,,Local variable names differ
+T2,java_t2_rename_03,T2,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.24285714285714288,41,24,3013,success,,RENAMING,L1,,Local variable names differ
+T2,java_t2_rename_03,T2,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.2285714285714286,41,25,3045,success,,RENAMING,L1,,Local variable names differ
+T2,java_t2_rename_04,T2,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3035,success,,RENAMING,L1,,Class and method names differ
+T2,java_t2_rename_04,T2,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3074,success,,RENAMING,L1,,Class and method names differ
+T2,java_t2_rename_04,T2,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2868,success,,RENAMING,L1,,Class and method names differ
+T2,java_t2_rename_05,T2,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3157,success,,RENAMING,L2,THRESHOLDS_HEURISTIC,Threshold literal changes from 10 to 12
+T2,java_t2_rename_05,T2,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3702,success,,RENAMING,L2,THRESHOLDS_HEURISTIC,Threshold literal changes from 10 to 12
+T2,java_t2_rename_05,T2,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3015,success,,RENAMING,L2,THRESHOLDS_HEURISTIC,Threshold literal changes from 10 to 12
+T3,java_t3_insert_delete_01,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3093,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Small Type-3 example for calibration
+T3,java_t3_insert_delete_01,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3090,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Small Type-3 example for calibration
+T3,java_t3_insert_delete_01,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3417,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Small Type-3 example for calibration
+T3,java_t3_null_log_02,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2990,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Added guard and extra variable
+T3,java_t3_null_log_02,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2837,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Added guard and extra variable
+T3,java_t3_null_log_02,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2889,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Added guard and extra variable
+T3,java_t3_cap_only_03,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2874,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,One branch removed
+T3,java_t3_cap_only_03,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2818,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,One branch removed
+T3,java_t3_cap_only_03,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2783,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,One branch removed
+T3,java_t3_skip_odd_04,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2596,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra continue branch
+T3,java_t3_skip_odd_04,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2689,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra continue branch
+T3,java_t3_skip_odd_04,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,4731,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra continue branch
+T3,java_t3_early_continue_05,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3551,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Uses continue instead of assignment
+T3,java_t3_early_continue_05,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3535,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Uses continue instead of assignment
+T3,java_t3_early_continue_05,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3001,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Uses continue instead of assignment
+T3,java_t3_extra_counter_06,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3191,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra side computation
+T3,java_t3_extra_counter_06,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3174,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra side computation
+T3,java_t3_extra_counter_06,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2884,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Extra side computation
+T3,java_t3_reverse_loop_07,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2874,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Index loop instead of enhanced loop
+T3,java_t3_reverse_loop_07,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2893,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Index loop instead of enhanced loop
+T3,java_t3_reverse_loop_07,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2984,success,,CONTROL_FLOW_REORDER,L2,THRESHOLDS_HEURISTIC,Index loop instead of enhanced loop
+T3,java_t3_param_threshold_08,T3,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3197,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Literal threshold becomes parameter
+T3,java_t3_param_threshold_08,T3,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3030,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Literal threshold becomes parameter
+T3,java_t3_param_threshold_08,T3,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2673,success,,STATEMENT_INSERT_DELETE,L2,THRESHOLDS_HEURISTIC,Literal threshold becomes parameter
+InternalHelper,java_t4_inline_helper_01,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3003,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Tests professor question about internal function calls
+InternalHelper,java_t4_inline_helper_01,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2722,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Tests professor question about internal function calls
+InternalHelper,java_t4_inline_helper_01,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2815,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Tests professor question about internal function calls
+InternalHelper,java_t4_helper_inline_02,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3172,success,,HELPER_TO_INLINE,L1,CALL_GRAPH_NOT_EXPANDED,Reverse direction of inline helper pair
+InternalHelper,java_t4_helper_inline_02,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3081,success,,HELPER_TO_INLINE,L1,CALL_GRAPH_NOT_EXPANDED,Reverse direction of inline helper pair
+InternalHelper,java_t4_helper_inline_02,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,2869,success,,HELPER_TO_INLINE,L1,CALL_GRAPH_NOT_EXPANDED,Reverse direction of inline helper pair
+InternalHelper,java_t4_inline_guard_03,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2805,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Guard condition moved to helper
+InternalHelper,java_t4_inline_guard_03,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,2831,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Guard condition moved to helper
+InternalHelper,java_t4_inline_guard_03,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3410,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Guard condition moved to helper
+InternalHelper,java_t4_inline_tax_04,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3162,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Tax formula moved to helper
+InternalHelper,java_t4_inline_tax_04,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3008,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Tax formula moved to helper
+InternalHelper,java_t4_inline_tax_04,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3167,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Tax formula moved to helper
+InternalHelper,java_t4_inline_normalize_05,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3140,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,String cleanup moved to helper
+InternalHelper,java_t4_inline_normalize_05,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3555,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,String cleanup moved to helper
+InternalHelper,java_t4_inline_normalize_05,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3257,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,String cleanup moved to helper
+InternalHelper,java_t4_inline_string_score_06,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,2991,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Character predicate and value helper
+InternalHelper,java_t4_inline_string_score_06,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3180,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Character predicate and value helper
+InternalHelper,java_t4_inline_string_score_06,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3183,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Character predicate and value helper
+InternalHelper,java_t4_inline_max_07,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3427,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Comparison moved to helper
+InternalHelper,java_t4_inline_max_07,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3056,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Comparison moved to helper
+InternalHelper,java_t4_inline_max_07,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3463,success,,INLINE_TO_HELPER,L1,CALL_GRAPH_NOT_EXPANDED,Comparison moved to helper
+InternalHelper,java_t4_inline_discount_08,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,4059,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Branch calculation moved to helper
+InternalHelper,java_t4_inline_discount_08,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3629,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Branch calculation moved to helper
+InternalHelper,java_t4_inline_discount_08,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3287,success,,INLINE_TO_HELPER,L2,CALL_GRAPH_NOT_EXPANDED,Branch calculation moved to helper
+MethodRefactor,java_t4_extract_method_01,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3296,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,One-to-many method organization
+MethodRefactor,java_t4_extract_method_01,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3241,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,One-to-many method organization
+MethodRefactor,java_t4_extract_method_01,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3128,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,One-to-many method organization
+MethodRefactor,java_t4_merge_methods_02,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3496,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Many-to-one method organization
+MethodRefactor,java_t4_merge_methods_02,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3111,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Many-to-one method organization
+MethodRefactor,java_t4_merge_methods_02,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3266,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Many-to-one method organization
+MethodRefactor,java_t4_extract_order_03,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3382,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Subtotal helper extraction
+MethodRefactor,java_t4_extract_order_03,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3696,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Subtotal helper extraction
+MethodRefactor,java_t4_extract_order_03,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3372,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Subtotal helper extraction
+MethodRefactor,java_t4_merge_order_04,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3476,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse subtotal helper
+MethodRefactor,java_t4_merge_order_04,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3128,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse subtotal helper
+MethodRefactor,java_t4_merge_order_04,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3149,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse subtotal helper
+MethodRefactor,java_t4_extract_stats_05,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3058,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Average and count helpers
+MethodRefactor,java_t4_extract_stats_05,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3268,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Average and count helpers
+MethodRefactor,java_t4_extract_stats_05,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3215,success,,EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,Average and count helpers
+MethodRefactor,java_t4_merge_stats_06,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3127,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse stats helper
+MethodRefactor,java_t4_merge_stats_06,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3304,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse stats helper
+MethodRefactor,java_t4_merge_stats_06,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3195,success,,MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse stats helper
+MethodRefactor,java_t4_extract_join_07,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_extract_join_07/left/__src/InlineSanitizeJoin.java:9: error: cannot find symbol
+                if (!out.isEmpty()) {
+                        ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,String sanitizer helper
+MethodRefactor,java_t4_extract_join_07,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_extract_join_07/left/__src/InlineSanitizeJoin.java:9: error: cannot find symbol
+                if (!out.isEmpty()) {
+                        ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,String sanitizer helper
+MethodRefactor,java_t4_extract_join_07,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_extract_join_07/left/__src/InlineSanitizeJoin.java:9: error: cannot find symbol
+                if (!out.isEmpty()) {
+                        ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",EXTRACT_METHOD,L2,CALL_GRAPH_NOT_EXPANDED,String sanitizer helper
+MethodRefactor,java_t4_merge_join_08,T4_WEAK,FULL,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_merge_join_08/left/__src/ExtractSanitizeJoin.java:20: error: cannot find symbol
+        if (!out.isEmpty()) {
+                ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse sanitizer helper
+MethodRefactor,java_t4_merge_join_08,T4_WEAK,FULL,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_merge_join_08/left/__src/ExtractSanitizeJoin.java:20: error: cannot find symbol
+        if (!out.isEmpty()) {
+                ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse sanitizer helper
+MethodRefactor,java_t4_merge_join_08,T4_WEAK,FULL,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_t4_merge_join_08/left/__src/ExtractSanitizeJoin.java:20: error: cannot find symbol
+        if (!out.isEmpty()) {
+                ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",MERGE_METHODS,L2,CALL_GRAPH_NOT_EXPANDED,Reverse sanitizer helper
+CallChain,java_t4_call_chain_01,T4_WEAK,MIXED,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3363,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Multiple internal helper calls
+CallChain,java_t4_call_chain_01,T4_WEAK,MIXED,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3373,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Multiple internal helper calls
+CallChain,java_t4_call_chain_01,T4_WEAK,MIXED,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3033,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Multiple internal helper calls
+CallChain,java_t4_call_chain_auth_02,T4_WEAK,MIXED,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3108,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Validate normalize check sequence
+CallChain,java_t4_call_chain_auth_02,T4_WEAK,MIXED,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3094,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Validate normalize check sequence
+CallChain,java_t4_call_chain_auth_02,T4_WEAK,MIXED,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3328,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Validate normalize check sequence
+CallChain,java_t4_call_chain_invoice_03,T4_WEAK,MIXED,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3454,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Subtotal tax discount helpers
+CallChain,java_t4_call_chain_invoice_03,T4_WEAK,MIXED,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3480,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Subtotal tax discount helpers
+CallChain,java_t4_call_chain_invoice_03,T4_WEAK,MIXED,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3681,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Subtotal tax discount helpers
+CallChain,java_t4_call_chain_text_04,T4_WEAK,MIXED,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,4112,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Normalize filter compact helpers
+CallChain,java_t4_call_chain_text_04,T4_WEAK,MIXED,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,4165,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Normalize filter compact helpers
+CallChain,java_t4_call_chain_text_04,T4_WEAK,MIXED,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3766,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Normalize filter compact helpers
+CallChain,java_t4_call_chain_risk_05,T4_WEAK,MIXED,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3634,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Several helper stages
+CallChain,java_t4_call_chain_risk_05,T4_WEAK,MIXED,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3648,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Several helper stages
+CallChain,java_t4_call_chain_risk_05,T4_WEAK,MIXED,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3638,success,,CALL_CHAIN_REFACTOR,L3,CALL_GRAPH_NOT_EXPANDED,Several helper stages
+SemanticDifficult,java_semantic_recursion_iteration_01,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3549,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Semantic equivalence is not proven statically
+SemanticDifficult,java_semantic_recursion_iteration_01,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3693,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Semantic equivalence is not proven statically
+SemanticDifficult,java_semantic_recursion_iteration_01,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3871,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Semantic equivalence is not proven statically
+SemanticDifficult,java_semantic_recursive_max_02,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,5547,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive max vs loop max
+SemanticDifficult,java_semantic_recursive_max_02,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3461,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive max vs loop max
+SemanticDifficult,java_semantic_recursive_max_02,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3154,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive max vs loop max
+SemanticDifficult,java_semantic_set_bool_03,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3035,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Set vs boolean array
+SemanticDifficult,java_semantic_set_bool_03,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,5021,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Set vs boolean array
+SemanticDifficult,java_semantic_set_bool_03,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3671,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Set vs boolean array
+SemanticDifficult,java_semantic_sort_stream_04,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3467,success,,API_EQUIVALENT_USAGE,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Loop sorting vs stream usage
+SemanticDifficult,java_semantic_sort_stream_04,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3373,success,,API_EQUIVALENT_USAGE,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Loop sorting vs stream usage
+SemanticDifficult,java_semantic_sort_stream_04,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3653,success,,API_EQUIVALENT_USAGE,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Loop sorting vs stream usage
+SemanticDifficult,java_semantic_loop_set_05,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3077,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Linear scan vs set lookup
+SemanticDifficult,java_semantic_loop_set_05,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3369,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Linear scan vs set lookup
+SemanticDifficult,java_semantic_loop_set_05,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,4022,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Linear scan vs set lookup
+SemanticDifficult,java_semantic_dfs_06,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3803,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive depth vs stack
+SemanticDifficult,java_semantic_dfs_06,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3731,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive depth vs stack
+SemanticDifficult,java_semantic_dfs_06,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,4300,success,,RECURSION_VS_ITERATION,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Recursive depth vs stack
+SemanticDifficult,java_semantic_reverse_07,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3628,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Two string reverse implementations
+SemanticDifficult,java_semantic_reverse_07,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3781,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Two string reverse implementations
+SemanticDifficult,java_semantic_reverse_07,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,4085,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Two string reverse implementations
+SemanticDifficult,java_semantic_count_08,INCONCLUSIVE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3680,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Map vs fixed array
+SemanticDifficult,java_semantic_count_08,INCONCLUSIVE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3706,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Map vs fixed array
+SemanticDifficult,java_semantic_count_08,INCONCLUSIVE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3483,success,,DATA_STRUCTURE_SWAP,L4,T4_WEAK_NOT_SEMANTIC_PROOF,Map vs fixed array
+NonClone,java_nonclone_01,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3452,success,,UNRELATED,L1,,Different problem domains
+NonClone,java_nonclone_01,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3620,success,,UNRELATED,L1,,Different problem domains
+NonClone,java_nonclone_01,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3745,success,,UNRELATED,L1,,Different problem domains
+NonClone,java_nonclone_api_overlap_02,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_nonclone_api_overlap_02/left/__src/ListPrinter.java:7: error: cannot find symbol
+            if (!out.isEmpty()) {
+                    ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Both use List but tasks differ
+NonClone,java_nonclone_api_overlap_02,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_nonclone_api_overlap_02/left/__src/ListPrinter.java:7: error: cannot find symbol
+            if (!out.isEmpty()) {
+                    ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Both use List but tasks differ
+NonClone,java_nonclone_api_overlap_02,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,0,failed,"/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/discovre-eval/java_nonclone_api_overlap_02/left/__src/ListPrinter.java:7: error: cannot find symbol
+            if (!out.isEmpty()) {
+                    ^
+  symbol:   method isEmpty()
+  location: variable out of type StringBuilder
+1 error",API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Both use List but tasks differ
+NonClone,java_nonclone_sorting_03,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3580,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Collections and maps in different tasks
+NonClone,java_nonclone_sorting_03,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3330,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Collections and maps in different tasks
+NonClone,java_nonclone_sorting_03,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3635,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Collections and maps in different tasks
+NonClone,java_nonclone_loop_04,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3387,success,,UNRELATED,L1,,Generic loops but unrelated output
+NonClone,java_nonclone_loop_04,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3188,success,,UNRELATED,L1,,Generic loops but unrelated output
+NonClone,java_nonclone_loop_04,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3306,success,,UNRELATED,L1,,Generic loops but unrelated output
+NonClone,java_nonclone_string_05,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3351,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,String APIs overlap
+NonClone,java_nonclone_string_05,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3196,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,String APIs overlap
+NonClone,java_nonclone_string_05,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3736,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,String APIs overlap
+NonClone,java_nonclone_numbers_06,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3901,success,,UNRELATED,L2,,Numeric loops have different meaning
+NonClone,java_nonclone_numbers_06,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3731,success,,UNRELATED,L2,,Numeric loops have different meaning
+NonClone,java_nonclone_numbers_06,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3610,success,,UNRELATED,L2,,Numeric loops have different meaning
+NonClone,java_nonclone_maps_07,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3515,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Map APIs overlap
+NonClone,java_nonclone_maps_07,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3716,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Map APIs overlap
+NonClone,java_nonclone_maps_07,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3496,success,,API_EQUIVALENT_USAGE,L2,THRESHOLDS_HEURISTIC,Map APIs overlap
+NonClone,java_nonclone_validation_08,NON_CLONE,UNKNOWN,DISCOVRE_NUMERIC,8,0,0.0,0.0,0.0,0.0,0,0,3494,success,,UNRELATED,L1,,Guard clauses but unrelated semantics
+NonClone,java_nonclone_validation_08,NON_CLONE,UNKNOWN,RAW_HASH_BUCKET,8,0,0.0,0.0,0.0,0.0,0,0,3575,success,,UNRELATED,L1,,Guard clauses but unrelated semantics
+NonClone,java_nonclone_validation_08,NON_CLONE,UNKNOWN,HYBRID_NUMERIC_HASH,8,0,0.0,0.0,0.0,0.0,0,0,3375,success,,UNRELATED,L1,,Guard clauses but unrelated semantics

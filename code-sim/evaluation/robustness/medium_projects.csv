@@ -1,0 +1,6 @@
+project,repo,ref
+commons-lang,https://github.com/apache/commons-lang.git,
+commons-io,https://github.com/apache/commons-io.git,
+commons-codec,https://github.com/apache/commons-codec.git,
+gson,https://github.com/google/gson.git,
+jsoup,https://github.com/jhy/jsoup.git,

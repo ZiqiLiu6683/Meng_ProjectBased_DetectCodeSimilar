@@ -1,0 +1,7 @@
+project,pair_id,expected_type,expected_scope,view,top_k,method_count,avg_exhaustive_similarity,avg_constrained_similarity,avg_similarity_delta,avg_candidate_reduction,total_exhaustive_candidate_pairs,total_constrained_candidate_pairs,runtime_ms,status,error,transformation_tag,difficulty,limitation_tag,notes
+T1,java_t1_format_01,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,4256,success,,CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3229,success,,CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_format_01,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,2904,success,,CONTROL_FLOW_REORDER,L1,,Formatting and comments differ only
+T1,java_t1_comment_02,T1,FULL,DISCOVRE_NUMERIC,8,2,1.0,1.0,0.0,0.016666666666666663,36,35,3379,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
+T1,java_t1_comment_02,T1,FULL,RAW_HASH_BUCKET,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,3229,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
+T1,java_t1_comment_02,T1,FULL,HYBRID_NUMERIC_HASH,8,2,1.0,1.0,0.0,0.18333333333333335,36,25,2960,success,,CONTROL_FLOW_REORDER,L1,,Line and block comments added
