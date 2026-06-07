@@ -1,0 +1,12 @@
+package com.ziqi.codesim.next;
+
+public enum RegionTag {
+    EXACT_COPY,
+    RENAMING_DETECTED,
+    LITERAL_CHANGED,
+    TYPE_CHANGED,
+    STATEMENT_INSERTED,
+    STATEMENT_DELETED,
+    STATEMENT_MODIFIED,
+    POSSIBLE_SEMANTIC_RELATION
+}
