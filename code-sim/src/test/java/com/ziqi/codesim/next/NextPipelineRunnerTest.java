@@ -263,6 +263,115 @@ class NextPipelineRunnerTest {
                 .anyMatch(reason -> reason.equals("cfg_knn_candidate")));
     }
 
+    @Test
+    void aggregatesFileLevelSummaryFromRegionDecisions() {
+        String left = """
+                class A {
+                  int sum(int a, int b) {
+                    int total = a + b + 10;
+                    return total;
+                  }
+                }
+                """;
+        String right = """
+                class B {
+                  int add(int x, int y) {
+                    int result = x + y + 20;
+                    return result;
+                  }
+                }
+                """;
+
+        NextPipelineResult result = runner.run(left, right);
+
+        assertEquals(CloneRegionType.T2, result.fileSummary().dominantRegionType());
+        assertTrue(result.fileSummary().overallRelationship() == FileRelationship.FULL_FILE_T2
+                || result.fileSummary().overallRelationship() == FileRelationship.PARTIAL_T2);
+        assertTrue(result.fileSummary().matchedCoverageLeft() > 0.0);
+        assertTrue(result.fileSummary().matchedCoverageRight() > 0.0);
+        assertTrue(result.fileSummary().fileTags().contains(RegionTag.RENAMING_DETECTED));
+    }
+
+    @Test
+    void reportsMixedFileRelationshipWhenDifferentCloneTypesAppear() {
+        String left = """
+                class A {
+                  int exact(int a) {
+                    return a + 1;
+                  }
+
+                  int changed(int[] values) {
+                    int total = 0;
+                    for (int value : values) {
+                      total += value;
+                    }
+                    return total;
+                  }
+                }
+                """;
+        String right = """
+                class B {
+                  int exact(int a) {
+                    return a + 1;
+                  }
+
+                  int changed(int[] items) {
+                    int result = 0;
+                    for (int item : items) {
+                      if (item > 0) {
+                        result += item;
+                      }
+                    }
+                    return result;
+                  }
+                }
+                """;
+
+        NextPipelineResult result = runner.run(left, right);
+
+        assertEquals(FileRelationship.MIXED_CLONE_TYPES, result.fileSummary().overallRelationship());
+        assertTrue(result.fileSummary().regionTypeCounts().get(CloneRegionType.T1) > 0);
+        assertTrue(result.fileSummary().regionTypeCounts().get(CloneRegionType.T3) > 0);
+    }
+
+    @Test
+    void suppressesOverlappingAcceptedRegionsBeforeFileAggregation() {
+        String left = """
+                class A {
+                  int count(int[] values) {
+                    int total = 0;
+                    for (int value : values) {
+                      if (value > 0) {
+                        total += value;
+                      }
+                    }
+                    return total;
+                  }
+                }
+                """;
+        String right = """
+                class B {
+                  int count(int[] items) {
+                    int result = 0;
+                    for (int item : items) {
+                      if (item > 0) {
+                        result += item;
+                      }
+                    }
+                    return result;
+                  }
+                }
+                """;
+
+        NextPipelineResult result = runner.run(left, right);
+
+        assertTrue(result.regionSelectionSummary().acceptedRegionCount()
+                >= result.regionSelectionSummary().selectedRegionCount());
+        assertTrue(result.regionSelectionSummary().suppressedRegionCount() > 0);
+        assertTrue(result.fileSummary().regionTypeCoverage().values().stream()
+                .allMatch(value -> value <= 1.0));
+    }
+
     private RegionDecision bestDecision(String left, String right) {
         return runner.run(left, right).regionDecisions().stream()
                 .filter(d -> d.candidate().left().kind() == RegionKind.METHOD

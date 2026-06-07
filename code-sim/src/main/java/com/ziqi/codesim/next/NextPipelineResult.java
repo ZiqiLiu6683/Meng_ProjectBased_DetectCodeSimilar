@@ -6,6 +6,9 @@ public record NextPipelineResult(
         EvidencePackage evidencePackage,
         List<RegionCandidate> candidates,
         List<RankedRegionCandidate> rankedCandidates,
-        List<RegionDecision> regionDecisions
+        List<RegionDecision> regionDecisions,
+        List<RegionDecision> selectedRegionDecisions,
+        RegionSelectionSummary regionSelectionSummary,
+        FileCloneSummary fileSummary
 ) {
 }

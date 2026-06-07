@@ -7,6 +7,8 @@ public class NextPipelineRunner {
     private final NextCandidateDiscovery candidateDiscovery;
     private final CandidateMergerRanker candidateMergerRanker;
     private final NextRegionTypeRecognizer regionTypeRecognizer;
+    private final AcceptedRegionSelector acceptedRegionSelector;
+    private final FileLevelAggregator fileLevelAggregator;
 
     public NextPipelineRunner() {
         this(new NextEvidenceExtractor(),
@@ -27,6 +29,8 @@ public class NextPipelineRunner {
         this.candidateDiscovery = candidateDiscovery;
         this.candidateMergerRanker = new CandidateMergerRanker();
         this.regionTypeRecognizer = regionTypeRecognizer;
+        this.acceptedRegionSelector = new AcceptedRegionSelector();
+        this.fileLevelAggregator = new FileLevelAggregator();
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) {
@@ -37,6 +41,16 @@ public class NextPipelineRunner {
                 .map(RankedRegionCandidate::candidate)
                 .map(regionTypeRecognizer::decide)
                 .toList();
-        return new NextPipelineResult(evidencePackage, candidates, rankedCandidates, decisions);
+        SelectedRegionDecisions selected = acceptedRegionSelector.select(decisions);
+        FileCloneSummary fileSummary = fileLevelAggregator.aggregate(evidencePackage, selected.selectedDecisions());
+        return new NextPipelineResult(
+                evidencePackage,
+                candidates,
+                rankedCandidates,
+                decisions,
+                selected.selectedDecisions(),
+                selected.summary(),
+                fileSummary
+        );
     }
 }
