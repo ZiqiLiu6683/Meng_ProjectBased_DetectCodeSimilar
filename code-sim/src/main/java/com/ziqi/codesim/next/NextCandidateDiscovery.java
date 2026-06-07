@@ -2,12 +2,24 @@ package com.ziqi.codesim.next;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NextCandidateDiscovery {
     private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
+    private final List<CandidateSignalProvider> signalProviders;
+
+    public NextCandidateDiscovery() {
+        this(List.of());
+    }
+
+    public NextCandidateDiscovery(List<CandidateSignalProvider> signalProviders) {
+        this.signalProviders = List.copyOf(signalProviders);
+    }
 
     public List<RegionCandidate> discover(EvidencePackage evidencePackage) {
+        Map<CandidateKey, List<CandidateSource>> externalSources = externalSources(evidencePackage);
         List<RegionCandidate> candidates = new ArrayList<>();
         int id = 1;
         for (CodeRegion left : evidencePackage.leftRegions()) {
@@ -15,13 +27,17 @@ public class NextCandidateDiscovery {
                 if (!comparable(left, right)) {
                     continue;
                 }
-                List<CandidateSource> sources = sources(left, right);
+                List<CandidateSource> sources = new ArrayList<>(sources(left, right));
+                sources.addAll(externalSources.getOrDefault(
+                        new CandidateKey(left.regionId(), right.regionId()),
+                        List.of()
+                ));
                 if (!sources.isEmpty()) {
                     candidates.add(new RegionCandidate(
                             "C" + id++,
                             left,
                             right,
-                            sources
+                            List.copyOf(sources)
                     ));
                 }
             }
@@ -31,6 +47,18 @@ public class NextCandidateDiscovery {
                         .thenComparing(c -> c.left().regionId())
                         .thenComparing(c -> c.right().regionId()))
                 .toList();
+    }
+
+    private Map<CandidateKey, List<CandidateSource>> externalSources(EvidencePackage evidencePackage) {
+        Map<CandidateKey, List<CandidateSource>> sources = new HashMap<>();
+        for (CandidateSignalProvider provider : signalProviders) {
+            for (CandidateSignal signal : provider.findSignals(evidencePackage)) {
+                CandidateKey key = new CandidateKey(signal.leftRegionId(), signal.rightRegionId());
+                sources.computeIfAbsent(key, ignored -> new ArrayList<>())
+                        .add(new CandidateSource(signal.channel(), signal.score()));
+            }
+        }
+        return sources;
     }
 
     private static boolean comparable(CodeRegion left, CodeRegion right) {
@@ -74,5 +102,8 @@ public class NextCandidateDiscovery {
                 .mapToDouble(CandidateSource::score)
                 .max()
                 .orElse(0.0);
+    }
+
+    private record CandidateKey(String leftRegionId, String rightRegionId) {
     }
 }

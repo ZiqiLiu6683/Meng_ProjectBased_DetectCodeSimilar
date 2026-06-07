@@ -19,6 +19,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class NextEvidenceExtractor {
+    private static final int MAX_STATEMENT_WINDOW_SIZE = 6;
+    private static final int MAX_STATEMENT_WINDOWS_PER_METHOD = 80;
+
     private static final Set<String> JAVA_KEYWORDS = Set.of(
             "abstract", "assert", "boolean", "break", "byte", "case", "catch",
             "char", "class", "const", "continue", "default", "do", "double",
@@ -55,15 +58,92 @@ public class NextEvidenceExtractor {
             String idPrefix = side.name().toLowerCase() + ":method:" + key + "#" + index;
             String displayName = key;
             regions.add(region(idPrefix, side, RegionKind.METHOD, displayName, method));
-            method.getBody().ifPresent(body -> regions.add(region(
-                    idPrefix + ":body",
-                    side,
-                    RegionKind.METHOD_BODY_REGION,
-                    displayName + " body",
-                    body
-            )));
+            method.getBody().ifPresent(body -> {
+                regions.add(region(
+                        idPrefix + ":body",
+                        side,
+                        RegionKind.METHOD_BODY_REGION,
+                        displayName + " body",
+                        body
+                ));
+                addStatementWindowRegions(regions, idPrefix, side, displayName, method);
+                addBlockSequenceRegions(regions, idPrefix, side, displayName, method);
+                addControlRegions(regions, idPrefix, side, displayName, method);
+            });
         }
         return List.copyOf(regions);
+    }
+
+    private static void addStatementWindowRegions(List<CodeRegion> regions,
+                                                  String idPrefix,
+                                                  RegionSide side,
+                                                  String displayName,
+                                                  MethodDeclaration method) {
+        List<Statement> statements = nonBlockStatements(method);
+        int created = 0;
+        for (int size = 2; size <= Math.min(MAX_STATEMENT_WINDOW_SIZE, statements.size()); size++) {
+            for (int start = 0; start + size <= statements.size(); start++) {
+                if (created >= MAX_STATEMENT_WINDOWS_PER_METHOD) {
+                    return;
+                }
+                List<Statement> window = statements.subList(start, start + size);
+                regions.add(regionFromStatements(
+                        idPrefix + ":stmt-window:" + start + ":" + size,
+                        side,
+                        RegionKind.STATEMENT_WINDOW_REGION,
+                        displayName + " statements " + (start + 1) + "-" + (start + size),
+                        window
+                ));
+                created++;
+            }
+        }
+    }
+
+    private static void addBlockSequenceRegions(List<CodeRegion> regions,
+                                                String idPrefix,
+                                                RegionSide side,
+                                                String displayName,
+                                                MethodDeclaration method) {
+        List<BlockStmt> blocks = method.findAll(BlockStmt.class);
+        int blockIndex = 0;
+        for (BlockStmt block : blocks) {
+            List<Statement> statements = block.getStatements().stream()
+                    .filter(s -> !(s instanceof BlockStmt))
+                    .toList();
+            if (statements.size() < 2) {
+                blockIndex++;
+                continue;
+            }
+            regions.add(regionFromStatements(
+                    idPrefix + ":block-sequence:" + blockIndex,
+                    side,
+                    RegionKind.BLOCK_SEQUENCE_REGION,
+                    displayName + " block sequence " + blockIndex,
+                    statements
+            ));
+            blockIndex++;
+        }
+    }
+
+    private static void addControlRegions(List<CodeRegion> regions,
+                                          String idPrefix,
+                                          RegionSide side,
+                                          String displayName,
+                                          MethodDeclaration method) {
+        int index = 0;
+        for (Statement statement : nonBlockStatements(method)) {
+            if (!isControlStatement(statement)) {
+                continue;
+            }
+            regions.add(region(
+                    idPrefix + ":control:" + index,
+                    side,
+                    RegionKind.CONTROL_REGION,
+                    displayName + " " + statement.getClass().getSimpleName() + " " + index,
+                    statement
+            ));
+            index++;
+        }
     }
 
     private static CodeRegion region(String id, RegionSide side, RegionKind kind,
@@ -98,6 +178,70 @@ public class NextEvidenceExtractor {
                 statementTexts,
                 normalizedStatementTexts
         );
+    }
+
+    private static CodeRegion regionFromStatements(String id,
+                                                   RegionSide side,
+                                                   RegionKind kind,
+                                                   String displayName,
+                                                   List<Statement> statements) {
+        List<String> rawTokens = new ArrayList<>();
+        List<String> t1Tokens = new ArrayList<>();
+        List<String> t2Tokens = new ArrayList<>();
+        List<String> statementTexts = new ArrayList<>();
+        List<String> normalizedStatementTexts = new ArrayList<>();
+        for (Statement statement : statements) {
+            rawTokens.addAll(tokens(statement, TokenView.RAW));
+            t1Tokens.addAll(tokens(statement, TokenView.T1));
+            t2Tokens.addAll(tokens(statement, TokenView.T2));
+            String statementText = String.join(" ", tokens(statement, TokenView.T1));
+            if (!statementText.isBlank()) {
+                statementTexts.add(statementText);
+            }
+            String normalizedStatementText = String.join(" ", tokens(statement, TokenView.T2));
+            if (!normalizedStatementText.isBlank()) {
+                normalizedStatementTexts.add(normalizedStatementText);
+            }
+        }
+        int beginLine = statements.stream()
+                .flatMap(s -> s.getRange().stream())
+                .mapToInt(r -> r.begin.line)
+                .min()
+                .orElse(-1);
+        int endLine = statements.stream()
+                .flatMap(s -> s.getRange().stream())
+                .mapToInt(r -> r.end.line)
+                .max()
+                .orElse(-1);
+        return new CodeRegion(
+                id,
+                side,
+                kind,
+                displayName,
+                beginLine,
+                endLine,
+                List.copyOf(rawTokens),
+                List.copyOf(t1Tokens),
+                List.copyOf(t2Tokens),
+                List.copyOf(statementTexts),
+                List.copyOf(normalizedStatementTexts)
+        );
+    }
+
+    private static List<Statement> nonBlockStatements(Node node) {
+        return node.findAll(Statement.class).stream()
+                .filter(s -> !(s instanceof BlockStmt))
+                .toList();
+    }
+
+    private static boolean isControlStatement(Statement statement) {
+        return statement.isIfStmt()
+                || statement.isForStmt()
+                || statement.isForEachStmt()
+                || statement.isWhileStmt()
+                || statement.isDoStmt()
+                || statement.isSwitchStmt()
+                || statement.isTryStmt();
     }
 
     private static List<String> tokens(Node node, TokenView view) {

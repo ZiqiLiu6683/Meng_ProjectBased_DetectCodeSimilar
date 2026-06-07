@@ -5,6 +5,7 @@ import java.util.List;
 public record NextPipelineResult(
         EvidencePackage evidencePackage,
         List<RegionCandidate> candidates,
+        List<RankedRegionCandidate> rankedCandidates,
         List<RegionDecision> regionDecisions
 ) {
 }
