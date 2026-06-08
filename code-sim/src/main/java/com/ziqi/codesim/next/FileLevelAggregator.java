@@ -20,22 +20,29 @@ public class FileLevelAggregator {
                 .toList();
 
         Map<CloneRegionType, Integer> typeCounts = initCounts();
-        Map<CloneRegionType, Double> typeCoverage = initCoverage();
+        Map<CloneRegionType, Set<Integer>> coveredLeftLinesByType = initLineSets();
+        Map<CloneRegionType, Set<Integer>> coveredRightLinesByType = initLineSets();
         Set<RegionTag> fileTags = EnumSet.noneOf(RegionTag.class);
         Set<Integer> coveredLeftLines = new HashSet<>();
         Set<Integer> coveredRightLines = new HashSet<>();
 
         for (RegionDecision decision : cloneDecisions) {
             typeCounts.merge(decision.type(), 1, Integer::sum);
-            double coverageShare = regionCoverageShare(decision, leftFile, rightFile);
-            typeCoverage.merge(decision.type(), coverageShare, Double::sum);
             fileTags.addAll(decision.tags());
             addLines(coveredLeftLines, decision.candidate().left());
             addLines(coveredRightLines, decision.candidate().right());
+            addLines(coveredLeftLinesByType.get(decision.type()), decision.candidate().left());
+            addLines(coveredRightLinesByType.get(decision.type()), decision.candidate().right());
         }
 
         double matchedCoverageLeft = lineCoverage(coveredLeftLines, leftFile);
         double matchedCoverageRight = lineCoverage(coveredRightLines, rightFile);
+        Map<CloneRegionType, Double> typeCoverage = typeCoverage(
+                coveredLeftLinesByType,
+                coveredRightLinesByType,
+                leftFile,
+                rightFile
+        );
         double unrelatedCodeRatio = 1.0 - Math.min(matchedCoverageLeft, matchedCoverageRight);
         CloneRegionType dominantType = dominantType(typeCoverage);
         FileRelationship relationship = relationship(
@@ -137,12 +144,26 @@ public class FileLevelAggregator {
         return coverage;
     }
 
-    private static double regionCoverageShare(RegionDecision decision,
-                                              CodeRegion leftFile,
-                                              CodeRegion rightFile) {
-        double left = regionLineSpan(decision.candidate().left()) / Math.max(1.0, regionLineSpan(leftFile));
-        double right = regionLineSpan(decision.candidate().right()) / Math.max(1.0, regionLineSpan(rightFile));
-        return Math.min(1.0, Math.max(left, right));
+    private static Map<CloneRegionType, Set<Integer>> initLineSets() {
+        Map<CloneRegionType, Set<Integer>> lines = new EnumMap<>(CloneRegionType.class);
+        for (CloneRegionType type : CloneRegionType.values()) {
+            lines.put(type, new HashSet<>());
+        }
+        return lines;
+    }
+
+    private static Map<CloneRegionType, Double> typeCoverage(
+            Map<CloneRegionType, Set<Integer>> coveredLeftLinesByType,
+            Map<CloneRegionType, Set<Integer>> coveredRightLinesByType,
+            CodeRegion leftFile,
+            CodeRegion rightFile) {
+        Map<CloneRegionType, Double> coverage = initCoverage();
+        for (CloneRegionType type : CloneRegionType.values()) {
+            double left = lineCoverage(coveredLeftLinesByType.get(type), leftFile);
+            double right = lineCoverage(coveredRightLinesByType.get(type), rightFile);
+            coverage.put(type, Math.max(left, right));
+        }
+        return coverage;
     }
 
     private static void addLines(Set<Integer> covered, CodeRegion region) {
