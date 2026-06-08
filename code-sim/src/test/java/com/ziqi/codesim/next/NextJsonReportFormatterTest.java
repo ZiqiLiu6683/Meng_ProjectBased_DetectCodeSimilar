@@ -36,6 +36,13 @@ class NextJsonReportFormatterTest {
         String json = new NextJsonReportFormatter().format(result);
 
         assertTrue(json.contains("\"fileSummary\""));
+        assertTrue(json.contains("\"inspectionPriority\""));
+        assertTrue(json.contains("\"relationshipShape\""));
+        assertTrue(json.contains("\"affectedContent\""));
+        assertTrue(json.contains("\"leftRatio\""));
+        assertTrue(json.contains("\"rightRatio\""));
+        assertTrue(json.contains("\"evidenceBreakdown\""));
+        assertTrue(json.contains("\"regionCount\""));
         assertTrue(json.contains("\"overallRelationship\""));
         assertTrue(json.contains("\"regions\""));
         assertTrue(json.contains("\"decisionPath\""));

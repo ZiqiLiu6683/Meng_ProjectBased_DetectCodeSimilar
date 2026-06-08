@@ -293,23 +293,94 @@ not a mathematical proof.
 
 ## Stage 5: File-level Aggregation
 
-Stage 5 summarizes region-level results into a file-level relationship. It
-does not overwrite individual region decisions.
+Stage 5 summarizes region-level results into a file-level evidence report. It
+does not overwrite individual region decisions, and it should not force the
+whole file pair into one fixed clone type. A file pair can contain exact,
+renamed, edited, helper-related, and unrelated regions at the same time.
 
 File-level metrics:
 
 | Metric | Meaning |
 | --- | --- |
-| `matchedCoverageLeft` | Fraction of left file covered by clone regions. |
-| `matchedCoverageRight` | Fraction of right file covered by clone regions. |
-| `dominantRegionType` | Highest-coverage/highest-priority region type. |
-| `regionTypeDistribution` | Count and coverage of T1/T2/T3/T4/NON_CLONE regions. |
-| `mixedTypeSummary` | Whether multiple clone types appear. |
-| `helperExtractionSummary` | Whether call-expanded matches were found. |
-| `unrelatedCodeRatio` | Code not covered by accepted clone regions. |
-| `overallRelationship` | User-facing file-pair relation. |
+| `affectedContent.leftRatio` | Fraction of left file lines covered by selected clone-like regions. |
+| `affectedContent.rightRatio` | Fraction of right file lines covered by selected clone-like regions. |
+| `evidenceBreakdown` | List of region types with region count and affected-content coverage. |
+| `relationshipShape` | Shape of the match: full, partial, embedded, local-only, or none. |
+| `inspectionPriority` | User-facing priority for manual inspection; not a clone type. |
+| `tags` | File-level union of region tags such as rename, literal change, statement edit. |
+| `dominantEvidenceType` | Compatibility/debug field for the highest-coverage evidence type. |
+| `legacyRelationship` | Compatibility/debug field for the previous broad file relationship. |
 
-Suggested file-level relationships:
+Affected content is computed with unique source lines, so overlapping selected
+regions are not counted twice:
+
+```text
+affectedLeftRatio(type)
+= unique left lines covered by selected regions of this type
+  / total left file lines
+
+affectedRightRatio(type)
+= unique right lines covered by selected regions of this type
+  / total right file lines
+```
+
+The overall affected content uses the same formula across all selected
+clone-like regions.
+
+Evidence breakdown example:
+
+```json
+"evidenceBreakdown": [
+  {
+    "type": "T2",
+    "regionCount": 13,
+    "affectedLeftRatio": 0.81,
+    "affectedRightRatio": 0.80
+  },
+  {
+    "type": "T3",
+    "regionCount": 2,
+    "affectedLeftRatio": 0.19,
+    "affectedRightRatio": 0.22
+  }
+]
+```
+
+Relationship shape:
+
+| Shape | Meaning |
+| --- | --- |
+| `FULL_OVERLAP` | Both files have high affected content with at least one complete comparable unit. |
+| `PARTIAL_OVERLAP` | Both files have meaningful affected content, but not full-file overlap. |
+| `LEFT_EMBEDDED_IN_RIGHT` | Most of the left file appears inside part of the right file. |
+| `RIGHT_EMBEDDED_IN_LEFT` | Most of the right file appears inside part of the left file. |
+| `LOCAL_SIMILARITIES_ONLY` | Similarities are mostly local fragments, not a coherent complete unit. |
+| `NO_SIGNIFICANT_OVERLAP` | No selected clone-like evidence with meaningful coverage. |
+
+Complete comparable units include file, method, method body, and
+call-expanded regions. Local statement windows and small block sequences are
+still reported, but they should not by themselves turn the file summary into a
+full or embedded relationship.
+
+Inspection priority:
+
+| Priority | Meaning |
+| --- | --- |
+| `HIGH` | Strong full or embedded evidence; inspect early. |
+| `MEDIUM` | Partial or broad local evidence; inspect selected regions. |
+| `LOW` | Local similarities exist, but evidence is weak or scattered. |
+| `NONE` | No meaningful clone-like evidence. |
+
+Important rule:
+
+```text
+Do not discard a candidate only because it is small or common.
+Instead, keep it as region-level evidence and reduce only its file-level
+interpretation when it is isolated and not part of a complete comparable unit.
+```
+
+Legacy file-level relationships can remain in JSON for compatibility and
+debugging:
 
 ```text
 FULL_FILE_T1

@@ -110,21 +110,22 @@ def write_summary(summary_path, output_path, rows):
         "",
         "## By Expected Type",
         "",
-        "| Expected | Count | Strict Pass | Dominant Types | Relationships | Avg Coverage L/R | Avg Selected Regions |",
-        "| --- | ---: | ---: | --- | --- | --- | ---: |",
+        "| Expected | Count | Strict Pass | Inspection Priorities | Relationship Shapes | Dominant Types | Avg Affected L/R | Avg Selected Regions |",
+        "| --- | ---: | ---: | --- | --- | --- | --- | ---: |",
     ]
 
     for expected_type in sorted(by_expected):
         group = by_expected[expected_type]
         dominant = Counter(row["dominant_region_type"] for row in group)
-        relationships = Counter(row["overall_relationship"] for row in group)
+        priorities = Counter(row["inspection_priority"] for row in group)
+        shapes = Counter(row["relationship_shape"] for row in group)
         strict_pass = sum(row["type_match_status"] == "True" for row in group)
         avg_left = sum(float(row["matched_coverage_left"]) for row in group) / len(group)
         avg_right = sum(float(row["matched_coverage_right"]) for row in group) / len(group)
         avg_selected = sum(int(row["selected_region_count"]) for row in group) / len(group)
         lines.append(
             f"| {expected_type} | {len(group)} | {strict_pass} | "
-            f"{dict(dominant)} | {dict(relationships)} | "
+            f"{dict(priorities)} | {dict(shapes)} | {dict(dominant)} | "
             f"{avg_left:.2f}/{avg_right:.2f} | {avg_selected:.1f} |"
         )
 
@@ -132,15 +133,16 @@ def write_summary(summary_path, output_path, rows):
         "",
         "## Rows Needing Inspection",
         "",
-        "| Pair | Expected | Relationship | Dominant | Coverage L/R | Tags | First Regions |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Pair | Expected | Priority | Shape | Dominant | Affected L/R | Tags | First Regions |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ])
     for row in rows:
         if row["type_match_status"] == "True":
             continue
         lines.append(
-            f"| {row['pair_id']} | {row['expected_type']} | {row['overall_relationship']} | "
-            f"{row['dominant_region_type']} | {float(row['matched_coverage_left']):.2f}/"
+            f"| {row['pair_id']} | {row['expected_type']} | {row['inspection_priority']} | "
+            f"{row['relationship_shape']} | {row['dominant_region_type']} | "
+            f"{float(row['matched_coverage_left']):.2f}/"
             f"{float(row['matched_coverage_right']):.2f} | {row['file_tags']} | "
             f"{row['first_regions']} |"
         )
@@ -169,6 +171,8 @@ def main():
         "expected_type",
         "type_match_status",
         "expected_scope",
+        "inspection_priority",
+        "relationship_shape",
         "overall_relationship",
         "dominant_region_type",
         "matched_coverage_left",
@@ -221,6 +225,8 @@ def main():
                     summary["overallRelationship"],
                 ),
                 "expected_scope": row["expected_scope"],
+                "inspection_priority": summary.get("inspectionPriority", ""),
+                "relationship_shape": summary.get("relationshipShape", ""),
                 "overall_relationship": summary["overallRelationship"],
                 "dominant_region_type": summary["dominantRegionType"],
                 "matched_coverage_left": summary["matchedCoverageLeft"],

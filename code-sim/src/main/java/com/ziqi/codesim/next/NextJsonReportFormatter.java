@@ -42,6 +42,10 @@ public class NextJsonReportFormatter {
 
     private static void appendFileSummary(StringBuilder out, FileCloneSummary summary, int level) {
         indent(out, level).append("\"fileSummary\": {\n");
+        field(out, level + 1, "inspectionPriority", summary.inspectionPriority().name(), true);
+        field(out, level + 1, "relationshipShape", summary.relationshipShape().name(), true);
+        appendAffectedContent(out, level + 1, summary, true);
+        appendEvidenceBreakdown(out, level + 1, summary.evidenceBreakdown(), true);
         field(out, level + 1, "overallRelationship", summary.overallRelationship().name(), true);
         field(out, level + 1, "dominantRegionType", summary.dominantRegionType().name(), true);
         field(out, level + 1, "matchedCoverageLeft", summary.matchedCoverageLeft(), true);
@@ -52,6 +56,42 @@ public class NextJsonReportFormatter {
         appendStringArray(out, level + 1, "fileTags",
                 summary.fileTags().stream().map(Enum::name).sorted().toList(), false);
         indent(out, level).append('}');
+    }
+
+    private static void appendAffectedContent(StringBuilder out, int level,
+                                              FileCloneSummary summary, boolean comma) {
+        indent(out, level).append("\"affectedContent\": {\n");
+        field(out, level + 1, "leftRatio", summary.matchedCoverageLeft(), true);
+        field(out, level + 1, "rightRatio", summary.matchedCoverageRight(), false);
+        indent(out, level).append('}');
+        if (comma) {
+            out.append(',');
+        }
+        out.append('\n');
+    }
+
+    private static void appendEvidenceBreakdown(StringBuilder out, int level,
+                                                List<EvidenceBreakdown> evidenceBreakdown,
+                                                boolean comma) {
+        indent(out, level).append("\"evidenceBreakdown\": [\n");
+        for (int i = 0; i < evidenceBreakdown.size(); i++) {
+            EvidenceBreakdown breakdown = evidenceBreakdown.get(i);
+            indent(out, level + 1).append("{\n");
+            field(out, level + 2, "type", breakdown.type().name(), true);
+            field(out, level + 2, "regionCount", breakdown.regionCount(), true);
+            field(out, level + 2, "affectedLeftRatio", breakdown.affectedLeftRatio(), true);
+            field(out, level + 2, "affectedRightRatio", breakdown.affectedRightRatio(), false);
+            indent(out, level + 1).append('}');
+            if (i + 1 < evidenceBreakdown.size()) {
+                out.append(',');
+            }
+            out.append('\n');
+        }
+        indent(out, level).append(']');
+        if (comma) {
+            out.append(',');
+        }
+        out.append('\n');
     }
 
     private static void appendRegion(StringBuilder out, RegionDecision decision, int level) {

@@ -2,6 +2,7 @@ package com.ziqi.codesim.next;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +52,34 @@ public class FileLevelAggregator {
                 matchedCoverageLeft,
                 matchedCoverageRight
         );
+        RelationshipShape relationshipShape = relationshipShape(
+                cloneDecisions,
+                matchedCoverageLeft,
+                matchedCoverageRight
+        );
+        InspectionPriority inspectionPriority = inspectionPriority(
+                relationshipShape,
+                cloneDecisions,
+                matchedCoverageLeft,
+                matchedCoverageRight
+        );
+        List<EvidenceBreakdown> evidenceBreakdown = evidenceBreakdown(
+                typeCounts,
+                coveredLeftLinesByType,
+                coveredRightLinesByType,
+                leftFile,
+                rightFile
+        );
 
         return new FileCloneSummary(
                 relationship,
                 dominantType,
+                relationshipShape,
+                inspectionPriority,
                 matchedCoverageLeft,
                 matchedCoverageRight,
                 unrelatedCodeRatio,
+                List.copyOf(evidenceBreakdown),
                 Map.copyOf(typeCounts),
                 Map.copyOf(typeCoverage),
                 Set.copyOf(fileTags)
@@ -101,6 +123,70 @@ public class FileLevelAggregator {
             };
         }
         return FileRelationship.MOSTLY_NON_CLONE;
+    }
+
+    private static RelationshipShape relationshipShape(List<RegionDecision> cloneDecisions,
+                                                       double coverageLeft,
+                                                       double coverageRight) {
+        if (cloneDecisions.isEmpty() || Math.max(coverageLeft, coverageRight) < PARTIAL_COVERAGE_THRESHOLD) {
+            return RelationshipShape.NO_SIGNIFICANT_OVERLAP;
+        }
+        boolean hasCompleteUnit = cloneDecisions.stream()
+                .anyMatch(FileLevelAggregator::hasCompleteComparableUnit);
+        if (!hasCompleteUnit) {
+            return RelationshipShape.LOCAL_SIMILARITIES_ONLY;
+        }
+        if (coverageLeft >= FULL_COVERAGE_THRESHOLD && coverageRight >= FULL_COVERAGE_THRESHOLD) {
+            return RelationshipShape.FULL_OVERLAP;
+        }
+        if (coverageLeft >= FULL_COVERAGE_THRESHOLD && coverageRight >= PARTIAL_COVERAGE_THRESHOLD) {
+            return RelationshipShape.LEFT_EMBEDDED_IN_RIGHT;
+        }
+        if (coverageRight >= FULL_COVERAGE_THRESHOLD && coverageLeft >= PARTIAL_COVERAGE_THRESHOLD) {
+            return RelationshipShape.RIGHT_EMBEDDED_IN_LEFT;
+        }
+        if (coverageLeft >= PARTIAL_COVERAGE_THRESHOLD && coverageRight >= PARTIAL_COVERAGE_THRESHOLD) {
+            return RelationshipShape.PARTIAL_OVERLAP;
+        }
+        return RelationshipShape.LOCAL_SIMILARITIES_ONLY;
+    }
+
+    private static InspectionPriority inspectionPriority(RelationshipShape relationshipShape,
+                                                         List<RegionDecision> cloneDecisions,
+                                                         double coverageLeft,
+                                                         double coverageRight) {
+        if (relationshipShape == RelationshipShape.NO_SIGNIFICANT_OVERLAP || cloneDecisions.isEmpty()) {
+            return InspectionPriority.NONE;
+        }
+        if (relationshipShape == RelationshipShape.LOCAL_SIMILARITIES_ONLY) {
+            return Math.max(coverageLeft, coverageRight) >= FULL_COVERAGE_THRESHOLD
+                    ? InspectionPriority.MEDIUM
+                    : InspectionPriority.LOW;
+        }
+        double minCoverage = Math.min(coverageLeft, coverageRight);
+        if (relationshipShape == RelationshipShape.FULL_OVERLAP && minCoverage >= FULL_COVERAGE_THRESHOLD) {
+            return InspectionPriority.HIGH;
+        }
+        if (relationshipShape == RelationshipShape.LEFT_EMBEDDED_IN_RIGHT
+                || relationshipShape == RelationshipShape.RIGHT_EMBEDDED_IN_LEFT) {
+            return InspectionPriority.HIGH;
+        }
+        if (minCoverage >= PARTIAL_COVERAGE_THRESHOLD) {
+            return InspectionPriority.MEDIUM;
+        }
+        return InspectionPriority.LOW;
+    }
+
+    private static boolean hasCompleteComparableUnit(RegionDecision decision) {
+        return isCompleteComparableUnit(decision.candidate().left().kind())
+                || isCompleteComparableUnit(decision.candidate().right().kind());
+    }
+
+    private static boolean isCompleteComparableUnit(RegionKind kind) {
+        return kind == RegionKind.FILE
+                || kind == RegionKind.METHOD
+                || kind == RegionKind.METHOD_BODY_REGION
+                || kind == RegionKind.CALL_EXPANDED_REGION;
     }
 
     private static int acceptedTypeCount(Map<CloneRegionType, Integer> typeCounts) {
@@ -164,6 +250,29 @@ public class FileLevelAggregator {
             coverage.put(type, Math.max(left, right));
         }
         return coverage;
+    }
+
+    private static List<EvidenceBreakdown> evidenceBreakdown(
+            Map<CloneRegionType, Integer> typeCounts,
+            Map<CloneRegionType, Set<Integer>> coveredLeftLinesByType,
+            Map<CloneRegionType, Set<Integer>> coveredRightLinesByType,
+            CodeRegion leftFile,
+            CodeRegion rightFile) {
+        return typeCounts.entrySet().stream()
+                .filter(entry -> entry.getKey() != CloneRegionType.NON_CLONE)
+                .filter(entry -> entry.getValue() > 0)
+                .map(entry -> new EvidenceBreakdown(
+                        entry.getKey(),
+                        entry.getValue(),
+                        lineCoverage(coveredLeftLinesByType.get(entry.getKey()), leftFile),
+                        lineCoverage(coveredRightLinesByType.get(entry.getKey()), rightFile)
+                ))
+                .sorted(Comparator
+                        .comparingDouble((EvidenceBreakdown breakdown) ->
+                                Math.max(breakdown.affectedLeftRatio(), breakdown.affectedRightRatio()))
+                        .reversed()
+                        .thenComparing(breakdown -> breakdown.type().name()))
+                .toList();
     }
 
     private static void addLines(Set<Integer> covered, CodeRegion region) {

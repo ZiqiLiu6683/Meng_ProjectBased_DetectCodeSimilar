@@ -287,8 +287,15 @@ class NextPipelineRunnerTest {
         assertEquals(CloneRegionType.T2, result.fileSummary().dominantRegionType());
         assertTrue(result.fileSummary().overallRelationship() == FileRelationship.FULL_FILE_T2
                 || result.fileSummary().overallRelationship() == FileRelationship.PARTIAL_T2);
+        assertEquals(RelationshipShape.FULL_OVERLAP, result.fileSummary().relationshipShape());
+        assertEquals(InspectionPriority.HIGH, result.fileSummary().inspectionPriority());
         assertTrue(result.fileSummary().matchedCoverageLeft() > 0.0);
         assertTrue(result.fileSummary().matchedCoverageRight() > 0.0);
+        assertTrue(result.fileSummary().evidenceBreakdown().stream()
+                .anyMatch(breakdown -> breakdown.type() == CloneRegionType.T2
+                        && breakdown.regionCount() > 0
+                        && breakdown.affectedLeftRatio() > 0.0
+                        && breakdown.affectedRightRatio() > 0.0));
         assertTrue(result.fileSummary().fileTags().contains(RegionTag.RENAMING_DETECTED));
     }
 
