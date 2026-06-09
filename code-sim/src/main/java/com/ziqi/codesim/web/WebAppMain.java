@@ -5,15 +5,25 @@ import com.sun.net.httpserver.HttpServer;
 import com.ziqi.codesim.pipeline.FullPipelineResult;
 import com.ziqi.codesim.pipeline.JsonReportFormatter;
 import com.ziqi.codesim.pipeline.PipelineRunner;
+import com.ziqi.codesim.next.NextJsonReportFormatter;
+import com.ziqi.codesim.next.NextPipelineResult;
+import com.ziqi.codesim.next.NextPipelineRunner;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 public class WebAppMain {
     public static void main(String[] args) throws Exception {
@@ -81,6 +91,23 @@ public class WebAppMain {
             String sourceB = form.getOrDefault("sourceB", "");
             String fileA = form.getOrDefault("fileA", "A.java");
             String fileB = form.getOrDefault("fileB", "B.java");
+            String mode = form.getOrDefault("mode", "ast");
+
+            if ("next".equalsIgnoreCase(mode)) {
+                NextPipelineResult result = new NextPipelineRunner().run(sourceA, sourceB);
+                String inner = new NextJsonReportFormatter().format(result);
+                String walaCfg = buildWalaCfgJson(sourceA, sourceB, fileA, fileB);
+                String json = "{\n"
+                        + "  \"schemaVersion\": \"next-pipeline-live-1.0\",\n"
+                        + "  \"mode\": \"Evidence-first\",\n"
+                        + "  \"fileA\": \"" + escapeJson(fileA) + "\",\n"
+                        + "  \"fileB\": \"" + escapeJson(fileB) + "\",\n"
+                        + "  \"walaCfg\": " + walaCfg + ",\n"
+                        + "  \"nextPipeline\": " + inner
+                        + "}\n";
+                send(exchange, 200, "application/json; charset=utf-8", json);
+                return;
+            }
 
             FullPipelineResult result = new PipelineRunner().runFull(sourceA, sourceB);
             String json = new JsonReportFormatter().format(result, fileA, fileB);
@@ -122,6 +149,194 @@ public class WebAppMain {
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
                 .replace("\r", "\\r");
+    }
+
+    private static String buildWalaCfgJson(String sourceA, String sourceB, String fileA, String fileB) {
+        try {
+            Class<?> extractorClass = Class.forName(
+                    "com.ziqi.codesim.semantic.backend.wala.raw.WalaRawSnapshotExtractor");
+            Object extractor = extractorClass.getDeclaredConstructor().newInstance();
+            Path temp = Files.createTempDirectory("code-sim-web-wala-");
+            try {
+                Object left = compileAndExtractWala(extractor, sourceA, fileA, temp.resolve("left"));
+                Object right = compileAndExtractWala(extractor, sourceB, fileB, temp.resolve("right"));
+                return "{"
+                        + "\"available\":true,"
+                        + "\"source\":\"WALA raw CFG\","
+                        + "\"left\":" + rawProgramJson(left, fileA) + ","
+                        + "\"right\":" + rawProgramJson(right, fileB)
+                        + "}";
+            } finally {
+                deleteDirectory(temp);
+            }
+        } catch (ClassNotFoundException ex) {
+            return unavailableWalaCfgJson("WALA semantic backend is not on this runtime classpath. "
+                    + "Run the web app with the semantic-analysis profile to enable true WALA CFG output.");
+        } catch (Exception ex) {
+            return unavailableWalaCfgJson("WALA CFG extraction failed: " + rootMessage(ex));
+        }
+    }
+
+    private static Object compileAndExtractWala(Object extractor, String source, String fileName, Path workDir)
+            throws Exception {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            throw new IllegalStateException("JDK compiler is not available");
+        }
+        Path sourceDir = workDir.resolve("src");
+        Path classDir = workDir.resolve("classes");
+        Files.createDirectories(sourceDir);
+        Files.createDirectories(classDir);
+        Path sourceFile = sourceDir.resolve(safeJavaFileName(fileName));
+        Files.writeString(sourceFile, source == null ? "" : source, StandardCharsets.UTF_8);
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int code = compiler.run(
+                null,
+                null,
+                errors,
+                "-classpath",
+                System.getProperty("java.class.path", ""),
+                "-d",
+                classDir.toString(),
+                sourceFile.toString());
+        if (code != 0) {
+            throw new IllegalStateException("javac failed for " + fileName + ": "
+                    + errors.toString(StandardCharsets.UTF_8));
+        }
+        return extractor.getClass().getMethod("extract", Path.class).invoke(extractor, classDir);
+    }
+
+    private static String safeJavaFileName(String fileName) {
+        String base = Path.of(fileName == null || fileName.isBlank() ? "Input.java" : fileName)
+                .getFileName()
+                .toString();
+        if (!base.endsWith(".java")) {
+            base = base + ".java";
+        }
+        return base.replaceAll("[^A-Za-z0-9_.$-]", "_");
+    }
+
+    private static String rawProgramJson(Object program, String fileName) throws Exception {
+        List<?> classes = listValue(program, "classes");
+        List<String> methods = new ArrayList<>();
+        for (Object clazz : classes) {
+            for (Object method : listValue(clazz, "methods")) {
+                methods.add(rawMethodJson(method, fileName));
+            }
+        }
+        return "{"
+                + "\"fileName\":\"" + escapeJson(fileName) + "\","
+                + "\"toolName\":\"" + escapeJson(stringValue(program, "toolName")) + "\","
+                + "\"toolVersion\":\"" + escapeJson(stringValue(program, "toolVersion")) + "\","
+                + "\"methods\":[" + String.join(",", methods) + "]"
+                + "}";
+    }
+
+    private static String rawMethodJson(Object method, String fileName) throws Exception {
+        List<String> blocks = new ArrayList<>();
+        for (Object block : listValue(method, "blocks")) {
+            blocks.add(rawBlockJson(block));
+        }
+        return "{"
+                + "\"fileName\":\"" + escapeJson(fileName) + "\","
+                + "\"signature\":\"" + escapeJson(stringValue(method, "rawMethodSignature")) + "\","
+                + "\"declaringClass\":\"" + escapeJson(stringValue(method, "rawDeclaringClass")) + "\","
+                + "\"rawMethodString\":\"" + escapeJson(stringValue(method, "rawMethodString")) + "\","
+                + "\"rawIRText\":\"" + escapeJson(stringValue(method, "rawIRText")) + "\","
+                + "\"rawCFGText\":\"" + escapeJson(stringValue(method, "rawCFGText")) + "\","
+                + "\"blocks\":[" + String.join(",", blocks) + "]"
+                + "}";
+    }
+
+    private static String rawBlockJson(Object block) throws Exception {
+        List<String> instructions = new ArrayList<>();
+        for (Object instruction : listValue(block, "instructions")) {
+            instructions.add(rawInstructionJson(instruction));
+        }
+        return "{"
+                + "\"number\":" + intValue(block, "rawBlockNumber") + ","
+                + "\"entry\":" + booleanValue(block, "rawIsEntry") + ","
+                + "\"exit\":" + booleanValue(block, "rawIsExit") + ","
+                + "\"rawBlockString\":\"" + escapeJson(stringValue(block, "rawBlockString")) + "\","
+                + "\"normalSuccessors\":" + stringListJson(listValue(block, "rawNormalSuccessors")) + ","
+                + "\"exceptionalSuccessors\":" + stringListJson(listValue(block, "rawExceptionalSuccessors")) + ","
+                + "\"predecessors\":" + stringListJson(listValue(block, "rawPredecessors")) + ","
+                + "\"instructions\":[" + String.join(",", instructions) + "]"
+                + "}";
+    }
+
+    private static String rawInstructionJson(Object instruction) throws Exception {
+        return "{"
+                + "\"className\":\"" + escapeJson(stringValue(instruction, "rawInstructionClassName")) + "\","
+                + "\"text\":\"" + escapeJson(stringValue(instruction, "rawInstructionText")) + "\","
+                + "\"index\":" + intValue(instruction, "rawInstructionIndex") + ","
+                + "\"defs\":" + stringListJson(listValue(instruction, "rawDefValues")) + ","
+                + "\"uses\":" + stringListJson(listValue(instruction, "rawUseValues")) + ","
+                + "\"declaredTarget\":\"" + escapeJson(stringValue(instruction, "rawDeclaredTargetText")) + "\""
+                + "}";
+    }
+
+    private static String unavailableWalaCfgJson(String reason) {
+        return "{"
+                + "\"available\":false,"
+                + "\"source\":\"WALA raw CFG\","
+                + "\"reason\":\"" + escapeJson(reason) + "\""
+                + "}";
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
+    }
+
+    private static void deleteDirectory(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            return;
+        }
+        try (var stream = Files.walk(dir)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                    // Best-effort cleanup of our own temporary WALA workspace.
+                }
+            });
+        }
+    }
+
+    private static Object recordValue(Object record, String accessor) throws Exception {
+        return record.getClass().getMethod(accessor).invoke(record);
+    }
+
+    private static String stringValue(Object record, String accessor) throws Exception {
+        Object value = recordValue(record, accessor);
+        return value == null ? "" : value.toString();
+    }
+
+    private static int intValue(Object record, String accessor) throws Exception {
+        Object value = recordValue(record, accessor);
+        return value instanceof Number number ? number.intValue() : Integer.parseInt(value.toString());
+    }
+
+    private static boolean booleanValue(Object record, String accessor) throws Exception {
+        Object value = recordValue(record, accessor);
+        return value instanceof Boolean bool ? bool : Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private static List<?> listValue(Object record, String accessor) throws Exception {
+        Object value = recordValue(record, accessor);
+        return value instanceof List<?> list ? list : List.of();
+    }
+
+    private static String stringListJson(List<?> values) {
+        return "[" + values.stream()
+                .map(value -> "\"" + escapeJson(String.valueOf(value)) + "\"")
+                .reduce((left, right) -> left + "," + right)
+                .orElse("") + "]";
     }
 
     private static String html() throws IOException {
@@ -2672,27 +2887,11 @@ public class WebAppMain {
                     async function runAnalysis(mode) {
                       analysisMode = mode;
                       if (analysisMode === 'cfg') {
-                        reportData = buildCfgReport();
-                        reportMode = 'cfg';
-                        selectedPairIndex = 0;
-                        cfgDetailOpen = false;
-                        selectedCfgNode = 'L2';
-                        activeSection = 'summary';
-                        showReport();
-                        renderReport();
+                        await runEvidenceFirstAnalysis('cfg');
                         return;
                       }
                       if (analysisMode === 'next') {
-                        reportData = buildNextReport();
-                        reportMode = 'next';
-                        selectedPairIndex = 0;
-                        cfgDetailOpen = false;
-                        selectedCfgNode = '';
-                        selectedNextRegion = 'main-flow';
-                        selectedNextType = 'ALL';
-                        activeSection = 'summary';
-                        showReport();
-                        renderReport();
+                        await runEvidenceFirstAnalysis('summary');
                         return;
                       }
                       const body = new URLSearchParams({
@@ -2713,6 +2912,36 @@ public class WebAppMain {
                         reportMode = 'ast';
                         selectedPairIndex = 0;
                         activeSection = 'summary';
+                        showReport();
+                        renderReport();
+                      } catch (err) {
+                        alert(err.message);
+                      }
+                    }
+                    async function runEvidenceFirstAnalysis(initialSection) {
+                      const body = new URLSearchParams({
+                        mode: 'next',
+                        fileA: fileA.value || inferFileName(sourceA.value, 'Code 1.java'),
+                        fileB: fileB.value || inferFileName(sourceB.value, 'Code 2.java'),
+                        sourceA: sourceA.value,
+                        sourceB: sourceB.value
+                      });
+                      try {
+                        const response = await fetch('/api/analyze', {
+                          method: 'POST',
+                          headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+                          body
+                        });
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.error || 'Evidence-first analysis failed');
+                        reportData = adaptNextPipelineReport(data);
+                        reportMode = 'next';
+                        selectedPairIndex = 0;
+                        cfgDetailOpen = initialSection === 'cfg';
+                        selectedCfgNode = '';
+                        selectedNextRegion = reportData.nextRegions?.[0]?.id || '';
+                        selectedNextType = 'ALL';
+                        activeSection = initialSection;
                         showReport();
                         renderReport();
                       } catch (err) {
@@ -3146,7 +3375,13 @@ public class WebAppMain {
                     }
                     function renderCfgExplorer(data, files) {
                       const cfg = data.cfg;
+                      if (!cfg || cfg.available === false) {
+                        return renderCfgUnavailable(cfg);
+                      }
                       const method = cfg.methods[selectedPairIndex] || cfg.methods[0];
+                      if (!method) {
+                        return `<section class="section cfg-page"><h3>CFG Explorer</h3><div class="cfg-empty">No real WALA method CFGs were emitted for this run.</div></section>`;
+                      }
                       if (!cfgDetailOpen) {
                         return renderCfgPairOverview(cfg);
                       }
@@ -3200,6 +3435,7 @@ public class WebAppMain {
                       const cfg = data.cfg;
                       const method = cfg.methods[selectedPairIndex] || cfg.methods[0];
                       const blocks = cfg.blockSets[method.blockSet] || cfg.blockSets.main;
+                      const hasMatches = (blocks.matches || []).length > 0;
                       return `<section class="section cfg-page">
                         ${renderCfgPageNote('Step 3', 'Check which blocks were matched before reading closeness.')}
                         <div class="cfg-page-actions">
@@ -3213,7 +3449,7 @@ public class WebAppMain {
                         <div class="section-head"><h3>Block Matches</h3><div class="muted">${escapeHtml(method.left)} -> ${escapeHtml(method.right)}</div></div>
                         <div class="cfg-match-panel always">
                           <div class="cfg-links">
-                            ${blocks.matches.map(match => renderCfgMatchLine(match, blocks, true)).join('')}
+                            ${hasMatches ? blocks.matches.map(match => renderCfgMatchLine(match, blocks, true)).join('') : '<div class="cfg-empty">No real block-alignment output was emitted for this method pair yet.</div>'}
                           </div>
                         </div>
                       </section>`;
@@ -3222,6 +3458,7 @@ public class WebAppMain {
                       const cfg = data.cfg;
                       const method = cfg.methods[selectedPairIndex] || cfg.methods[0];
                       const blocks = cfg.blockSets[method.blockSet] || cfg.blockSets.main;
+                      const hasMatches = (blocks.matches || []).length > 0;
                       return `<section class="section cfg-page">
                         ${renderCfgPageNote('Step 3', 'Use closeness after checking which blocks were matched. Lower distance means closer blocks.')}
                         <div class="cfg-page-actions">
@@ -3234,12 +3471,24 @@ public class WebAppMain {
                         </div>
                         <div class="section-head"><h3>Closeness</h3><div class="muted">Lower distance means closer blocks.</div></div>
                         <div class="bar-list">
-                          ${blocks.matches.map(match => {
+                          ${hasMatches ? blocks.matches.map(match => {
                             const left = blocks.left.find(block => block.id === match.left);
                             const right = blocks.right.find(block => block.id === match.right);
                             const label = `${left?.display || match.left} -> ${right?.display || match.right}`;
                             return scoreBar(label, Math.max(0, 1 - Number(match.distance || 0)), closenessText(match.distance));
-                          }).join('')}
+                          }).join('') : '<div class="cfg-empty">No real block-distance output was emitted for this method pair yet.</div>'}
+                        </div>
+                      </section>`;
+                    }
+                    function renderCfgUnavailable(cfg) {
+                      return `<section class="section cfg-page">
+                        <div class="section-head">
+                          <h3>CFG Explorer</h3>
+                          <div class="muted">Real CFG data only.</div>
+                        </div>
+                        <div class="cfg-empty">
+                          <strong>WALA CFG is not available for this run.</strong>
+                          <span>${escapeHtml(cfg?.reason || 'The backend did not emit real WALA basic blocks and edges.')}</span>
                         </div>
                       </section>`;
                     }
@@ -3278,7 +3527,7 @@ public class WebAppMain {
                       return `<button class="cfg-pair-card" data-cfg-open-pair="${method.index}" type="button">
                         <span class="cfg-pair-title">
                           <span>${escapeHtml(method.title)}</span>
-                          <span class="cfg-method-score">${percent(method.score)}</span>
+                          ${method.score == null ? '<span class="cfg-method-score muted">WALA</span>' : `<span class="cfg-method-score">${percent(method.score)}</span>`}
                         </span>
                         <span class="cfg-pair-code">${escapeHtml(method.left)}<br>${escapeHtml(method.right)}</span>
                         <span class="muted">${escapeHtml(method.explanation)}</span>
@@ -3596,412 +3845,282 @@ public class WebAppMain {
                         right: displayFileName(data.fileB, 'Right Code')
                       };
                     }
-                    function buildNextReport() {
-                      const cfgReport = buildCfgReport();
-                      cfgReport.schemaVersion = 'next-evidence-preview-1.0';
-                      cfgReport.mode = 'Evidence-first';
-                      cfgReport.nextSummary = {
-                        inspectionPriority: 'High',
-                        relationshipShape: 'Full overlap with edited regions',
-	                        affectedContent: {
-	                          leftRatio: 0.91,
-	                          rightRatio: 0.93
-	                        },
-                        headline: 'Several connected regions deserve inspection.',
-                        interpretation: 'The affected regions form a connected scoring workflow. The report shows what matched and what changed, but it does not force the user to accept a single file-level clone label.',
-                        tags: ['renaming', 'statement edits', 'helper extraction', 'control-flow branches'],
-	                        evidenceBreakdown: [
-	                          { type: 'T3', label: 'Edited-region evidence', regionCount: 4, affectedLeftRatio: 0.48, affectedRightRatio: 0.51 },
-	                          { type: 'T2', label: 'Renamed-region evidence', regionCount: 5, affectedLeftRatio: 0.39, affectedRightRatio: 0.38 },
-	                          { type: 'T1', label: 'Exact local fragments', regionCount: 1, affectedLeftRatio: 0.04, affectedRightRatio: 0.04 }
-	                        ]
-                      };
-                      cfgReport.nextRegions = [
-                        {
-                          id: 'main-flow',
-                          type: 'T3',
-	                          title: 'Main scoring workflow',
-	                          short: 'The top-level methods share guards, staged scoring, fallback handling, and final capping.',
-	                          leftRange: [2, 27],
-	                          rightRange: [2, 27],
-	                          affected: 'Left 14% / Right 14%',
-                          tags: ['renaming', 'statement modified', 'helper calls'],
-                          changes: [
-                            'evaluateOrderRisk is renamed to calculateRisk.',
-                            'Both methods accumulate risk from quantity, email/contact, region, coupon/promotion, and stability signals.',
-                            'Both methods cap the final score before returning.'
-                          ]
-                        },
-                        {
-	                          id: 'quantity',
-	                          type: 'T3',
-	                          title: 'Quantity risk branch',
-	                          short: 'The loop and branch scoring are preserved with small edits.',
-	                          leftRange: [29, 48],
-	                          rightRange: [29, 51],
-	                          affected: 'Left 11% / Right 12%',
-                          tags: ['literal changed', 'statement inserted', 'loop branch'],
-                          changes: [
-                            'Right side adds an empty-array guard.',
-                            'The high-threshold score changes from 18 to 20.',
-                            'The loop counter is renamed from seen to index.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'inventory',
-	                          type: 'T3',
-	                          title: 'Inventory pressure branch',
-	                          short: 'Both files add stock pressure logic with loop exits and low-stock scoring.',
-	                          leftRange: [50, 67],
-	                          rightRange: [53, 70],
-	                          affected: 'Left 10% / Right 9%',
-	                          tags: ['statement inserted', 'early break', 'loop branch'],
-	                          changes: [
-	                            'stock is renamed to available.',
-	                            'Both sides stop scanning once requested quantity exceeds inventory.',
-	                            'Both sides add a low-stock branch near the loop body.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'email',
-	                          type: 'T2',
-	                          title: 'Email/contact signal',
-	                          short: 'The email scoring helper is structurally the same after renaming.',
-	                          leftRange: [69, 83],
-	                          rightRange: [72, 86],
-	                          affected: 'Left 8% / Right 8%',
-                          tags: ['renaming', 'branch preserved'],
-                          changes: [
-                            'email is renamed to contact.',
-                            'The null/blank/temp/promo branch structure is preserved.'
-                          ]
-                        },
-                        {
-	                          id: 'region',
-	                          type: 'T2',
-	                          title: 'Region normalization branch',
-	                          short: 'Country and region checks preserve the same branch skeleton.',
-	                          leftRange: [85, 100],
-	                          rightRange: [88, 103],
-	                          affected: 'Left 9% / Right 8%',
-                          tags: ['renaming', 'branch preserved'],
-                          changes: [
-                            'country is renamed to region.',
-                            'Both sides normalize text before checking CN, BR, and IN.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'coupon',
-	                          type: 'T2',
-	                          title: 'Coupon/promotion branch',
-	                          short: 'Coupon scoring keeps the same branch order after renaming.',
-	                          leftRange: [102, 118],
-	                          rightRange: [105, 121],
-	                          affected: 'Left 9% / Right 9%',
-	                          tags: ['renaming', 'branch preserved'],
-	                          changes: [
-	                            'coupon is renamed to promotion.',
-	                            'Both sides check free, vip, and long-code signals.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'channel',
-	                          type: 'T3',
-	                          title: 'Channel/device decision tree',
-	                          short: 'One side uses if/else while the other uses switch cases for the same decision tree.',
-	                          leftRange: [120, 137],
-	                          rightRange: [123, 145],
-	                          affected: 'Left 10% / Right 12%',
-	                          tags: ['control structure changed', 'branch preserved'],
-	                          changes: [
-	                            'channel is renamed to source and device is renamed to client.',
-	                            'The left side uses if/else; the right side uses switch.',
-	                            'Marketplace, mobile, store, and default branches remain aligned.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'stability',
-	                          type: 'T2',
-	                          title: 'Repeat/blank stability checks',
-	                          short: 'Two loops preserve repeated quantity and blank contact checks.',
-	                          leftRange: [139, 162],
-	                          rightRange: [147, 170],
-	                          affected: 'Left 13% / Right 13%',
-	                          tags: ['renaming', 'loop preserved'],
-	                          changes: [
-	                            'quantities/emails are renamed to items/contacts.',
-	                            'Both loops count repeated values and blank contact fields.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'fallback',
-	                          type: 'T2',
-	                          title: 'Fallback review branch',
-	                          short: 'The fallback helper keeps the same threshold and store-channel branch.',
-	                          leftRange: [164, 175],
-	                          rightRange: [172, 183],
-	                          affected: 'Left 7% / Right 6%',
-	                          tags: ['renaming', 'branch preserved'],
-	                          changes: [
-	                            'score is renamed to total.',
-	                            'Both sides add review risk for high scores, blank channels, and store overrides.'
-	                          ]
-	                        },
-	                        {
-	                          id: 'cap',
-	                          type: 'T1',
-	                          title: 'Score cap fragment',
-	                          short: 'The cap helper is exact after comment and whitespace normalization.',
-	                          leftRange: [177, 182],
-	                          rightRange: [185, 190],
-	                          affected: 'Left 3% / Right 3%',
-                          tags: ['exact local fragment'],
-                          changes: ['The final cap helper keeps the same logic.']
-                        }
-                      ];
-                      return cfgReport;
-                    }
-                    function buildCfgReport() {
-                      const leftName = fileA.value || inferFileName(sourceA.value, 'Code 1.java');
-                      const rightName = fileB.value || inferFileName(sourceB.value, 'Code 2.java');
-                      const leftType = typeName(sourceA.value, 'Left');
-                      const rightType = typeName(sourceB.value, 'Right');
-                      const leftMethod = firstMethodName(sourceA.value, 'leftMethod');
-                      const rightMethod = firstMethodName(sourceB.value, 'rightMethod');
-                      const helperName = helperMethodName(sourceB.value, 'isValid');
-                      const helperSignature = `${rightType}.${helperName}()`;
-                      const looksLikeHelper = /isValid|helper|private\\s+boolean|private\\s+int|looksLike|clean|normalize/i.test(sourceB.value);
-                      const score = looksLikeHelper ? 0.91 : 0.78;
-                      return {
-                        schemaVersion: 'cfg-preview-1.0',
-                        mode: 'CFG',
-                        fileA: leftName,
-                        fileB: rightName,
-                        cfg: {
-                          resultLabel: looksLikeHelper ? 'Similar behavior found, with one check moved into a helper method' : 'Similar execution path found',
-                          summary: 'CFG mode compares how each method runs: input checks, loop flow, updates, and return behavior. The explorer shows which execution blocks were matched.',
-                          score,
-                          bestShort: `${methodNameOnly(leftMethod)} -> ${methodNameOnly(rightMethod)}`,
-                          candidateReduction: looksLikeHelper ? '96 -> 31' : '61 -> 42',
-                          tags: ['CFG similarity', 'method ranking', 'basic-block evidence'],
-                          categories: [
-                            {
-                              key: 'primary',
-                              title: 'Main pair to inspect',
-                              description: 'The function pair the analyzer thinks is most worth opening for detailed CFG comparison.',
-                              badge: 'Main evidence'
-                            },
-                            {
-                              key: 'low',
-                              title: 'High score, low value',
-                              description: 'These functions may look very similar, but they are usually setup, empty, or boilerplate code.',
-                              badge: 'De-emphasized'
-                            },
-                            {
-                              key: 'partial',
-                              title: 'Small method may match part of a main method',
-                              description: 'One file may keep logic inside the main method while the other moves part of it into a smaller method.',
-                              badge: 'Partial relation'
-                            }
-                          ],
-                          story: {
-                            title: looksLikeHelper ? 'The same risk-scoring flow appears in a different shape.' : 'The methods follow a similar execution path.',
-                            body: looksLikeHelper
-                              ? 'Both methods collect quantity risk, email risk, country risk, and then cap the final score. Some checks are delegated to smaller helper methods.'
-                              : 'The analyzer matched the main path through both methods: input preparation, branch checks, loop work, and final return.',
-                            badge: 'Click any block to inspect the match'
+                    function adaptNextPipelineReport(data) {
+                      const pipeline = data.nextPipeline || {};
+                      const fileSummary = pipeline.fileSummary || {};
+                      const regions = (pipeline.regions || []).map((region, index) => adaptNextRegion(region, index));
+                      const report = {
+                        schemaVersion: data.schemaVersion || 'next-pipeline-live-1.0',
+                        mode: data.mode || 'Evidence-first',
+                        fileA: data.fileA || inferFileName(sourceA.value, 'Code 1.java'),
+                        fileB: data.fileB || inferFileName(sourceB.value, 'Code 2.java'),
+                        nextPipeline: pipeline,
+                        nextSummary: {
+                          inspectionPriority: fileSummary.inspectionPriority || 'UNKNOWN',
+                          relationshipShape: fileSummary.relationshipShape || 'UNKNOWN',
+                          affectedContent: {
+                            leftRatio: numberOrZero(fileSummary.affectedContent?.leftRatio ?? fileSummary.matchedCoverageLeft),
+                            rightRatio: numberOrZero(fileSummary.affectedContent?.rightRatio ?? fileSummary.matchedCoverageRight)
                           },
-                          channels: [
-                            { name: 'Method pair', value: 0.9, state: 'Strong', note: 'The main methods were selected for inspection.' },
-                            { name: 'Execution path', value: score, state: score > 0.85 ? 'Strong' : 'Medium', note: 'Input checks, loop, update, and return blocks line up.' },
-                            { name: 'Raw analysis data', value: 0.82, state: 'Available', note: 'The low-level CFG evidence can be inspected.' },
-                            { name: 'AST/source', value: 0.58, state: 'Auxiliary', note: 'Can be used alongside the source-structure mode.' },
-                            { name: 'Inter-procedural', value: 0.0, state: 'Not enabled', note: 'Future mode for helper and call-chain expansion.' },
-                            { name: 'Semantic check', value: 0.0, state: 'Not enabled', note: 'Future mode for false-positive reduction.' }
-                          ],
-                          methods: [
-                            {
-                              category: 'primary',
-                              categoryLabel: 'Main pair to inspect',
-                              title: `${methodNameOnly(leftMethod)} ↔ ${methodNameOnly(rightMethod)}`,
-                              left: leftMethod,
-                              right: rightMethod,
-                              score,
-                              blockSet: 'main',
-                              defaultNode: 'L2',
-                              explanation: 'This is the main function pair used by the report. Open it to see why their CFGs look similar.',
-                              storyTitle: 'These two main functions follow a similar risk-scoring flow.',
-                              storyBody: 'Both compute quantity risk, check email and region signals, and cap the final score at 100. Most differences are naming and small helper extraction.'
-                            },
-                            {
-                              category: 'low',
-                              categoryLabel: 'High score, low value',
-                              title: '<init>() ↔ <init>()',
-                              left: `${leftType}.<init>()V`,
-                              right: `${rightType}.<init>()V`,
-                              score: 1.0,
-                              blockSet: 'constructor',
-                              defaultNode: 'CL1',
-                              explanation: 'The constructors are very similar, but this is usually setup code and should not drive the decision.',
-                              storyTitle: 'This match scores high, but carries little evidence.',
-                              storyBody: 'Constructors and empty initialization code often look naturally similar. The analyzer shows it, but does not treat it as the main reason.'
-                            },
-                            {
-                              category: 'partial',
-                              categoryLabel: 'Small method may match part of a main method',
-                              title: `${methodNameOnly(leftMethod)} ↔ ${methodNameOnly(helperSignature)}`,
-                              left: leftMethod,
-                              right: helperSignature,
-                              score: 0.61,
-                              blockSet: 'helper',
-                              defaultNode: 'HL2',
-                              explanation: 'This smaller function may explain where part of the main method logic was moved.',
-                              storyTitle: 'A small method may carry one local decision from the main method.',
-                              storyBody: 'The left side keeps the decision in the main method. The right side places related logic in a smaller function. This is not a full clone by itself, but it explains local logic movement.'
-                            }
-                          ],
-                          blockSets: buildCfgBlockSets(looksLikeHelper),
-                          why: 'The selected methods follow a similar execution path: prepare data, check the input, loop through values, update the count, and return the result.',
-                          nextCheck: looksLikeHelper
-                            ? 'Enable inter-procedural expansion when helper bodies need to be merged into the caller CFG.'
-                            : 'Enable semantic or dynamic checks if the CFG shape is high but the task meaning is uncertain.'
-                        }
-                      };
-                    }
-                    function firstMethodName(source, fallback) {
-                      const owner = typeName(source, 'Code');
-                      const match = source.match(/\\b(?:(?:public|private|protected|static|final|synchronized|abstract|native|strictfp)\\s+)*[A-Za-z_$][\\w$<>\\[\\], ?]*\\s+([A-Za-z_$][\\w$]*)\\s*\\(/);
-                      return `${owner}.${match ? match[1] : fallback}()`;
-                    }
-                    function helperMethodName(source, fallback) {
-                      const matches = [...source.matchAll(/\\b(?:private|public|protected)?\\s*(?:static\\s+)?(?:boolean|int|String|double|long|void)\\s+([A-Za-z_$][\\w$]*)\\s*\\(/g)]
-                        .map(match => match[1])
-                        .filter(name => !/^(calculateRisk|scoreOrder|countValid|main)$/.test(name));
-                      return matches.find(name => /valid|helper|looks|clean|normalize|suspicious|risk/i.test(name)) || matches[0] || fallback;
-                    }
-                    function buildCfgBlockSets(looksLikeHelper) {
-	                      const main = {
-	                        left: [
-	                          { id: 'L1', x: 50, y: 6, name: 'start', display: 'Start', detail: 'read order inputs', meaning: 'The method receives order, inventory, channel, and device inputs.', raw: 'BB L1\\nread quantities, emails, country, coupon, stock, channel, device\\nscore = 0' },
-	                          { id: 'L2', x: 50, y: 16, name: 'input guard', display: 'Input guard', detail: 'reject missing arrays', kind: 'branch', meaning: 'Rejects missing order data before scoring.', raw: 'BB L2\\nif quantities == null || emails == null\\n  return 100' },
-	                          { id: 'L3', x: 50, y: 27, name: 'quantity risk', display: 'Quantity risk', detail: 'loop and score quantities', kind: 'helper', meaning: 'Computes risk from item quantities.', raw: 'BB L3\\nfor quantity in quantities\\n  threshold branches' },
-	                          { id: 'L4', x: 28, y: 39, name: 'inventory branch', display: 'Inventory branch', detail: 'stock pressure loop', kind: 'branch', meaning: 'Checks requested quantity against available stock.', raw: 'BB L4\\nrequested += quantity\\nif requested > stock break' },
-	                          { id: 'L5', x: 72, y: 39, name: 'email branch', display: 'Email branch', detail: 'temporary or suspicious', kind: 'branch', meaning: 'Adds risk when the email looks suspicious.', raw: 'BB L5\\nif temp email or promo marker\\n  risk += points' },
-	                          { id: 'L6', x: 24, y: 53, name: 'region branch', display: 'Region branch', detail: 'country risk checks', kind: 'branch', meaning: 'Normalizes country and adds regional risk.', raw: 'BB L6\\nif CN/BR/IN add risk' },
-	                          { id: 'L7', x: 50, y: 53, name: 'coupon branch', display: 'Coupon branch', detail: 'promo and discount rules', kind: 'branch', meaning: 'Scores coupon text and promotional signals.', raw: 'BB L7\\nfree/vip/long coupon checks' },
-	                          { id: 'L8', x: 76, y: 53, name: 'channel branch', display: 'Channel branch', detail: 'source and device tree', kind: 'branch', meaning: 'Scores marketplace, mobile, store, and unknown channel cases.', raw: 'BB L8\\nif marketplace/mobile/store/default\\n  nested device check' },
-	                          { id: 'L9', x: 35, y: 70, name: 'stability loop', display: 'Stability loop', detail: 'repeat and blank checks', kind: 'helper', meaning: 'Checks repeated quantities and blank email density.', raw: 'BB L9\\nloop quantities for repeats\\nloop emails for blanks' },
-	                          { id: 'L10', x: 65, y: 70, name: 'fallback branch', display: 'Fallback branch', detail: 'review override', kind: 'branch', meaning: 'Adds review risk for high scores or blank channels.', raw: 'BB L10\\nif score > 80\\nif blank channel\\nif store override' },
-	                          { id: 'L11', x: 50, y: 91, name: 'output', display: 'Output', detail: 'cap and return risk score', kind: 'return', meaning: 'Returns the final risk score after capping it at 100.', raw: 'BB L11\\nreturn capScore(score)' }
-	                        ],
-	                        right: [
-	                          { id: 'R1', x: 50, y: 6, name: 'start', display: 'Start', detail: 'read order inputs', meaning: 'The method receives item, supply, source, and client inputs.', raw: 'BB R1\\nread items, contacts, region, promotion, available, source, client\\ntotal = 0' },
-	                          { id: 'R2', x: 50, y: 16, name: 'input guard', display: 'Input guard', detail: 'reject missing arrays', kind: 'branch', meaning: 'Rejects missing order data before scoring.', raw: 'BB R2\\nif items == null || contacts == null\\n  return 100' },
-	                          { id: 'R3', x: 50, y: 27, name: 'item risk', display: 'Item risk', detail: 'loop and score items', kind: 'helper', meaning: 'Computes risk from item quantities.', raw: 'BB R3\\nfor item in items\\n  threshold branches' },
-	                          { id: 'R4', x: 28, y: 39, name: 'supply branch', display: 'Supply branch', detail: 'available stock loop', kind: 'branch', meaning: 'Checks requested item count against available supply.', raw: 'BB R4\\nrequested += item\\nif requested > available break' },
-	                          { id: 'R5', x: 72, y: 39, name: 'contact branch', display: 'Contact branch', detail: 'temporary or suspicious', kind: 'branch', meaning: 'Adds risk when the contact looks suspicious.', raw: 'BB R5\\nif temp contact or promo marker\\n  score += points' },
-	                          { id: 'R6', x: 24, y: 53, name: 'region branch', display: 'Region branch', detail: 'clean region checks', kind: 'branch', meaning: 'Cleans region and adds regional risk.', raw: 'BB R6\\nif CN/BR/IN add risk' },
-	                          { id: 'R7', x: 50, y: 53, name: 'promotion branch', display: 'Promotion branch', detail: 'promo and discount rules', kind: 'branch', meaning: 'Scores promotion text and discount signals.', raw: 'BB R7\\nfree/vip/long promotion checks' },
-	                          { id: 'R8', x: 76, y: 53, name: 'source branch', display: 'Source branch', detail: 'switch over source', kind: 'branch', meaning: 'Scores marketplace, mobile, store, and unknown source cases.', raw: 'BB R8\\nswitch source\\n  marketplace/mobile/store/default' },
-	                          { id: 'R9', x: 35, y: 70, name: 'repeat loop', display: 'Repeat loop', detail: 'repeat and blank checks', kind: 'helper', meaning: 'Checks repeated items and blank contact density.', raw: 'BB R9\\nloop items for repeats\\nloop contacts for blanks' },
-	                          { id: 'R10', x: 65, y: 70, name: 'fallback branch', display: 'Fallback branch', detail: 'review override', kind: 'branch', meaning: 'Adds review risk for high totals or blank source.', raw: 'BB R10\\nif total > 80\\nif blank source\\nif store override' },
-	                          { id: 'R11', x: 50, y: 91, name: 'output', display: 'Output', detail: 'cap and return risk score', kind: 'return', meaning: 'Returns the final risk score after capping it at 100.', raw: 'BB R11\\nreturn capScore(total)' }
-	                        ],
-	                        leftEdges: [
-	                          { from: 'L1', to: 'L2' },
-	                          { from: 'L2', to: 'L3' },
-	                          { from: 'L3', to: 'L4' },
-	                          { from: 'L3', to: 'L5' },
-	                          { from: 'L4', to: 'L6' },
-	                          { from: 'L5', to: 'L8' },
-	                          { from: 'L6', to: 'L7' },
-	                          { from: 'L7', to: 'L9' },
-	                          { from: 'L8', to: 'L10' },
-	                          { from: 'L9', to: 'L11' },
-	                          { from: 'L10', to: 'L11' },
-	                          { from: 'L9', to: 'L3', kind: 'loop', side: 'left' },
-	                          { from: 'L10', to: 'L8', kind: 'loop', side: 'right' }
-	                        ],
-                    """, """
-                        rightEdges: [
-	                          { from: 'R1', to: 'R2' },
-	                          { from: 'R2', to: 'R3' },
-	                          { from: 'R3', to: 'R4' },
-	                          { from: 'R3', to: 'R5' },
-	                          { from: 'R4', to: 'R6' },
-	                          { from: 'R5', to: 'R8' },
-	                          { from: 'R6', to: 'R7' },
-	                          { from: 'R7', to: 'R9' },
-	                          { from: 'R8', to: 'R10' },
-	                          { from: 'R9', to: 'R11' },
-	                          { from: 'R10', to: 'R11' },
-	                          { from: 'R9', to: 'R3', kind: 'loop', side: 'left' },
-	                          { from: 'R10', to: 'R8', kind: 'loop', side: 'right' }
-	                        ],
-	                        matches: [
-	                          { left: 'L1', right: 'R1', label: 'start', friendly: 'Inputs matched', distance: 0.05 },
-	                          { left: 'L2', right: 'R2', label: 'input guard', friendly: 'Input guard matched', distance: 0.03 },
-	                          { left: 'L3', right: 'R3', label: 'quantity risk', friendly: 'Quantity scoring matched', distance: 0.12 },
-	                          { left: 'L4', right: 'R4', label: 'inventory branch', friendly: 'Inventory pressure matched', distance: 0.14 },
-	                          { left: 'L5', right: 'R5', label: 'email branch', friendly: 'Contact branch matched', distance: 0.10 },
-	                          { left: 'L6', right: 'R6', label: 'region branch', friendly: 'Region branch changed', distance: 0.18 },
-	                          { left: 'L7', right: 'R7', label: 'coupon branch', friendly: 'Promotion branch matched', distance: 0.15 },
-	                          { left: 'L8', right: 'R8', label: 'channel branch', friendly: 'If/switch branch matched', distance: 0.21 },
-	                          { left: 'L9', right: 'R9', label: 'stability loop', friendly: 'Repeat loop matched', distance: 0.08 },
-	                          { left: 'L10', right: 'R10', label: 'fallback branch', friendly: 'Fallback branch matched', distance: 0.07 },
-	                          { left: 'L11', right: 'R11', label: 'output', friendly: 'Output matched', distance: 0.03 }
-	                        ]
-	                      };
-                      return {
-                        main,
-                        constructor: {
-                          left: [
-                            { id: 'CL1', x: 50, y: 24, name: 'start', display: 'Start', detail: 'create object', meaning: 'The class instance is created.', raw: 'BB CL1\\nload this\\ncall Object.<init>()' },
-                            { id: 'CL2', x: 50, y: 70, name: 'finish', display: 'Finish', detail: 'return constructed object', kind: 'return', meaning: 'Constructor exits without meaningful domain logic.', raw: 'BB CL2\\nreturn' }
-                          ],
-                          right: [
-                            { id: 'CR1', x: 50, y: 24, name: 'start', display: 'Start', detail: 'create object', meaning: 'The class instance is created.', raw: 'BB CR1\\nload this\\ncall Object.<init>()' },
-                            { id: 'CR2', x: 50, y: 70, name: 'finish', display: 'Finish', detail: 'return constructed object', kind: 'return', meaning: 'Constructor exits without meaningful domain logic.', raw: 'BB CR2\\nreturn' }
-                          ],
-                          leftEdges: [
-                            { from: 'CL1', to: 'CL2' }
-                          ],
-                          rightEdges: [
-                            { from: 'CR1', to: 'CR2' }
-                          ],
-                          matches: [
-                            { left: 'CL1', right: 'CR1', label: 'start', friendly: 'Setup matched', distance: 0.00 },
-                            { left: 'CL2', right: 'CR2', label: 'finish', friendly: 'Finish matched', distance: 0.00 }
-                          ]
+                          headline: nextRelationshipLabel(fileSummary.relationshipShape, fileSummary.dominantRegionType),
+                          interpretation: 'Live evidence from the region-based pipeline.',
+                          tags: fileSummary.fileTags || [],
+                          evidenceBreakdown: normalizeNextBreakdown(fileSummary.evidenceBreakdown || [], regions)
                         },
-                        helper: {
-                          left: [
-                            { id: 'HL1', x: 50, y: 18, name: 'main context', display: 'Main context', detail: 'risk score branch in caller', meaning: 'A branch inside the main method decides whether to add risk.', raw: 'BB HL1\\nif isSuspiciousEmail(email)\\n  score += 25' },
-                            { id: 'HL2', x: 34, y: 50, name: 'local condition', display: 'Local condition', detail: 'check email shape', kind: 'branch', meaning: 'The caller relies on a condition that can be represented by a smaller helper.', raw: 'BB HL2\\nlower = email.toLowerCase()\\nendsWith tempmail or contains test' },
-                            { id: 'HL3', x: 66, y: 78, name: 'update', display: 'Update', detail: 'add risk if condition holds', meaning: 'Updates the score when the condition is true.', raw: 'BB HL3\\nscore += 25' }
-                          ],
-                          right: [
-                            { id: 'HR1', x: 50, y: 18, name: 'helper input', display: 'Helper input', detail: 'receive one value', meaning: 'The helper receives the value it needs to check.', raw: 'BB HR1\\nread contact parameter' },
-                            { id: 'HR2', x: 34, y: 50, name: 'helper guard', display: 'Helper guard', detail: 'handle missing value', kind: 'branch', meaning: 'The helper checks a boundary case before applying the detailed predicate.', raw: 'BB HR2\\nif contact == null return true' },
-                            { id: 'HR3', x: 66, y: 78, name: 'helper condition', display: 'Helper condition', detail: 'return boolean result', kind: 'return', meaning: 'Returns whether the value matches the suspicious condition.', raw: 'BB HR3\\nreturn lower.endsWith(...) || lower.contains(...)' }
-                          ],
-                          leftEdges: [
-                            { from: 'HL1', to: 'HL2' },
-                            { from: 'HL2', to: 'HL3' },
-                            { from: 'HL3', to: 'HL2', kind: 'loop', side: 'left' }
-                          ],
-                          rightEdges: [
-                            { from: 'HR1', to: 'HR2' },
-                            { from: 'HR2', to: 'HR3' },
-                            { from: 'HR3', to: 'HR2', kind: 'loop', side: 'right' }
-                          ],
-                          matches: [
-                            { left: 'HL1', right: 'HR1', label: 'context', friendly: 'Caller context linked', distance: 0.29 },
-                            { left: 'HL2', right: 'HR3', label: 'condition', friendly: 'Condition logic linked', distance: looksLikeHelper ? 0.16 : 0.24 },
-                            { left: 'HL3', right: 'HR3', label: 'effect', friendly: 'Update depends on helper result', distance: 0.33 }
-                          ]
-                        }
+                        nextRegions: regions,
+                        cfg: adaptWalaCfgReport(data, regions)
                       };
+                      return report;
+                    }
+                    function adaptNextRegion(region, index) {
+                      const left = region.left || {};
+                      const right = region.right || {};
+                      const statementChanges = region.statementChanges || [];
+                      const tags = region.tags || [];
+                      const changes = statementChanges.length
+                        ? statementChanges.map(change => statementChangeSummary(change))
+                        : (region.decisionPath || []).slice(0, 4);
+                      const leftLines = rangeLineCount(left.beginLine, left.endLine);
+                      const rightLines = rangeLineCount(right.beginLine, right.endLine);
+                      return {
+                        id: region.candidateId || `region-${index + 1}`,
+                        type: normalizeRegionType(region.type),
+                        title: regionTitle(left.displayName, right.displayName, region.type, index),
+                        short: regionShort(region),
+                        leftRange: [positiveLine(left.beginLine), positiveLine(left.endLine)],
+                        rightRange: [positiveLine(right.beginLine), positiveLine(right.endLine)],
+                        affected: `Left ${leftLines} lines / Right ${rightLines} lines`,
+                        tags,
+                        changes,
+                        raw: region,
+                        score: region.syntacticSimilarity
+                      };
+                    }
+                    function normalizeNextBreakdown(items, regions) {
+                      if (items.length) {
+                        return items.map(item => ({
+                          type: normalizeRegionType(item.type),
+                          label: item.type,
+                          regionCount: item.regionCount,
+                          affectedLeftRatio: numberOrZero(item.affectedLeftRatio),
+                          affectedRightRatio: numberOrZero(item.affectedRightRatio)
+                        }));
+                      }
+                      const byType = new Map();
+                      regions.forEach(region => {
+                        const current = byType.get(region.type) || { type: region.type, regionCount: 0, affectedLeftRatio: 0, affectedRightRatio: 0 };
+                        current.regionCount += 1;
+                        current.affectedLeftRatio += rangeLineCount(region.leftRange[0], region.leftRange[1]) / Math.max(1, sourceA.value.split('\\n').length);
+                        current.affectedRightRatio += rangeLineCount(region.rightRange[0], region.rightRange[1]) / Math.max(1, sourceB.value.split('\\n').length);
+                        byType.set(region.type, current);
+                      });
+                      return Array.from(byType.values());
+                    }
+                    function adaptWalaCfgReport(data, regions) {
+                      const wala = data.walaCfg || {};
+                      if (!wala.available) {
+                        return {
+                          available: false,
+                          source: wala.source || 'WALA raw CFG',
+                          reason: wala.reason || 'Real WALA CFG output is not available for this run.',
+                          categories: [],
+                          methods: [],
+                          blockSets: {}
+                        };
+                      }
+                      const leftMethods = normalizeWalaMethods(wala.left, 'left');
+                      const rightMethods = normalizeWalaMethods(wala.right, 'right');
+                      const pairs = buildWalaMethodPairs(leftMethods, rightMethods, regions);
+                      const blockSets = {};
+                      pairs.forEach((pair, index) => {
+                        const key = `wala-${index + 1}`;
+                        pair.blockSet = key;
+                        blockSets[key] = {
+                          left: pair.leftMethod.nodes,
+                          right: pair.rightMethod.nodes,
+                          leftEdges: pair.leftMethod.edges,
+                          rightEdges: pair.rightMethod.edges,
+                          matches: []
+                        };
+                      });
+                      return {
+                        available: true,
+                        source: wala.source || 'WALA raw CFG',
+                        resultLabel: 'Real WALA CFG',
+                        summary: 'Basic blocks and arrows are extracted from WALA raw CFG output.',
+                        score: null,
+                        bestShort: pairs[0]?.title || 'No WALA method pair',
+                        candidateReduction: `${pairs.length} method views`,
+                        tags: ['real WALA output'],
+                        categories: [
+                          {
+                            key: 'wala',
+                            title: 'Real method CFGs',
+                            description: 'Choose a method pair extracted from WALA bytecode analysis.',
+                            badge: 'WALA'
+                          }
+                        ],
+                        methods: pairs,
+                        blockSets
+                      };
+                    }
+                    function normalizeWalaMethods(program, side) {
+                      return (program?.methods || [])
+                        .filter(method => (method.blocks || []).length)
+                        .map((method, index) => {
+                          const prefix = side === 'left' ? 'L' : 'R';
+                          const nodes = (method.blocks || []).map(block => walaBlockNode(block, method, prefix));
+                          const nodeIds = new Set(nodes.map(node => node.id));
+                          const edges = [];
+                          (method.blocks || []).forEach(block => {
+                            const from = `${prefix}b${block.number}`;
+                            (block.normalSuccessors || []).forEach(to => {
+                              const target = `${prefix}b${to}`;
+                              if (nodeIds.has(from) && nodeIds.has(target)) {
+                                edges.push({ from, to: target, kind: Number(to) <= Number(block.number) ? 'loop' : 'flow' });
+                              }
+                            });
+                            (block.exceptionalSuccessors || []).forEach(to => {
+                              const target = `${prefix}b${to}`;
+                              if (nodeIds.has(from) && nodeIds.has(target)) {
+                                edges.push({ from, to: target, kind: 'exception' });
+                              }
+                            });
+                          });
+                          return {
+                            index,
+                            side,
+                            signature: method.signature || `method-${index + 1}`,
+                            shortName: walaShortMethodName(method.signature || `method-${index + 1}`),
+                            fileName: method.fileName || program?.fileName || '',
+                            raw: method,
+                            nodes,
+                            edges
+                          };
+                        });
+                    }
+                    function walaBlockNode(block, method, prefix) {
+                      const instructions = block.instructions || [];
+                      const firstInstruction = instructions.find(item => item.text)?.text || '';
+                      const display = block.entry ? 'Entry'
+                        : block.exit ? 'Exit'
+                        : `BB ${block.number}`;
+                      const detail = block.entry ? 'method entry'
+                        : block.exit ? 'method exit'
+                        : summarizeWalaInstruction(firstInstruction || block.rawBlockString || 'basic block');
+                      const hasInvoke = instructions.some(item => item.declaredTarget);
+                      const successorCount = (block.normalSuccessors || []).length + (block.exceptionalSuccessors || []).length;
+                      return {
+                        id: `${prefix}b${block.number}`,
+                        name: display,
+                        display,
+                        detail,
+                        kind: block.entry ? 'entry' : block.exit ? 'return' : hasInvoke ? 'helper' : successorCount > 1 ? 'branch' : 'block',
+                        meaning: block.rawBlockString || `${method.signature} basic block ${block.number}`,
+                        raw: JSON.stringify(block, null, 2)
+                      };
+                    }
+                    function summarizeWalaInstruction(text) {
+                      return String(text || '')
+                        .replace(/\\s+/g, ' ')
+                        .replace(/^\\d+\\s*=\\s*/, '')
+                        .slice(0, 54);
+                    }
+                    function buildWalaMethodPairs(leftMethods, rightMethods, regions) {
+                      const pairs = [];
+                      const seen = new Set();
+                      regions.forEach(region => {
+                        const left = findWalaMethod(leftMethods, region.raw?.left?.displayName);
+                        const right = findWalaMethod(rightMethods, region.raw?.right?.displayName);
+                        if (left && right) {
+                          const key = `${left.signature} -> ${right.signature}`;
+                          if (!seen.has(key)) {
+                            seen.add(key);
+                            pairs.push(walaMethodPair(left, right));
+                          }
+                        }
+                      });
+                      if (!pairs.length) {
+                        const left = firstUsefulWalaMethod(leftMethods);
+                        const right = firstUsefulWalaMethod(rightMethods);
+                        if (left && right) {
+                          pairs.push(walaMethodPair(left, right));
+                        }
+                      }
+                      return pairs;
+                    }
+                    function walaMethodPair(left, right) {
+                      return {
+                        category: 'wala',
+                        categoryLabel: 'Real method CFGs',
+                        title: `${left.shortName} -> ${right.shortName}`,
+                        left: left.signature,
+                        right: right.signature,
+                        score: null,
+                        defaultNode: left.nodes[0]?.id || right.nodes[0]?.id || '',
+                        explanation: 'Open the real WALA CFG for these compiled methods.',
+                        storyTitle: 'Real WALA CFG',
+                        storyBody: 'Blocks and edges come directly from WALA raw CFG output.',
+                        leftMethod: left,
+                        rightMethod: right
+                      };
+                    }
+                    function findWalaMethod(methods, displayName) {
+                      const name = methodNameToken(displayName);
+                      if (!name) return null;
+                      return methods.find(method => method.shortName === name)
+                        || methods.find(method => method.signature.includes(`.${name}(`))
+                        || methods.find(method => method.signature.includes(`${name}(`));
+                    }
+                    function firstUsefulWalaMethod(methods) {
+                      return methods.find(method => !method.signature.includes('.<init>('))
+                        || methods[0]
+                        || null;
+                    }
+                    function methodNameToken(value) {
+                      const text = String(value || '');
+                      const withoutArgs = text.split('(')[0];
+                      const parts = withoutArgs.split('.');
+                      return parts[parts.length - 1] || '';
+                    }
+                    function walaShortMethodName(signature) {
+                      const match = String(signature || '').match(/\\.([^.(]+)\\(/);
+                      return match ? match[1] : methodNameToken(signature);
+                    }
+                    function positiveLine(value) {
+                      const n = Number(value);
+                      return Number.isFinite(n) && n > 0 ? n : 1;
+                    }
+                    function rangeLineCount(begin, end) {
+                      const start = positiveLine(begin);
+                      const finish = positiveLine(end);
+                      return Math.max(1, finish - start + 1);
+                    }
+                    function normalizeRegionType(type) {
+                      return String(type || 'UNKNOWN').replace(/_CANDIDATE$/, '');
+                    }
+                    function numberOrZero(value) {
+                      const n = Number(value);
+                      return Number.isFinite(n) ? n : 0;
+                    }
+                    function statementChangeSummary(change) {
+                      const left = change.leftText ? `left: ${change.leftText}` : '';
+                      const right = change.rightText ? `right: ${change.rightText}` : '';
+                      return `${change.kind || 'changed'} ${[left, right].filter(Boolean).join(' | ')}`.trim();
+                    }
+                    function regionTitle(leftName, rightName, type, index) {
+                      const left = leftName || `left region ${index + 1}`;
+                      const right = rightName || `right region ${index + 1}`;
+                      return `${left} -> ${right}`;
+                    }
+                    function regionShort(region) {
+                      if (region.tags?.length) return region.tags.map(tag => String(tag).toLowerCase().replaceAll('_', ' ')).join(', ');
+                      if (region.decisionPath?.length) return region.decisionPath[region.decisionPath.length - 1];
+                      return `${region.type || 'region'} evidence`;
+                    }
+                    function nextRelationshipLabel(shape, type) {
+                      if (!shape && !type) return 'Review selected regions.';
+                      return `${String(shape || 'REGION_EVIDENCE').replaceAll('_', ' ').toLowerCase()} · ${String(type || '').replaceAll('_', ' ')}`.trim();
                     }
                     function typeName(source, fallback) {
                       const match = source.match(/\\b(?:class|interface|enum|record)\\s+([A-Za-z_$][\\w$]*)/);

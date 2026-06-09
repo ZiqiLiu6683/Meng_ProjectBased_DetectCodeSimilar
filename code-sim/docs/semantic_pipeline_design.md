@@ -24,6 +24,12 @@ Semantic verification    BinHunt-style
 Inter-procedural mode    iBinHunt-style
 ```
 
+User-facing reports must only display real tool output or directly traceable
+derived evidence. A CFG visualization must be generated from real CFG data
+emitted by the active backend, such as WALA basic blocks and successor edges.
+If that backend is not available, the UI should report the missing analysis
+source instead of substituting a demo graph or simulated preview.
+
 ## Tooling Direction
 
 The implementation should rely on established analysis tools instead of

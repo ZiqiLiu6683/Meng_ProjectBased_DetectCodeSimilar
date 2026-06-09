@@ -31,16 +31,19 @@ Input file pair
 
 1. Preserve raw evidence. Normalized, hashed, and vectorized views are
    additional views, not replacements for raw tool output.
-2. Do not classify the whole file before finding regions.
-3. Candidate discovery is not type judgment. KNN and other filters only propose
+2. Do not use fake, mock, demo, or simulated evidence in user-facing reports
+   to make the system look better. If a real analysis source is unavailable,
+   the report must say that it is unavailable instead of drawing a replacement.
+3. Do not classify the whole file before finding regions.
+4. Candidate discovery is not type judgment. KNN and other filters only propose
    region pairs for later strict approval.
-4. Type recognition is strict and ordered for syntactic clones:
+5. Type recognition is strict and ordered for syntactic clones:
    `T1 -> T2 -> T3`.
-5. Type-4 is not a leftover category. It requires independent semantic,
+6. Type-4 is not a leftover category. It requires independent semantic,
    structural, or dynamic positive evidence.
-6. Tags must be preserved even when they do not decide the final type. For
+7. Tags must be preserved even when they do not decide the final type. For
    example, a T3 region can still have `renaming_detected`.
-7. File-level output is an aggregation of region-level results, not a single
+8. File-level output is an aggregation of region-level results, not a single
    raw classifier label.
 
 ## Stage 0: Multi-view Evidence Extraction
