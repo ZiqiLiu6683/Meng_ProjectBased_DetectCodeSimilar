@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -19,6 +21,7 @@ public class WebAppMain {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", WebAppMain::handleIndex);
         server.createContext("/cfg-evidence", WebAppMain::handleCfgEvidence);
+        server.createContext("/vendor/elk.bundled.js", WebAppMain::handleElkVendor);
         server.createContext("/api/analyze", WebAppMain::handleAnalyze);
         server.setExecutor(null);
         server.start();
@@ -39,6 +42,30 @@ public class WebAppMain {
             return;
         }
         send(exchange, 200, "text/html; charset=utf-8", html());
+    }
+
+    private static void handleElkVendor(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            send(exchange, 405, "text/plain; charset=utf-8", "Method not allowed");
+            return;
+        }
+        Path elk = Path.of("web", "vendor", "elk.bundled.js");
+        if (!Files.exists(elk)) {
+            send(exchange, 404, "text/plain; charset=utf-8", "ELK bundle not found");
+            return;
+        }
+        String guard = "var module={exports:{}};var exports=module.exports;var define=undefined;\n";
+        byte[] bundle = Files.readAllBytes(elk);
+        byte[] suffix = "\nconst ELK=module.exports.default||module.exports;\n".getBytes(StandardCharsets.UTF_8);
+        byte[] prefix = guard.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = new byte[prefix.length + bundle.length + suffix.length];
+        System.arraycopy(prefix, 0, bytes, 0, prefix.length);
+        System.arraycopy(bundle, 0, bytes, prefix.length, bundle.length);
+        System.arraycopy(suffix, 0, bytes, prefix.length + bundle.length, suffix.length);
+        exchange.getResponseHeaders().set("Content-Type", "application/javascript; charset=utf-8");
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
     }
 
     private static void handleAnalyze(HttpExchange exchange) throws IOException {
@@ -97,7 +124,8 @@ public class WebAppMain {
                 .replace("\r", "\\r");
     }
 
-    private static String html() {
+    private static String html() throws IOException {
+        String elkScript = elkScriptTag();
         return String.join("", """
                 <!doctype html>
                 <html lang="en">
@@ -105,6 +133,7 @@ public class WebAppMain {
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">
                   <title>Code Similarity</title>
+                  """, elkScript, """
                   <style>
                     :root {
                       color-scheme: light;
@@ -1625,42 +1654,84 @@ public class WebAppMain {
                     }
                     .cfg-graph-canvas {
                       position: relative;
-                      min-height: 740px;
+                      min-height: 720px;
                       border: 1px solid #e4e9ef;
                       border-radius: 8px;
                       background: #fbfcfe;
                       overflow: hidden;
                     }
-                    .cfg-edge-layer {
-                      position: absolute;
-                      inset: 0;
+                    .cfg-graph-svg {
+                      display: block;
                       width: 100%;
-                      height: 100%;
-                      pointer-events: none;
-                      z-index: 1;
+                      min-height: 720px;
                     }
                     .cfg-edge {
                       stroke: #64748b;
-                      stroke-width: .96;
+                      stroke-width: 3.2;
                       stroke-linecap: round;
+                      stroke-linejoin: round;
                       fill: none;
-                      opacity: 0.88;
+                      opacity: 0.9;
                     }
                     .cfg-edge.loop {
                       stroke: #c47a1c;
-                      stroke-width: .62;
-                      stroke-dasharray: 4 7;
-                      opacity: .58;
+                      stroke-width: 2.6;
+                      stroke-dasharray: 8 10;
+                      opacity: .62;
                     }
-                    .cfg-graph-canvas .cfg-node {
-                      position: absolute;
-                      width: 126px;
-                      min-height: 58px;
-                      transform: translate(-50%, -50%);
-                      z-index: 2;
+                    .cfg-svg-node {
+                      cursor: pointer;
                     }
-                    .cfg-graph-canvas .cfg-node::after {
-                      display: none;
+                    .cfg-svg-node rect {
+                      fill: var(--accent-soft);
+                      stroke: #aacdc9;
+                      stroke-width: 1.4;
+                    }
+                    .cfg-svg-node.branch rect {
+                      fill: var(--warn-soft);
+                      stroke: #e3b76c;
+                    }
+                    .cfg-svg-node.helper rect {
+                      fill: var(--accent-soft);
+                      stroke: #91c6c0;
+                    }
+                    .cfg-svg-node.return rect {
+                      fill: #f4f6f9;
+                      stroke: #b7c2d0;
+                    }
+                    .cfg-svg-node.active rect {
+                      stroke: var(--accent);
+                      stroke-width: 3;
+                    }
+                    .cfg-svg-node.dim rect {
+                      fill: #f8fafc;
+                      stroke: #d7dee7;
+                    }
+                    .cfg-svg-node text {
+                      fill: var(--text);
+                      font-family: Arial, Helvetica, sans-serif;
+                      font-weight: 800;
+                      font-size: 13px;
+                      pointer-events: none;
+                    }
+                    .cfg-svg-node text.detail {
+                      fill: var(--muted);
+                      font-weight: 600;
+                      font-size: 12px;
+                    }
+                    .cfg-svg-node.dim text {
+                      fill: #9aa7b7;
+                    }
+                    .cfg-layout-loading {
+                      min-height: 720px;
+                      display: grid;
+                      place-items: center;
+                      align-content: center;
+                      gap: 6px;
+                      text-align: center;
+                    }
+                    .cfg-layout-loading strong {
+                      color: var(--accent);
                     }
                     .cfg-match-panel {
                       border: 1px solid var(--line);
@@ -1703,68 +1774,6 @@ public class WebAppMain {
                       color: var(--muted);
                       font-weight: 700;
                       font-size: 10px;
-                    }
-                    .cfg-column {
-                      border: 1px solid var(--line);
-                      border-radius: 8px;
-                      padding: 14px;
-                      background: white;
-                      display: grid;
-                      gap: 10px;
-                    }
-                    .cfg-node {
-                      border: 1px solid #aacdc9;
-                      background: var(--accent-soft);
-                      border-radius: 8px;
-                      padding: 8px;
-                      min-height: 48px;
-                      position: relative;
-                      cursor: pointer;
-                      color: var(--text);
-                      text-align: left;
-                    }
-                    .cfg-node:not(:last-child)::after {
-                      content: "";
-                      position: absolute;
-                      left: 50%;
-                      bottom: -12px;
-                      width: 2px;
-                      height: 12px;
-                      background: #9aa7b7;
-                    }
-                    .cfg-node.branch {
-                      border-color: #e3b76c;
-                      background: var(--warn-soft);
-                    }
-                    .cfg-node.helper {
-                      border-color: #91c6c0;
-                      background: var(--accent-soft);
-                    }
-                    .cfg-node.return {
-                      border-color: #b7c2d0;
-                      background: #f4f6f9;
-                    }
-                    .cfg-node.active {
-                      box-shadow: 0 0 0 2px var(--accent);
-                    }
-                    .cfg-node.dim {
-                      color: #8a95a3;
-                      border-color: #d7dee7;
-                      background: #f8fafc;
-                    }
-                    .cfg-node.dim strong,
-                    .cfg-node.dim span {
-                      color: #9aa7b7;
-                    }
-                    .cfg-node strong {
-                      display: block;
-                      font-size: 12px;
-                      color: var(--text);
-                    }
-                    .cfg-node span {
-                      color: var(--muted);
-                      font-size: 11px;
-                      line-height: 1.25;
                     }
                     .cfg-links {
                       display: grid;
@@ -2047,6 +2056,9 @@ public class WebAppMain {
                     let showCfgLoops = false;
                     let focusCfgMatch = false;
                     let cfgSubView = 'graph';
+                    let elkInstance = null;
+                    const cfgLayoutCache = new Map();
+                    const cfgLayoutPending = new Set();
                     let fileAEdited = false;
                     let fileBEdited = false;
                     const astSections = [
@@ -3274,56 +3286,107 @@ public class WebAppMain {
                     }
                     function renderCfgGraph(fileName, side, blocks) {
                       const nodes = blocks[side] || [];
+                      const layoutKey = cfgLayoutKey(side, blocks);
+                      ensureCfgElkLayout(side, blocks, layoutKey);
+                      const layout = cfgLayoutCache.get(layoutKey);
                       return `<div class="cfg-graph-card">
                         <div class="cfg-tree-title"><strong>${escapeHtml(fileName)}</strong><span class="tag">${side === 'left' ? 'Left CFG' : 'Right CFG'}</span></div>
                         <div class="cfg-graph-canvas">
-                          <svg class="cfg-edge-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                          ${layout ? `<svg class="cfg-graph-svg" viewBox="0 0 ${Math.ceil(layout.width || 100)} ${Math.ceil(layout.height || 100)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(fileName)} control flow graph">
                             <defs>
-                              <marker id="arrow-${side}" markerWidth="4.8" markerHeight="4.8" refX="4.35" refY="2.4" orient="auto" markerUnits="strokeWidth">
-                                <path d="M 0 0 L 4.8 2.4 L 0 4.8 z" fill="#64748b"></path>
+                              <marker id="arrow-${side}" markerWidth="14" markerHeight="14" refX="11.5" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0 0 L 14 7 L 0 14 z" fill="#64748b"></path>
                               </marker>
-                              <marker id="arrow-loop-${side}" markerWidth="4.2" markerHeight="4.2" refX="3.8" refY="2.1" orient="auto" markerUnits="strokeWidth">
-                                <path d="M 0 0 L 4.2 2.1 L 0 4.2 z" fill="#c47a1c"></path>
+                              <marker id="arrow-loop-${side}" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0 0 L 11 5.5 L 0 11 z" fill="#c47a1c"></path>
                               </marker>
                             </defs>
-                            ${renderCfgEdges(nodes, blocks[`${side}Edges`] || [], side)}
-                          </svg>
-                          ${nodes.map(block => renderCfgNode(block, blocks)).join('')}
+                            ${renderElkEdges(layout, side)}
+                            ${nodes.map(block => renderCfgNode(block, blocks, layout.children?.find(child => child.id === block.id))).join('')}
+                          </svg>` : renderCfgLayoutLoading()}
                         </div>
                       </div>`;
                     }
-                    function renderCfgEdges(nodes, edges, side) {
-                      const byId = new Map(nodes.map(node => [node.id, node]));
-                      return edges.map(edge => {
-                        const from = byId.get(edge.from);
-                        const to = byId.get(edge.to);
-                        if (!from || !to) return '';
-                        const cls = edge.kind === 'loop' ? 'cfg-edge loop' : 'cfg-edge';
-                        if (edge.kind === 'loop' && !showCfgLoops) return '';
-                        const start = cfgEdgePoint(from, to, 1.0);
-                        const end = cfgEdgePoint(to, from, 1.0);
-                        if (edge.kind === 'loop') {
-                          const dx = edge.side === 'left' ? -18 : 18;
-                          const midY = Math.min(from.y, to.y) - 10;
-                          return `<path class="${cls}" d="M ${start.x} ${start.y} C ${from.x + dx} ${midY}, ${to.x + dx} ${midY}, ${end.x} ${end.y}" marker-end="url(#arrow-loop-${side})"></path>`;
-                        }
-                        return `<line class="${cls}" x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" marker-end="url(#arrow-${side})"></line>`;
+                    function renderCfgLayoutLoading() {
+                      return `<div class="cfg-layout-loading"><strong>Building CFG layout...</strong><span class="muted">ELK is placing blocks and routing arrows.</span></div>`;
+                    }
+                    function cfgLayoutKey(side, blocks) {
+                      const nodeIds = (blocks[side] || []).map(node => node.id).join(',');
+                      const edgeIds = (blocks[`${side}Edges`] || []).map(edge => `${edge.from}>${edge.to}:${edge.kind || 'flow'}`).join(',');
+                      return `${side}:${showCfgLoops ? 'loops' : 'main'}:${nodeIds}:${edgeIds}`;
+                    }
+                    function ensureCfgElkLayout(side, blocks, key) {
+                      if (cfgLayoutCache.has(key) || cfgLayoutPending.has(key)) return;
+                      if (typeof ELK === 'undefined') return;
+                      cfgLayoutPending.add(key);
+                      if (!elkInstance) elkInstance = new ELK();
+                      elkInstance.layout(buildElkGraph(side, blocks))
+                        .then(layout => {
+                          cfgLayoutCache.set(key, layout);
+                          cfgLayoutPending.delete(key);
+                          if ((reportMode === 'cfg' || reportMode === 'next') && (activeSection === 'cfg' || activeSection === 'explorer') && cfgDetailOpen && cfgSubView === 'graph') {
+                            renderReport();
+                          }
+                        })
+                        .catch(() => {
+                          cfgLayoutPending.delete(key);
+                        });
+                    }
+                    function buildElkGraph(side, blocks) {
+                      const nodes = blocks[side] || [];
+                      const edges = (blocks[`${side}Edges`] || [])
+                        .filter(edge => showCfgLoops || edge.kind !== 'loop')
+                        .map((edge, index) => {
+                          const isLoop = edge.kind === 'loop';
+                          return {
+                            id: `${side}-edge-${index}-${isLoop ? 'loop' : 'flow'}`,
+                            kind: edge.kind || 'flow',
+                            sources: [`${edge.from}.south`],
+                            targets: [`${edge.to}.north`]
+                          };
+                        });
+                      return {
+                        id: `${side}-cfg`,
+                        layoutOptions: {
+                          'elk.algorithm': 'layered',
+                          'elk.direction': 'DOWN',
+                          'elk.edgeRouting': 'ORTHOGONAL',
+                          'elk.spacing.nodeNode': '44',
+                          'elk.spacing.edgeNode': '28',
+                          'elk.layered.spacing.nodeNodeBetweenLayers': '72',
+                          'elk.layered.spacing.edgeNodeBetweenLayers': '30',
+                          'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+                          'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+                          'elk.layered.cycleBreaking.strategy': 'GREEDY',
+                          'elk.padding': '[top=28,left=28,bottom=28,right=28]'
+                        },
+                        children: nodes.map(node => ({
+                          id: node.id,
+                          width: 182,
+                          height: 76,
+                          layoutOptions: {
+                            'org.eclipse.elk.portConstraints': 'FIXED_SIDE'
+                          },
+                          ports: [
+                            { id: `${node.id}.north`, width: 1, height: 1, layoutOptions: { 'org.eclipse.elk.port.side': 'NORTH' } },
+                            { id: `${node.id}.south`, width: 1, height: 1, layoutOptions: { 'org.eclipse.elk.port.side': 'SOUTH' } }
+                          ]
+                        })),
+                        edges
+                      };
+                    }
+                    function renderElkEdges(layout, side) {
+                      return (layout.edges || []).map(edge => {
+                        const section = edge.sections?.[0];
+                        if (!section) return '';
+                        const points = [section.startPoint, ...(section.bendPoints || []), section.endPoint].filter(Boolean);
+                        const d = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${round(point.x)} ${round(point.y)}`).join(' ');
+                        const isLoop = edge.kind === 'loop' || edge.id.includes('-loop');
+                        return `<path class="cfg-edge ${isLoop ? 'loop' : ''}" d="${d}" marker-end="url(#${isLoop ? 'arrow-loop' : 'arrow'}-${side})"></path>`;
                       }).join('');
                     }
-                    function cfgEdgePoint(anchor, other, extra = 1) {
-                      const dx = other.x - anchor.x;
-                      const dy = other.y - anchor.y;
-                      const absX = Math.abs(dx);
-                      const absY = Math.abs(dy);
-                      const radiusX = 14.0;
-                      const radiusY = 4.25;
-                      const xScale = absX > 0 ? radiusX / absX : Infinity;
-                      const yScale = absY > 0 ? radiusY / absY : Infinity;
-                      const scale = Math.min(xScale, yScale, 0.48) * extra;
-                      return {
-                        x: Number((anchor.x + dx * scale).toFixed(2)),
-                        y: Number((anchor.y + dy * scale).toFixed(2))
-                      };
+                    function round(value) {
+                      return Number(Number(value || 0).toFixed(2));
                     }
                     function cfgMetric(label, value, note) {
                       return `<div class="cfg-metric"><div class="label">${escapeHtml(label)}</div><strong>${escapeHtml(value)}</strong><div class="muted">${escapeHtml(note)}</div></div>`;
@@ -3374,13 +3437,44 @@ public class WebAppMain {
                         matchLabel: matchedBlock ? `${matchedBlock.display || matchedBlock.name} in the other file` : 'No matched block'
                       };
                     }
-                    function renderCfgNode(block, blocks) {
+                    function renderCfgNode(block, blocks, placed) {
                       const match = blocks.matches.find(item => item.left === block.id || item.right === block.id);
                       const active = selectedCfgNode === block.id ? 'active' : '';
                       const related = match && (match.left === selectedCfgNode || match.right === selectedCfgNode);
                       const dim = focusCfgMatch && selectedCfgNode && !active && !related ? 'dim' : '';
-                      const style = block.x != null && block.y != null ? `style="left:${Number(block.x)}%;top:${Number(block.y)}%"` : '';
-                      return `<button class="cfg-node ${escapeHtml(block.kind || '')} ${active} ${dim}" ${style} data-cfg-node="${escapeHtml(block.id)}" type="button"><strong>${escapeHtml(block.display || block.name)}</strong><span>${escapeHtml(block.detail)}</span></button>`;
+                      const box = cfgNodeBox(block, placed);
+                      const detailLines = svgTextLines(block.detail || '');
+                      return `<g class="cfg-svg-node ${escapeHtml(block.kind || '')} ${active} ${dim}" data-cfg-node="${escapeHtml(block.id)}" tabindex="0" role="button" aria-label="${escapeHtml((block.display || block.name) + ' ' + block.detail)}">
+                        <rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8"></rect>
+                        <text x="${box.x + 14}" y="${box.y + 26}">${escapeHtml(block.display || block.name)}</text>
+                        ${detailLines.map((line, index) => `<text class="detail" x="${box.x + 14}" y="${box.y + 48 + index * 15}">${escapeHtml(line)}</text>`).join('')}
+                      </g>`;
+                    }
+                    function cfgNodeBox(block, placed) {
+                      const w = Number(placed?.width || 182);
+                      const h = Number(placed?.height || 76);
+                      return {
+                        x: round(placed?.x || Number(block.x || 0)),
+                        y: round(placed?.y || Number(block.y || 0)),
+                        w,
+                        h
+                      };
+                    }
+                    function svgTextLines(text) {
+                      const words = String(text || '').split(/\\s+/).filter(Boolean);
+                      const lines = [];
+                      let current = '';
+                      words.forEach(word => {
+                        const next = current ? `${current} ${word}` : word;
+                        if (next.length > 23 && current) {
+                          lines.push(current);
+                          current = word;
+                        } else {
+                          current = next;
+                        }
+                      });
+                      if (current) lines.push(current);
+                      return lines.slice(0, 2);
                     }
                     function bindSectionEvents() {
                       sectionContent.querySelectorAll('[data-cfg-open-pair]').forEach(btn => {
@@ -4316,5 +4410,17 @@ public class WebAppMain {
                 </body>
                 </html>
                 """);
+    }
+
+    private static String elkScriptTag() throws IOException {
+        Path elk = Path.of("web", "vendor", "elk.bundled.js");
+        if (!Files.exists(elk)) {
+            return "<script>window.ELK=undefined;</script>";
+        }
+        String bundle = Files.readString(elk, StandardCharsets.UTF_8)
+                .replace("</script>", "<\\/script>");
+        return "<script>var module={exports:{}};var exports=module.exports;var define=undefined;\n"
+                + bundle
+                + "\nconst ELK=module.exports.default||module.exports;\n</script>";
     }
 }
