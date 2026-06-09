@@ -1918,6 +1918,15 @@ public class WebAppMain {
                       stroke: var(--accent);
                       stroke-width: 3;
                     }
+                    .cfg-svg-node.related rect {
+                      fill: #eef4ff;
+                      stroke: #2563eb;
+                      stroke-width: 3;
+                      filter: drop-shadow(0 0 6px rgba(37, 99, 235, .22));
+                    }
+                    .cfg-svg-node.related text {
+                      fill: #1d4ed8;
+                    }
                     .cfg-svg-node.dim rect {
                       fill: #f8fafc;
                       stroke: #d7dee7;
@@ -1989,6 +1998,58 @@ public class WebAppMain {
                       color: var(--muted);
                       font-weight: 700;
                       font-size: 10px;
+                    }
+                    .cfg-match-card {
+                      border: 1px solid var(--line);
+                      border-left: 3px solid var(--accent);
+                      border-radius: 8px;
+                      background: var(--accent-soft);
+                      padding: 10px;
+                      text-align: left;
+                      display: grid;
+                      gap: 8px;
+                      min-width: 0;
+                      cursor: pointer;
+                    }
+                    .cfg-match-card:hover {
+                      border-color: var(--accent);
+                    }
+                    .cfg-match-card strong {
+                      display: block;
+                      color: var(--accent);
+                      font-size: 12px;
+                      line-height: 1.25;
+                    }
+                    .cfg-match-card span {
+                      display: block;
+                      color: var(--muted);
+                      font-size: 12px;
+                      font-weight: 700;
+                      margin-top: 2px;
+                    }
+                    .cfg-mini-score {
+                      display: grid;
+                      gap: 5px;
+                    }
+                    .cfg-mini-score small {
+                      color: var(--text);
+                      font-size: 11px;
+                      font-weight: 800;
+                    }
+                    .cfg-mini-score::before {
+                      content: "";
+                      display: block;
+                      height: 6px;
+                      border-radius: 999px;
+                      background: #e8edf2;
+                      grid-row: 2;
+                    }
+                    .cfg-mini-score i {
+                      display: block;
+                      height: 6px;
+                      border-radius: 999px;
+                      background: var(--accent);
+                      margin-top: -11px;
                     }
                     .cfg-links {
                       display: grid;
@@ -2279,19 +2340,16 @@ public class WebAppMain {
                     const astSections = [
                       ['summary', 'General Summary'],
                       ['methods', 'Matched Methods'],
-                      ['evidence', 'Why This Result?'],
-                      ['json', 'Developer JSON']
+                      ['evidence', 'Why This Result?']
                     ];
                     const cfgSections = [
                       ['summary', 'Evidence Summary'],
-                      ['explorer', 'CFG Explorer'],
-                      ['json', 'Evidence JSON']
+                      ['explorer', 'CFG Explorer']
                     ];
                     const nextSections = [
                       ['summary', 'Result Summary'],
                       ['source', 'Code Regions'],
-                      ['cfg', 'CFG Explorer'],
-                      ['json', 'Evidence JSON']
+                      ['cfg', 'CFG Explorer']
                     ];
                     const sampleA = `import java.util.ArrayList;
                 import java.util.List;
@@ -2952,6 +3010,9 @@ public class WebAppMain {
                       if (!reportData) return;
                       const files = fileInfo(reportData);
                       const sections = reportMode === 'cfg' ? cfgSections : reportMode === 'next' ? nextSections : astSections;
+                      if (!sections.some(([id]) => id === activeSection)) {
+                        activeSection = sections[0][0];
+                      }
                       reportHeading.textContent = reportMode === 'cfg'
                         ? 'CFG Evidence Report'
                         : reportMode === 'next'
@@ -3388,9 +3449,6 @@ public class WebAppMain {
                       if (cfgSubView === 'matches') {
                         return renderCfgMatches(data, files);
                       }
-                      if (cfgSubView === 'closeness') {
-                        return renderCfgCloseness(data, files);
-                      }
                       const blocks = cfg.blockSets[method.blockSet] || cfg.blockSets.main;
                       const selected = selectedCfgNode ? selectedCfgBlock(blocks, selectedCfgNode) : null;
                       return `<section class="section cfg-page">
@@ -3400,7 +3458,7 @@ public class WebAppMain {
                             <button class="cfg-toggle" data-cfg-back type="button">Back to sections</button>
                           </div>
                           <div class="cfg-toggle-group">
-                            <button class="cfg-toggle" data-cfg-view="matches" type="button">Next: Block Matches</button>
+                            <button class="cfg-toggle" data-cfg-view="matches" type="button">Next: Matches & Closeness</button>
                           </div>
                         </div>
                         <div class="cfg-visual ${selected ? 'with-inspector' : ''}">
@@ -3437,46 +3495,20 @@ public class WebAppMain {
                       const blocks = cfg.blockSets[method.blockSet] || cfg.blockSets.main;
                       const hasMatches = (blocks.matches || []).length > 0;
                       return `<section class="section cfg-page">
-                        ${renderCfgPageNote('Step 3', 'Check which blocks were matched before reading closeness.')}
+                        ${renderCfgPageNote('Step 3', 'Check matched blocks and their distance. Lower distance means closer blocks.')}
                         <div class="cfg-page-actions">
                           <div class="cfg-toggle-group">
                             <button class="cfg-toggle" data-cfg-view="graph" type="button">Back: CFG Graph</button>
                           </div>
                           <div class="cfg-toggle-group">
-                            <button class="cfg-toggle" data-cfg-view="closeness" type="button">Next: Closeness</button>
-                          </div>
-                        </div>
-                        <div class="section-head"><h3>Block Matches</h3><div class="muted">${escapeHtml(method.left)} -> ${escapeHtml(method.right)}</div></div>
-                        <div class="cfg-match-panel always">
-                          <div class="cfg-links">
-                            ${hasMatches ? blocks.matches.map(match => renderCfgMatchLine(match, blocks, true)).join('') : '<div class="cfg-empty">No real block-alignment output was emitted for this method pair yet.</div>'}
-                          </div>
-                        </div>
-                      </section>`;
-                    }
-                    function renderCfgCloseness(data, files) {
-                      const cfg = data.cfg;
-                      const method = cfg.methods[selectedPairIndex] || cfg.methods[0];
-                      const blocks = cfg.blockSets[method.blockSet] || cfg.blockSets.main;
-                      const hasMatches = (blocks.matches || []).length > 0;
-                      return `<section class="section cfg-page">
-                        ${renderCfgPageNote('Step 3', 'Use closeness after checking which blocks were matched. Lower distance means closer blocks.')}
-                        <div class="cfg-page-actions">
-                          <div class="cfg-toggle-group">
-                            <button class="cfg-toggle" data-cfg-view="matches" type="button">Back: Block Matches</button>
-                          </div>
-                          <div class="cfg-toggle-group">
                             <button class="cfg-toggle" data-cfg-back type="button">Back to sections</button>
                           </div>
                         </div>
-                        <div class="section-head"><h3>Closeness</h3><div class="muted">Lower distance means closer blocks.</div></div>
-                        <div class="bar-list">
-                          ${hasMatches ? blocks.matches.map(match => {
-                            const left = blocks.left.find(block => block.id === match.left);
-                            const right = blocks.right.find(block => block.id === match.right);
-                            const label = `${left?.display || match.left} -> ${right?.display || match.right}`;
-                            return scoreBar(label, Math.max(0, 1 - Number(match.distance || 0)), closenessText(match.distance));
-                          }).join('') : '<div class="cfg-empty">No real block-distance output was emitted for this method pair yet.</div>'}
+                        <div class="section-head"><h3>Matches & Closeness</h3><div class="muted">${escapeHtml(method.left)} -> ${escapeHtml(method.right)}</div></div>
+                        <div class="cfg-match-panel always">
+                          <div class="cfg-links">
+                            ${hasMatches ? blocks.matches.map(match => renderCfgMatchCard(match, blocks)).join('') : '<div class="cfg-empty">No block alignment could be derived from the WALA blocks for this method pair.</div>'}
+                          </div>
                         </div>
                       </section>`;
                     }
@@ -3655,6 +3687,23 @@ public class WebAppMain {
                       const rightName = right ? (right.display || right.name) : match.right;
                       return `<span><strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong><small>${escapeHtml(match.friendly || `${match.label} matched`)}${(forceDistance || showCfgDistance) ? ` · ${escapeHtml(closenessShort(match.distance))}` : ''}</small></span>`;
                     }
+                    function renderCfgMatchCard(match, blocks) {
+                      const left = blocks.left.find(block => block.id === match.left);
+                      const right = blocks.right.find(block => block.id === match.right);
+                      const leftName = left ? (left.display || left.name) : match.left;
+                      const rightName = right ? (right.display || right.name) : match.right;
+                      const closeness = Math.max(0, Math.min(1, 1 - Number(match.distance || 0)));
+                      return `<button class="cfg-match-card" data-cfg-match-node="${escapeHtml(match.left)}" type="button">
+                        <div>
+                          <strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong>
+                          <span>${escapeHtml(match.friendly || 'derived WALA block alignment')}</span>
+                        </div>
+                        <div class="cfg-mini-score">
+                          <small>${escapeHtml(closenessText(match.distance))}</small>
+                          <i style="width:${Math.round(closeness * 100)}%"></i>
+                        </div>
+                      </button>`;
+                    }
                     function closenessText(distance) {
                       if (distance == null || Number.isNaN(Number(distance))) return 'No close match';
                       const value = Number(distance);
@@ -3693,7 +3742,7 @@ public class WebAppMain {
                       const dim = focusCfgMatch && selectedCfgNode && !active && !related ? 'dim' : '';
                       const box = cfgNodeBox(block, placed);
                       const detailLines = svgTextLines(block.detail || '');
-                      return `<g class="cfg-svg-node ${escapeHtml(block.kind || '')} ${active} ${dim}" data-cfg-node="${escapeHtml(block.id)}" tabindex="0" role="button" aria-label="${escapeHtml((block.display || block.name) + ' ' + block.detail)}">
+                      return `<g class="cfg-svg-node ${escapeHtml(block.kind || '')} ${active} ${related ? 'related' : ''} ${dim}" data-cfg-node="${escapeHtml(block.id)}" tabindex="0" role="button" aria-label="${escapeHtml((block.display || block.name) + ' ' + block.detail)}">
                         <rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8"></rect>
                         <text x="${box.x + 14}" y="${box.y + 26}">${escapeHtml(block.display || block.name)}</text>
                         ${detailLines.map((line, index) => `<text class="detail" x="${box.x + 14}" y="${box.y + 48 + index * 15}">${escapeHtml(line)}</text>`).join('')}
@@ -3759,6 +3808,13 @@ public class WebAppMain {
                         btn.addEventListener('click', () => {
                           const nodeId = btn.dataset.cfgNode;
                           selectedCfgNode = selectedCfgNode === nodeId ? '' : nodeId;
+                          renderReport();
+                        });
+                      });
+                      sectionContent.querySelectorAll('[data-cfg-match-node]').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                          selectedCfgNode = btn.dataset.cfgMatchNode || '';
+                          cfgSubView = 'graph';
                           renderReport();
                         });
                       });
@@ -3940,7 +3996,7 @@ public class WebAppMain {
                           right: pair.rightMethod.nodes,
                           leftEdges: pair.leftMethod.edges,
                           rightEdges: pair.rightMethod.edges,
-                          matches: []
+                          matches: buildWalaBlockMatches(pair.leftMethod.nodes, pair.rightMethod.nodes)
                         };
                       });
                       return {
@@ -4017,7 +4073,9 @@ public class WebAppMain {
                         detail,
                         kind: block.entry ? 'entry' : block.exit ? 'return' : hasInvoke ? 'helper' : successorCount > 1 ? 'branch' : 'block',
                         meaning: block.rawBlockString || `${method.signature} basic block ${block.number}`,
-                        raw: JSON.stringify(block, null, 2)
+                        raw: JSON.stringify(block, null, 2),
+                        number: Number(block.number),
+                        instructionText: instructions.map(item => item.text || '').filter(Boolean).join(' ')
                       };
                     }
                     function summarizeWalaInstruction(text) {
@@ -4064,6 +4122,58 @@ public class WebAppMain {
                         leftMethod: left,
                         rightMethod: right
                       };
+                    }
+                    function buildWalaBlockMatches(leftNodes, rightNodes) {
+                      const rightRemaining = new Set(rightNodes.map(node => node.id));
+                      const matches = [];
+                      leftNodes.forEach(left => {
+                        let best = null;
+                        rightNodes.forEach(right => {
+                          if (!rightRemaining.has(right.id)) return;
+                          const distance = walaBlockDistance(left, right);
+                          if (!best || distance < best.distance) {
+                            best = { left, right, distance };
+                          }
+                        });
+                        if (!best) return;
+                        rightRemaining.delete(best.right.id);
+                        matches.push({
+                          left: best.left.id,
+                          right: best.right.id,
+                          distance: Number(best.distance.toFixed(4)),
+                          label: `${best.left.display || best.left.name} -> ${best.right.display || best.right.name}`,
+                          friendly: walaBlockMatchText(best.left, best.right, best.distance)
+                        });
+                      });
+                      return matches.sort((a, b) => {
+                        const leftA = Number(String(a.left).match(/b(\\d+)/)?.[1] || 0);
+                        const leftB = Number(String(b.left).match(/b(\\d+)/)?.[1] || 0);
+                        return leftA - leftB;
+                      });
+                    }
+                    function walaBlockDistance(left, right) {
+                      if (left.kind === 'entry' && right.kind === 'entry') return 0.0;
+                      if (left.kind === 'return' && right.kind === 'return') return 0.0;
+                      const kindCost = left.kind === right.kind ? 0.0 : 0.16;
+                      const numberCost = Number.isFinite(left.number) && Number.isFinite(right.number)
+                        ? Math.min(0.18, Math.abs(left.number - right.number) * 0.03)
+                        : 0.08;
+                      const textSimilarity = tokenJaccard(left.instructionText || left.detail, right.instructionText || right.detail);
+                      const textCost = 0.66 * (1 - textSimilarity);
+                      return Math.min(1, kindCost + numberCost + textCost);
+                    }
+                    function tokenJaccard(left, right) {
+                      const leftTokens = new Set(String(left || '').toLowerCase().match(/[a-z0-9_$.#]+/g) || []);
+                      const rightTokens = new Set(String(right || '').toLowerCase().match(/[a-z0-9_$.#]+/g) || []);
+                      if (!leftTokens.size && !rightTokens.size) return 1;
+                      const intersection = [...leftTokens].filter(token => rightTokens.has(token)).length;
+                      const union = new Set([...leftTokens, ...rightTokens]).size;
+                      return union ? intersection / union : 0;
+                    }
+                    function walaBlockMatchText(left, right, distance) {
+                      if (distance <= 0.05) return 'same WALA block role and close instructions';
+                      if (distance <= 0.20) return 'similar WALA block role with instruction changes';
+                      return 'weak WALA block alignment';
                     }
                     function findWalaMethod(methods, displayName) {
                       const name = methodNameToken(displayName);
