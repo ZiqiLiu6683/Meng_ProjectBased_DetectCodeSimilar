@@ -2,6 +2,7 @@ package com.ziqi.codesim.next;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NextJsonReportFormatterTest {
@@ -72,5 +73,36 @@ class NextJsonReportFormatterTest {
         assertTrue(json.contains("\"selectedRegionCount\""));
         assertTrue(json.contains("\"suppressedRegionCount\""));
         assertTrue(json.contains("\"emittedRegionCount\": 1"));
+    }
+
+    @Test
+    void omitsFileContainerRegionWhenGranularEvidenceExists() {
+        String left = """
+                class A {
+                  int score(int first, int second) {
+                    int total = first + second;
+                    if (total > 10) {
+                      total += 1;
+                    }
+                    return total;
+                  }
+                }
+                """;
+        String right = """
+                class B {
+                  int count(int left, int right) {
+                    int value = left + right;
+                    if (value > 10) {
+                      value += 1;
+                    }
+                    return value;
+                  }
+                }
+                """;
+
+        NextPipelineResult result = new NextPipelineRunner().run(left, right);
+        String json = new NextJsonReportFormatter().format(result);
+
+        assertFalse(json.contains("\"kind\": \"FILE\""));
     }
 }

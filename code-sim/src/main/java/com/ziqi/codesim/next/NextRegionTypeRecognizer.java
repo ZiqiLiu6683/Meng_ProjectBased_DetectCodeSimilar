@@ -7,6 +7,12 @@ import java.util.Set;
 
 public class NextRegionTypeRecognizer {
     private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
+    private static final Set<String> SOURCE_ONLY_CHANNELS = Set.of(
+            "EXACT_TEXT_SCAN",
+            "NORMALIZED_AST_SCAN",
+            "NORMALIZED_TOKEN_KNN_SCAN",
+            "STATEMENT_DIFF_SCAN"
+    );
 
     public RegionDecision decide(RegionCandidate candidate) {
         CodeRegion left = candidate.left();
@@ -49,8 +55,10 @@ public class NextRegionTypeRecognizer {
         path.add("T2 failed: T2 normalized token sequences are not 100% identical or statement edits exist.");
 
         double syntacticSimilarity = syntacticSimilarity(left, right);
+        boolean t3ComparableScope = hasCompleteComparableUnit(candidate) || hasExternalCandidateEvidence(candidate);
         if (editScript.hasAnyChange()
-                && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY) {
+                && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
+                && t3ComparableScope) {
             CloneStrength strength = strength(syntacticSimilarity);
             path.add(String.format(
                     "T3 passed: statement edit script has insert/delete/modify evidence and syntactic similarity %.4f is in the BigCloneBench Type-3 range.",
@@ -58,6 +66,14 @@ public class NextRegionTypeRecognizer {
             ));
             return decision(candidate, CloneRegionType.T3, strength, syntacticSimilarity,
                     renameEvidence, editScript, tags, path);
+        }
+        if (editScript.hasAnyChange()
+                && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
+                && !t3ComparableScope) {
+            path.add(String.format(
+                    "T3 held: local source-only window has statement edits and syntactic similarity %.4f, but no complete comparable unit or external CFG/semantic signal approved it.",
+                    syntacticSimilarity
+            ));
         }
         path.add(String.format(
                 "T3 failed: statement edit evidence is absent or syntactic similarity %.4f is below 0.5000.",
@@ -112,6 +128,24 @@ public class NextRegionTypeRecognizer {
             return CloneStrength.MT3;
         }
         return CloneStrength.WT3_T4_BOUNDARY;
+    }
+
+    private static boolean hasCompleteComparableUnit(RegionCandidate candidate) {
+        return isCompleteComparableUnit(candidate.left().kind())
+                || isCompleteComparableUnit(candidate.right().kind());
+    }
+
+    private static boolean isCompleteComparableUnit(RegionKind kind) {
+        return kind == RegionKind.FILE
+                || kind == RegionKind.METHOD
+                || kind == RegionKind.METHOD_BODY_REGION
+                || kind == RegionKind.CALL_EXPANDED_REGION;
+    }
+
+    private static boolean hasExternalCandidateEvidence(RegionCandidate candidate) {
+        return candidate.sources().stream()
+                .map(CandidateSource::channel)
+                .anyMatch(channel -> !SOURCE_ONLY_CHANNELS.contains(channel));
     }
 
     private static void addStatementTags(Set<RegionTag> tags, StatementEditScript editScript) {

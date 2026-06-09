@@ -287,8 +287,8 @@ class NextPipelineRunnerTest {
         assertEquals(CloneRegionType.T2, result.fileSummary().dominantRegionType());
         assertTrue(result.fileSummary().overallRelationship() == FileRelationship.FULL_FILE_T2
                 || result.fileSummary().overallRelationship() == FileRelationship.PARTIAL_T2);
-        assertEquals(RelationshipShape.FULL_OVERLAP, result.fileSummary().relationshipShape());
-        assertEquals(InspectionPriority.HIGH, result.fileSummary().inspectionPriority());
+        assertEquals(RelationshipShape.PARTIAL_OVERLAP, result.fileSummary().relationshipShape());
+        assertEquals(InspectionPriority.MEDIUM, result.fileSummary().inspectionPriority());
         assertTrue(result.fileSummary().matchedCoverageLeft() > 0.0);
         assertTrue(result.fileSummary().matchedCoverageRight() > 0.0);
         assertTrue(result.fileSummary().evidenceBreakdown().stream()
@@ -377,6 +377,43 @@ class NextPipelineRunnerTest {
         assertTrue(result.regionSelectionSummary().suppressedRegionCount() > 0);
         assertTrue(result.fileSummary().regionTypeCoverage().values().stream()
                 .allMatch(value -> value <= 1.0));
+    }
+
+    @Test
+    void doesNotPromoteSourceOnlyLocalWindowsToT3WithoutComparableUnitEvidence() {
+        String left = """
+                class A {
+                  int sum(int[] values) {
+                    int total = 0;
+                    for (int value : values) {
+                      total += value;
+                    }
+                    return total;
+                  }
+                }
+                """;
+        String right = """
+                class B {
+                  boolean prime(int value) {
+                    if (value < 2) {
+                      return false;
+                    }
+                    for (int divisor = 2; divisor < value; divisor++) {
+                      if (value % divisor == 0) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  }
+                }
+                """;
+
+        NextPipelineResult result = runner.run(left, right);
+
+        assertFalse(result.selectedRegionDecisions().stream()
+                .anyMatch(decision -> decision.type() == CloneRegionType.T3
+                        && decision.candidate().left().kind() == RegionKind.STATEMENT_WINDOW_REGION
+                        && decision.candidate().right().kind() == RegionKind.STATEMENT_WINDOW_REGION));
     }
 
     private RegionDecision bestDecision(String left, String right) {

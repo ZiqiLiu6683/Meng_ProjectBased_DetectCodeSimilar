@@ -17,7 +17,7 @@ public class NextJsonReportFormatter {
 
     public String format(NextPipelineResult result) {
         StringBuilder out = new StringBuilder();
-        List<RegionDecision> emittedDecisions = result.selectedRegionDecisions().stream()
+        List<RegionDecision> emittedDecisions = userFacingRegionDecisions(result.selectedRegionDecisions()).stream()
                 .limit(maxRegions)
                 .toList();
         out.append("{\n");
@@ -38,6 +38,22 @@ public class NextJsonReportFormatter {
         indent(out, 1).append("]\n");
         out.append("}\n");
         return out.toString();
+    }
+
+    private static List<RegionDecision> userFacingRegionDecisions(List<RegionDecision> decisions) {
+        boolean hasGranularEvidence = decisions.stream()
+                .anyMatch(decision -> !isFilePair(decision));
+        if (!hasGranularEvidence) {
+            return decisions;
+        }
+        return decisions.stream()
+                .filter(decision -> !isFilePair(decision))
+                .toList();
+    }
+
+    private static boolean isFilePair(RegionDecision decision) {
+        return decision.candidate().left().kind() == RegionKind.FILE
+                && decision.candidate().right().kind() == RegionKind.FILE;
     }
 
     private static void appendFileSummary(StringBuilder out, FileCloneSummary summary, int level) {

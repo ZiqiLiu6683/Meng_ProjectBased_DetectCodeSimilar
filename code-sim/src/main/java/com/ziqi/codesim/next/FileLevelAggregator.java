@@ -19,6 +19,7 @@ public class FileLevelAggregator {
         List<RegionDecision> cloneDecisions = decisions.stream()
                 .filter(FileLevelAggregator::isAcceptedClone)
                 .toList();
+        List<RegionDecision> evidenceDecisions = userFacingEvidenceDecisions(cloneDecisions);
 
         Map<CloneRegionType, Integer> typeCounts = initCounts();
         Map<CloneRegionType, Set<Integer>> coveredLeftLinesByType = initLineSets();
@@ -27,7 +28,7 @@ public class FileLevelAggregator {
         Set<Integer> coveredLeftLines = new HashSet<>();
         Set<Integer> coveredRightLines = new HashSet<>();
 
-        for (RegionDecision decision : cloneDecisions) {
+        for (RegionDecision decision : evidenceDecisions) {
             typeCounts.merge(decision.type(), 1, Integer::sum);
             fileTags.addAll(decision.tags());
             addLines(coveredLeftLines, decision.candidate().left());
@@ -53,13 +54,13 @@ public class FileLevelAggregator {
                 matchedCoverageRight
         );
         RelationshipShape relationshipShape = relationshipShape(
-                cloneDecisions,
+                evidenceDecisions,
                 matchedCoverageLeft,
                 matchedCoverageRight
         );
         InspectionPriority inspectionPriority = inspectionPriority(
                 relationshipShape,
-                cloneDecisions,
+                evidenceDecisions,
                 matchedCoverageLeft,
                 matchedCoverageRight
         );
@@ -88,6 +89,22 @@ public class FileLevelAggregator {
 
     private static boolean isAcceptedClone(RegionDecision decision) {
         return decision.type() != CloneRegionType.NON_CLONE;
+    }
+
+    private static List<RegionDecision> userFacingEvidenceDecisions(List<RegionDecision> cloneDecisions) {
+        boolean hasGranularEvidence = cloneDecisions.stream()
+                .anyMatch(decision -> !isFilePair(decision));
+        if (!hasGranularEvidence) {
+            return cloneDecisions;
+        }
+        return cloneDecisions.stream()
+                .filter(decision -> !isFilePair(decision))
+                .toList();
+    }
+
+    private static boolean isFilePair(RegionDecision decision) {
+        return decision.candidate().left().kind() == RegionKind.FILE
+                && decision.candidate().right().kind() == RegionKind.FILE;
     }
 
     private static FileRelationship relationship(CloneRegionType dominantType,
