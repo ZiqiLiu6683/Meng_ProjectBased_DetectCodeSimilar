@@ -109,6 +109,8 @@ public class WebAppMain {
                         + "  \"mode\": \"Evidence-first\",\n"
                         + "  \"fileA\": \"" + escapeJson(fileA) + "\",\n"
                         + "  \"fileB\": \"" + escapeJson(fileB) + "\",\n"
+                        + "  \"sourceA\": \"" + escapeJson(sourceA) + "\",\n"
+                        + "  \"sourceB\": \"" + escapeJson(sourceB) + "\",\n"
                         + "  \"walaCfg\": " + walaCfg + ",\n"
                         + "  \"nextPipeline\": " + inner
                         + "}\n";
@@ -320,11 +322,15 @@ public class WebAppMain {
         List<WalaPair> pairs = selectedWalaPairs(leftRaw, rightRaw, leftAnalyzed, rightAnalyzed, result);
         DiscovreCfgMatcher matcher = new DiscovreCfgMatcher();
         int index = 1;
+        double bestScore = Double.NaN;
         for (WalaPair pair : pairs) {
             String blockSetKey = "wala-" + index;
             DiscovreCfgMatchResult match = pair.leftAnalyzed() == null || pair.rightAnalyzed() == null
                     ? null
                     : matcher.match(pair.leftAnalyzed(), pair.rightAnalyzed());
+            if (match != null && (Double.isNaN(bestScore) || match.similarity() > bestScore)) {
+                bestScore = match.similarity();
+            }
             blockSets.add("\"" + escapeJson(blockSetKey) + "\":"
                     + walaBlockSetJson(pair.leftRaw(), pair.rightRaw(), match));
             methodPairs.add(walaMethodPairJson(pair, blockSetKey, match, index));
@@ -333,7 +339,7 @@ public class WebAppMain {
         return "{"
                 + "\"resultLabel\":\"Real WALA CFG\","
                 + "\"summary\":\"Backend-emitted WALA CFG output.\","
-                + "\"score\":" + (methodPairs.isEmpty() ? "null" : "null") + ","
+                + "\"score\":" + (Double.isNaN(bestScore) ? "null" : String.format(java.util.Locale.ROOT, "%.6f", bestScore)) + ","
                 + "\"bestShort\":\"" + escapeJson(pairs.isEmpty() ? "No backend method pair" : pairs.get(0).title()) + "\","
                 + "\"candidateReduction\":\"" + escapeJson(pairs.size() + " backend method pairs") + "\","
                 + "\"tags\":[\"backend CFG output\",\"WALA raw snapshot\",\"DiscovRE CFG matcher\"],"
@@ -576,6 +582,9 @@ public class WebAppMain {
                     + "\"left\":\"L" + escapeJson(pair.leftBlockId()) + "\","
                     + "\"right\":\"R" + escapeJson(pair.rightBlockId()) + "\","
                     + "\"distance\":" + String.format(java.util.Locale.ROOT, "%.6f", distance) + ","
+                    + "\"closenessPercent\":" + Math.round(closenessPercent(distance)) + ","
+                    + "\"closenessLabel\":\"" + escapeJson(blockMatchText(distance)) + "\","
+                    + "\"closenessShort\":\"" + escapeJson(blockMatchShort(distance)) + "\","
                     + "\"label\":\"" + escapeJson(pair.leftBlockId() + " -> " + pair.rightBlockId()) + "\","
                     + "\"friendly\":\"" + escapeJson(blockMatchText(distance)) + "\""
                     + "}");
@@ -583,10 +592,20 @@ public class WebAppMain {
         return matches;
     }
 
+    private static double closenessPercent(double distance) {
+        return Math.max(0.0, Math.min(100.0, (1.0 - distance) * 100.0));
+    }
+
     private static String blockMatchText(double distance) {
         if (distance <= 0.05) return "backend matched · very close";
         if (distance <= 0.20) return "backend matched · changed";
         return "backend matched · weak";
+    }
+
+    private static String blockMatchShort(double distance) {
+        if (distance <= 0.05) return "very close";
+        if (distance <= 0.20) return "changed";
+        return "weak";
     }
 
     private static String firstNodeId(Object method, String prefix) throws Exception {
@@ -2627,7 +2646,7 @@ public class WebAppMain {
                           </div>
                           <div class="choice-list">
                             <div class="choice-item"><strong>Good for</strong><span>Formatting changes, renaming, inserted/deleted statements, and broad clone-type classification.</span></div>
-                            <div class="choice-item"><strong>Output style</strong><span>General summary, matched methods, evidence reasons, and developer JSON.</span></div>
+                            <div class="choice-item"><strong>Output style</strong><span>General summary, matched methods, and evidence reasons.</span></div>
                             <div class="choice-item"><strong>Watch for</strong><span>Heavier structural edits or helper extraction can need deeper evidence.</span></div>
                           </div>
                           <div class="choice-action"><button id="runAstBtn" type="button">Run AST Analysis</button></div>
@@ -2651,7 +2670,7 @@ public class WebAppMain {
                           </div>
                           <div class="choice-list">
                             <div class="choice-item"><strong>Good for</strong><span>Letting users inspect how much code is suspicious, where it appears, and what kind of evidence supports each region.</span></div>
-                            <div class="choice-item"><strong>Output style</strong><span>Affected content, evidence breakdown, suspicious regions, inline source, CFG graph, and JSON evidence.</span></div>
+                            <div class="choice-item"><strong>Output style</strong><span>Affected content, evidence breakdown, code regions, and CFG graph.</span></div>
                             <div class="choice-item"><strong>Watch for</strong><span>The report gives evidence; the user decides whether the file pair should be treated as a clone.</span></div>
                           </div>
                           <div class="choice-action"><button id="runNextBtn" type="button">Open Evidence Workbench</button></div>
@@ -3517,12 +3536,8 @@ public class WebAppMain {
                                 <span class="tag">Structure ${percent(selected.feature.s4)}</span>
                               </div>
                             </div>
-                            <div class="muted">The highlighted method blocks are an interface preview based on method names. Exact line mapping can be added next.</div>
                           </div>
-                          <div class="code-grid">
-                            ${codePanel(files.left, 'left', sourceA.value, selected.methodAId)}
-                            ${codePanel(files.right, 'right', sourceB.value, selected.methodBId)}
-                          </div>
+                          <div class="cfg-empty">This AST report does not emit source line ranges for method highlighting.</div>
                         </div>` : '<div class="muted">Select a method pair to inspect source code.</div>';
                       return `<section class="section">
                         <div class="section-head">
@@ -3557,7 +3572,7 @@ public class WebAppMain {
                         </div>
                         ${signalCount === 0 ? `<div class="evidence-panel concern" style="margin-bottom:18px">
                           <div class="label">No Strong Reasons Were Highlighted</div>
-                          <div class="muted">The score may come from smaller checks that did not pass the display threshold. Developer JSON keeps the full numeric detail.</div>
+                          <div class="muted">The score may come from smaller checks that did not pass the display threshold.</div>
                         </div>` : ''}
                         <div class="summary-columns">
                           <div class="sub-panel">
@@ -3601,37 +3616,30 @@ public class WebAppMain {
                         </div>
                       </section>`;
                     }
-                    function renderJson(data) {
-                      return `<section class="section">
-                        <div class="section-head">
-                          <h3>Developer JSON</h3>
-                          <div class="muted">Raw output for debugging or integration</div>
-                        </div>
-                        <pre class="json-box">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-                      </section>`;
-                    }
                     function renderNextSummary(data, files) {
                       const summary = data.nextSummary;
-                      const leftPercent = Math.round(summary.affectedContent.leftRatio * 100);
-                      const rightPercent = Math.round(summary.affectedContent.rightRatio * 100);
-                      const leftSeverity = affectedSeverity(leftPercent);
-                      const rightSeverity = affectedSeverity(rightPercent);
+                      const leftDisplay = summary.display?.left || {};
+                      const rightDisplay = summary.display?.right || {};
+                      const leftPercent = Number(leftDisplay.percent ?? 0);
+                      const rightPercent = Number(rightDisplay.percent ?? 0);
+                      const leftSeverityClass = leftDisplay.severityClass || '';
+                      const rightSeverityClass = rightDisplay.severityClass || '';
                       return `<section class="section">
                         <div class="next-affected-grid">
-                          <div class="next-donut-card ${leftSeverity.className}">
-                            <div class="next-donut ${leftSeverity.className}" style="--value:${leftPercent}"><strong>${leftPercent}%</strong></div>
+                          <div class="next-donut-card ${escapeHtml(leftSeverityClass)}">
+                            <div class="next-donut ${escapeHtml(leftSeverityClass)}" style="--value:${leftPercent}"><strong>${leftPercent}%</strong></div>
                             <div>
-                              <div class="muted">Matched or changed code regions.</div>
+                              <div class="muted">${escapeHtml(leftDisplay.description || '')}</div>
                               <div class="next-file-name">${escapeHtml(files.left.short)}</div>
-                              <div class="severity-status ${leftSeverity.className}">${escapeHtml(leftSeverity.label)}</div>
+                              <div class="severity-status ${escapeHtml(leftSeverityClass)}">${escapeHtml(leftDisplay.status || '')}</div>
                             </div>
                           </div>
-                          <div class="next-donut-card ${rightSeverity.className}">
-                            <div class="next-donut ${rightSeverity.className}" style="--value:${rightPercent}"><strong>${rightPercent}%</strong></div>
+                          <div class="next-donut-card ${escapeHtml(rightSeverityClass)}">
+                            <div class="next-donut ${escapeHtml(rightSeverityClass)}" style="--value:${rightPercent}"><strong>${rightPercent}%</strong></div>
                             <div>
-                              <div class="muted">Matched or changed code regions.</div>
+                              <div class="muted">${escapeHtml(rightDisplay.description || '')}</div>
                               <div class="next-file-name">${escapeHtml(files.right.short)}</div>
-                              <div class="severity-status ${rightSeverity.className}">${escapeHtml(rightSeverity.label)}</div>
+                              <div class="severity-status ${escapeHtml(rightSeverityClass)}">${escapeHtml(rightDisplay.status || '')}</div>
                             </div>
                           </div>
                         </div>
@@ -3645,17 +3653,11 @@ public class WebAppMain {
                         </div>
                       </section>`;
                     }
-                    function affectedSeverity(value) {
-                      if (value >= 90) return { className: 'severity-high', label: 'Check first' };
-                      if (value >= 60) return { className: 'severity-mid', label: 'Review needed' };
-                      return { className: 'severity-low', label: 'Light review' };
-                    }
                     function renderNextBreakdownRow(item) {
-                      const typeClass = item.type.toLowerCase().replace(/_.*/, '');
                       return `<button class="next-breakdown-row" data-next-summary-type="${escapeHtml(item.type)}" type="button">
-                        <span class="next-type ${escapeHtml(typeClass)}">${escapeHtml(item.type)}</span>
+                        <span class="next-type ${escapeHtml(item.typeClass || '')}">${escapeHtml(item.type)}</span>
                         <div>
-                          <strong>${escapeHtml(nextTypeLabel(item.type))}</strong>
+                          <strong>${escapeHtml(item.typeLabel || item.type)}</strong>
                           <div class="muted">${item.regionCount} regions</div>
                         </div>
                         <div>
@@ -3675,9 +3677,9 @@ public class WebAppMain {
                         <div class="next-region-layout">
                           <div class="next-region-list">
                             ${regions.map(region => `<button class="next-region-card ${region.id === selected.id ? 'active' : ''}" data-next-region="${escapeHtml(region.id)}" type="button">
-                              <span class="next-type ${escapeHtml(region.type.toLowerCase())}">${escapeHtml(region.type)}</span>
+                              <span class="next-type ${escapeHtml(region.typeClass || '')}">${escapeHtml(region.type)}</span>
                               <strong>${escapeHtml(region.title)}</strong>
-                              <span class="muted">${escapeHtml(region.affected)} · lines ${escapeHtml(region.leftRange.join('-'))}</span>
+                              <span class="muted">${escapeHtml(region.affected)} · ${escapeHtml(region.leftRangeLabel)}</span>
                             </button>`).join('')}
                           </div>
                           <div class="next-region-detail">
@@ -3687,10 +3689,10 @@ public class WebAppMain {
                               <div class="muted">${escapeHtml(selected.short)}</div>
                             </div>
                             <div class="detail-grid">
-                              ${detailCard('Type', selected.type + '-like', 'Evidence category.')}
-                              ${detailCard('Affected', selected.affected, 'Approximate content size.')}
-                              ${detailCard(files.left.short, 'lines ' + selected.leftRange.join('-'), 'Click Inline Code to view.')}
-                              ${detailCard(files.right.short, 'lines ' + selected.rightRange.join('-'), 'Click Inline Code to view.')}
+                              ${detailCard('Type', selected.typeLabel, 'Evidence category.')}
+                              ${detailCard('Affected', selected.affected, 'Region size emitted by backend.')}
+                              ${detailCard(files.left.short, selected.leftRangeLabel, 'Click Code Regions to view.')}
+                              ${detailCard(files.right.short, selected.rightRangeLabel, 'Click Code Regions to view.')}
                             </div>
                             <div class="sub-panel" style="margin-top:18px">
                               <h3>Changes</h3>
@@ -3703,7 +3705,17 @@ public class WebAppMain {
                     function renderNextSource(data, files) {
                       const regions = data.nextRegions;
                       const selected = regions.find(region => region.id === selectedNextRegion) || regions[0];
-                      const types = ['ALL', ...Array.from(new Set(regions.map(region => region.type)))];
+                      const typeMap = new Map();
+                      regions.forEach(region => {
+                        if (!typeMap.has(region.type)) {
+                          typeMap.set(region.type, {
+                            type: region.type,
+                            label: region.typeButtonLabel || region.typeLabel || region.type,
+                            className: region.typeClass || ''
+                          });
+                        }
+                      });
+                      const types = [{ type: 'ALL', label: 'All highlights', className: 'all' }, ...Array.from(typeMap.values())];
                       return `<section class="section">
                         <div class="next-code-filter">
                           <div>
@@ -3711,12 +3723,12 @@ public class WebAppMain {
                             <div class="muted">Choose a type to highlight matching code.</div>
                           </div>
                           <div class="next-type-buttons">
-                            ${types.map(type => `<button class="next-type-button ${escapeHtml(type.toLowerCase())} ${selectedNextType === type ? 'active' : ''}" data-next-type="${escapeHtml(type)}" type="button">${escapeHtml(nextTypeButtonLabel(type))}</button>`).join('')}
+                            ${types.map(type => `<button class="next-type-button ${escapeHtml(type.className)} ${selectedNextType === type.type ? 'active' : ''}" data-next-type="${escapeHtml(type.type)}" type="button">${escapeHtml(type.label)}</button>`).join('')}
                           </div>
                         </div>
                         <div class="code-grid">
-                          ${nextCodePanel(files.left, 'left', sourceA.value, regions, selected)}
-                          ${nextCodePanel(files.right, 'right', sourceB.value, regions, selected)}
+                          ${nextCodePanel(files.left, 'left', data.sourceA || '', regions, selected)}
+                          ${nextCodePanel(files.right, 'right', data.sourceB || '', regions, selected)}
                         </div>
                       </section>`;
                     }
@@ -3734,30 +3746,12 @@ public class WebAppMain {
                           const peerFocus = region && region.id === selectedNextRegion ? 'peer-focus' : '';
                           const range = region ? (side === 'left' ? region.leftRange : region.rightRange) : null;
                           const startsRegion = visible && range && lineNo === range[0];
-                          const cls = region ? ` next-code-line region ${visible ? 'visible-region' : ''} ${startsRegion ? 'region-start' : ''} ${peerFocus} ${region.type ? region.type.toLowerCase() : ''}` : '';
+                          const cls = region ? ` next-code-line region ${visible ? 'visible-region' : ''} ${startsRegion ? 'region-start' : ''} ${peerFocus} ${region.typeClass || ''}` : '';
                           const attr = region ? ` data-next-region="${escapeHtml(region.id)}" data-side="${escapeHtml(side)}"` : '';
-                          const labelAttr = startsRegion ? ` data-region-label="${escapeHtml(nextRegionLabel(region, regions))}"` : '';
+                          const labelAttr = startsRegion ? ` data-region-label="${escapeHtml(region.regionLabel || region.type)}"` : '';
                           return `<span class="code-line${cls}"${attr}><span class="line-no">${lineNo}</span><span class="line-code"${labelAttr}>${escapeHtml(line || ' ')}</span></span>`;
                         }).join('')}</pre>
                       </div>`;
-                    }
-                    function nextRegionLabel(region, regions) {
-                      const sameType = regions.filter(item => item.type === region.type);
-                      const index = sameType.findIndex(item => item.id === region.id) + 1;
-                      return `${region.type}-${index}`;
-                    }
-                    function nextTypeLabel(type) {
-                      const labels = {
-                        T1: 'No code changes',
-                        T2: 'Names changed',
-                        T3: 'Code added/changed',
-                        T4: 'Works alike'
-                      };
-                      return `${labels[type] || type} (${type})`;
-                    }
-                    function nextTypeButtonLabel(type) {
-                      if (type === 'ALL') return 'All highlights';
-                      return nextTypeLabel(type);
                     }
                     function renderCfgSummary(data, files) {
                       const cfg = data.cfg;
@@ -3853,7 +3847,7 @@ public class WebAppMain {
                             </div>
                             <div class="cfg-kv"><span>File</span><span>${selected.side === 'left' ? escapeHtml(files.left.short) : escapeHtml(files.right.short)}</span></div>
                             <div class="cfg-kv"><span>Matched with</span><span>${escapeHtml(selected.matchLabel)}</span></div>
-                            <div class="cfg-kv"><span>Closeness</span><span>${selected.match ? escapeHtml(closenessText(selected.match.distance)) : 'No close match'}</span></div>
+                            <div class="cfg-kv"><span>Closeness</span><span>${selected.match ? escapeHtml(selected.match.closenessLabel || '') : 'No backend match emitted'}</span></div>
                             <div class="cfg-kv"><span>Role</span><span>${escapeHtml(selected.block.meaning)}</span></div>
                           </aside>` : ''}
                         </div>
@@ -4070,38 +4064,24 @@ public class WebAppMain {
                       const right = blocks.right.find(block => block.id === match.right);
                       const leftName = left ? (left.display || left.name) : match.left;
                       const rightName = right ? (right.display || right.name) : match.right;
-                      return `<span><strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong><small>${escapeHtml(match.friendly || `${match.label} matched`)}${(forceDistance || showCfgDistance) ? ` · ${escapeHtml(closenessShort(match.distance))}` : ''}</small></span>`;
+                      return `<span><strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong><small>${escapeHtml(match.friendly || match.label || '')}${(forceDistance || showCfgDistance) ? ` · ${escapeHtml(match.closenessShort || '')}` : ''}</small></span>`;
                     }
                     function renderCfgMatchCard(match, blocks) {
                       const left = blocks.left.find(block => block.id === match.left);
                       const right = blocks.right.find(block => block.id === match.right);
                       const leftName = left ? (left.display || left.name) : match.left;
                       const rightName = right ? (right.display || right.name) : match.right;
-                      const closeness = Math.max(0, Math.min(1, 1 - Number(match.distance || 0)));
+                      const closeness = Math.max(0, Math.min(100, Number(match.closenessPercent || 0)));
                       return `<button class="cfg-match-card" data-cfg-match-node="${escapeHtml(match.left)}" type="button">
                         <div>
                           <strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong>
-                          <span>${escapeHtml(match.friendly || 'backend WALA block alignment')}</span>
+                          <span>${escapeHtml(match.friendly || match.closenessLabel || '')}</span>
                         </div>
                         <div class="cfg-mini-score">
-                          <small>${escapeHtml(closenessText(match.distance))}</small>
-                          <i style="width:${Math.round(closeness * 100)}%"></i>
+                          <small>${escapeHtml(match.closenessLabel || '')}</small>
+                          <i style="width:${Math.round(closeness)}%"></i>
                         </div>
                       </button>`;
-                    }
-                    function closenessText(distance) {
-                      if (distance == null || Number.isNaN(Number(distance))) return 'No close match';
-                      const value = Number(distance);
-                      if (value <= 0.05) return `${value.toFixed(2)} · very close`;
-                      if (value <= 0.20) return `${value.toFixed(2)} · similar with changes`;
-                      return `${value.toFixed(2)} · weak match`;
-                    }
-                    function closenessShort(distance) {
-                      if (distance == null || Number.isNaN(Number(distance))) return '';
-                      const value = Number(distance);
-                      if (value <= 0.05) return 'very close';
-                      if (value <= 0.20) return 'changed';
-                      return 'weak';
                     }
                     function selectedCfgBlock(blocks, id) {
                       const left = blocks.left.find(block => block.id === id);
@@ -4284,18 +4264,19 @@ public class WebAppMain {
                       const report = {
                         schemaVersion: data.schemaVersion || 'next-pipeline-live-1.0',
                         mode: data.mode || 'Evidence-first',
-                        fileA: data.fileA || inferFileName(sourceA.value, 'Code 1.java'),
-                        fileB: data.fileB || inferFileName(sourceB.value, 'Code 2.java'),
+                        fileA: data.fileA || '',
+                        fileB: data.fileB || '',
+                        sourceA: data.sourceA || '',
+                        sourceB: data.sourceB || '',
                         nextPipeline: pipeline,
                         nextSummary: {
                           inspectionPriority: fileSummary.inspectionPriority || 'UNKNOWN',
                           relationshipShape: fileSummary.relationshipShape || 'UNKNOWN',
+                          display: fileSummary.display || {},
                           affectedContent: {
                             leftRatio: numberOrZero(fileSummary.affectedContent?.leftRatio ?? fileSummary.matchedCoverageLeft),
                             rightRatio: numberOrZero(fileSummary.affectedContent?.rightRatio ?? fileSummary.matchedCoverageRight)
                           },
-                          headline: nextRelationshipLabel(fileSummary.relationshipShape, fileSummary.dominantRegionType),
-                          interpretation: 'Live evidence from the region-based pipeline.',
                           tags: fileSummary.fileTags || [],
                           evidenceBreakdown: backendNextBreakdown(fileSummary.evidenceBreakdown || [])
                         },
@@ -4307,31 +4288,33 @@ public class WebAppMain {
                     function adaptNextRegion(region, index) {
                       const left = region.left || {};
                       const right = region.right || {};
-                      const statementChanges = region.statementChanges || [];
-                      const tags = region.tags || [];
-                      const changes = statementChanges.length
-                        ? statementChanges.map(change => statementChangeSummary(change))
-                        : (region.decisionPath || []).slice(0, 4);
-                      const leftLines = rangeLineCount(left.beginLine, left.endLine);
-                      const rightLines = rangeLineCount(right.beginLine, right.endLine);
+                      const display = region.display || {};
                       return {
                         id: region.candidateId || `region-${index + 1}`,
-                        type: normalizeRegionType(region.type),
-                        title: regionTitle(left.displayName, right.displayName, region.type, index),
-                        short: regionShort(region),
+                        type: region.type || 'UNKNOWN',
+                        typeLabel: region.typeLabel || region.type || 'UNKNOWN',
+                        typeButtonLabel: region.typeButtonLabel || region.typeLabel || region.type || 'UNKNOWN',
+                        typeClass: region.typeClass || '',
+                        regionLabel: display.regionLabel || region.candidateId || '',
+                        title: display.title || region.candidateId || '',
+                        short: display.summary || '',
                         leftRange: [positiveLine(left.beginLine), positiveLine(left.endLine)],
                         rightRange: [positiveLine(right.beginLine), positiveLine(right.endLine)],
-                        affected: `Left ${leftLines} lines / Right ${rightLines} lines`,
-                        tags,
-                        changes,
+                        leftRangeLabel: display.leftRangeLabel || '',
+                        rightRangeLabel: display.rightRangeLabel || '',
+                        affected: display.affectedLabel || '',
+                        tags: region.tags || [],
+                        changes: display.changeSummaries || [],
                         raw: region,
                         score: region.syntacticSimilarity
                       };
                     }
                     function backendNextBreakdown(items) {
                       return (items || []).map(item => ({
-                        type: normalizeRegionType(item.type),
-                        label: item.type,
+                        type: item.type || 'UNKNOWN',
+                        typeLabel: item.typeLabel || item.type || 'UNKNOWN',
+                        typeButtonLabel: item.typeButtonLabel || item.typeLabel || item.type || 'UNKNOWN',
+                        typeClass: item.typeClass || '',
                         regionCount: item.regionCount,
                         affectedLeftRatio: numberOrZero(item.affectedLeftRatio),
                         affectedRightRatio: numberOrZero(item.affectedRightRatio)
@@ -4355,10 +4338,10 @@ public class WebAppMain {
                       return {
                         available: true,
                         source: wala.source || 'WALA raw CFG',
-                        resultLabel: analysis.resultLabel || 'Real WALA CFG',
+                        resultLabel: analysis.resultLabel || '',
                         summary: analysis.summary || '',
                         score: analysis.score ?? null,
-                        bestShort: analysis.bestShort || pairs[0]?.title || 'No backend method pair',
+                        bestShort: analysis.bestShort || '',
                         candidateReduction: analysis.candidateReduction || '',
                         tags: analysis.tags || [],
                         categories: analysis.categories || [],
@@ -4375,31 +4358,9 @@ public class WebAppMain {
                       const finish = positiveLine(end);
                       return Math.max(1, finish - start + 1);
                     }
-                    function normalizeRegionType(type) {
-                      return String(type || 'UNKNOWN').replace(/_CANDIDATE$/, '');
-                    }
                     function numberOrZero(value) {
                       const n = Number(value);
                       return Number.isFinite(n) ? n : 0;
-                    }
-                    function statementChangeSummary(change) {
-                      const left = change.leftText ? `left: ${change.leftText}` : '';
-                      const right = change.rightText ? `right: ${change.rightText}` : '';
-                      return `${change.kind || 'changed'} ${[left, right].filter(Boolean).join(' | ')}`.trim();
-                    }
-                    function regionTitle(leftName, rightName, type, index) {
-                      const left = leftName || `left region ${index + 1}`;
-                      const right = rightName || `right region ${index + 1}`;
-                      return `${left} -> ${right}`;
-                    }
-                    function regionShort(region) {
-                      if (region.tags?.length) return region.tags.map(tag => String(tag).toLowerCase().replaceAll('_', ' ')).join(', ');
-                      if (region.decisionPath?.length) return region.decisionPath[region.decisionPath.length - 1];
-                      return `${region.type || 'region'} evidence`;
-                    }
-                    function nextRelationshipLabel(shape, type) {
-                      if (!shape && !type) return 'Review selected regions.';
-                      return `${String(shape || 'REGION_EVIDENCE').replaceAll('_', ' ').toLowerCase()} · ${String(type || '').replaceAll('_', ' ')}`.trim();
                     }
                     function typeName(source, fallback) {
                       const match = source.match(/\\b(?:class|interface|enum|record)\\s+([A-Za-z_$][\\w$]*)/);
@@ -4637,50 +4598,6 @@ public class WebAppMain {
                       const type = methodId.slice(0, hash);
                       return `${type}.${methodNameOnly(methodId)}`;
                     }
-                    function codePanel(file, side, source, methodId) {
-                      return `<div class="code-card">
-                        <div class="code-head ${side}" title="${escapeHtml(file.raw)}">${escapeHtml(file.short)}</div>
-                        <pre class="code">${renderCode(source, methodId)}</pre>
-                      </div>`;
-                    }
-                    function renderCode(source, methodId) {
-                      const lines = source.split('\\n');
-                      const range = findMethodRange(lines, methodId);
-                      return lines.map((line, index) => {
-                        const lineNo = index + 1;
-                        const hl = range && lineNo >= range.start && lineNo <= range.end ? ' hl' : '';
-                        return `<span class="code-line${hl}"><span class="line-no">${lineNo}</span><span class="line-code">${escapeHtml(line || ' ')}</span></span>`;
-                      }).join('');
-                    }
-                    function findMethodRange(lines, methodId) {
-                      const name = methodNameOnly(methodId).replace(/\\(.*/, '');
-                      if (!name) return null;
-                      const pattern = new RegExp('\\\\b' + escapeRegExp(name) + '\\\\s*\\\\(');
-                      let start = -1;
-                      for (let i = 0; i < lines.length; i++) {
-                        if (pattern.test(lines[i])) {
-                          start = i;
-                          break;
-                        }
-                      }
-                      if (start < 0) return null;
-                      let depth = 0;
-                      let seenOpen = false;
-                      for (let i = start; i < lines.length; i++) {
-                        for (const ch of lines[i]) {
-                          if (ch === '{') {
-                            depth++;
-                            seenOpen = true;
-                          } else if (ch === '}') {
-                            depth--;
-                          }
-                        }
-                        if (seenOpen && depth <= 0) {
-                          return { start: start + 1, end: i + 1 };
-                        }
-                      }
-                      return { start: start + 1, end: start + 1 };
-                    }
                     function evidenceCard(title, items, cls) {
                       const strength = strongest(items);
                       const note = items.length === 0 ? 'No signals in this group' : `${strength} signal${items.length === 1 ? '' : 's'}`;
@@ -4800,9 +4717,6 @@ public class WebAppMain {
                       return String(value).replace(/[&<>"']/g, ch => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
                       }[ch]));
-                    }
-                    function escapeRegExp(value) {
-                      return String(value).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
                     }
                   </script>
                 </body>
