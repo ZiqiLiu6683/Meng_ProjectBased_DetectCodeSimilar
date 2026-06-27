@@ -30,6 +30,21 @@ emitted by the active backend, such as WALA basic blocks and successor edges.
 If that backend is not available, the UI should report the missing analysis
 source instead of substituting a demo graph or simulated preview.
 
+## Web Output Integrity Rule
+
+The web frontend is presentation-only. It may lay out graphs, apply colors,
+scroll to regions, and toggle views, but it must not create analysis facts.
+The following fields must come from the backend response:
+
+- file affected ratios and evidence-type breakdowns
+- selected code regions, region types, line ranges, tags, and decision paths
+- WALA method pairs, CFG nodes, CFG edges, block matches, distances, and scores
+
+If the backend does not emit a value, the frontend should show an unavailable
+or empty state. It must not compute replacement method pairs, Jaccard-style
+block distances, simulated CFG matches, or demo node mappings for a user-facing
+report.
+
 ## Tooling Direction
 
 The implementation should rely on established analysis tools instead of

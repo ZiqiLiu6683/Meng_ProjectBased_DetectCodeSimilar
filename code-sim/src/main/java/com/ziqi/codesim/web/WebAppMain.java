@@ -8,6 +8,12 @@ import com.ziqi.codesim.pipeline.PipelineRunner;
 import com.ziqi.codesim.next.NextJsonReportFormatter;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.NextPipelineRunner;
+import com.ziqi.codesim.next.RegionDecision;
+import com.ziqi.codesim.next.RegionKind;
+import com.ziqi.codesim.semantic.discovre.DiscovreBlockPair;
+import com.ziqi.codesim.semantic.discovre.DiscovreCfgMatchResult;
+import com.ziqi.codesim.semantic.discovre.DiscovreCfgMatcher;
+import com.ziqi.codesim.semantic.model.AnalyzedMethod;
 
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
@@ -59,14 +65,15 @@ public class WebAppMain {
             send(exchange, 405, "text/plain; charset=utf-8", "Method not allowed");
             return;
         }
-        Path elk = Path.of("web", "vendor", "elk.bundled.js");
+        Path elk = elkVendorPath();
         if (!Files.exists(elk)) {
             send(exchange, 404, "text/plain; charset=utf-8", "ELK bundle not found");
             return;
         }
         String guard = "var module={exports:{}};var exports=module.exports;var define=undefined;\n";
         byte[] bundle = Files.readAllBytes(elk);
-        byte[] suffix = "\nconst ELK=module.exports.default||module.exports;\n".getBytes(StandardCharsets.UTF_8);
+        byte[] suffix = "\nwindow.ELK=module.exports.default||module.exports; const ELK=window.ELK;\n"
+                .getBytes(StandardCharsets.UTF_8);
         byte[] prefix = guard.getBytes(StandardCharsets.UTF_8);
         byte[] bytes = new byte[prefix.length + bundle.length + suffix.length];
         System.arraycopy(prefix, 0, bytes, 0, prefix.length);
@@ -96,7 +103,7 @@ public class WebAppMain {
             if ("next".equalsIgnoreCase(mode)) {
                 NextPipelineResult result = new NextPipelineRunner().run(sourceA, sourceB);
                 String inner = new NextJsonReportFormatter().format(result);
-                String walaCfg = buildWalaCfgJson(sourceA, sourceB, fileA, fileB);
+                String walaCfg = buildWalaCfgJson(sourceA, sourceB, fileA, fileB, result);
                 String json = "{\n"
                         + "  \"schemaVersion\": \"next-pipeline-live-1.0\",\n"
                         + "  \"mode\": \"Evidence-first\",\n"
@@ -151,20 +158,27 @@ public class WebAppMain {
                 .replace("\r", "\\r");
     }
 
-    private static String buildWalaCfgJson(String sourceA, String sourceB, String fileA, String fileB) {
+    private static String buildWalaCfgJson(String sourceA, String sourceB, String fileA, String fileB,
+                                           NextPipelineResult result) {
         try {
             Class<?> extractorClass = Class.forName(
                     "com.ziqi.codesim.semantic.backend.wala.raw.WalaRawSnapshotExtractor");
             Object extractor = extractorClass.getDeclaredConstructor().newInstance();
             Path temp = Files.createTempDirectory("code-sim-web-wala-");
             try {
-                Object left = compileAndExtractWala(extractor, sourceA, fileA, temp.resolve("left"));
-                Object right = compileAndExtractWala(extractor, sourceB, fileB, temp.resolve("right"));
+                Path leftClasses = compileSourceForWala(sourceA, fileA, temp.resolve("left"));
+                Path rightClasses = compileSourceForWala(sourceB, fileB, temp.resolve("right"));
+                Object left = extractWala(extractor, leftClasses);
+                Object right = extractWala(extractor, rightClasses);
+                List<AnalyzedMethod> leftAnalyzed = analyzeWalaClasses(leftClasses);
+                List<AnalyzedMethod> rightAnalyzed = analyzeWalaClasses(rightClasses);
                 return "{"
                         + "\"available\":true,"
                         + "\"source\":\"WALA raw CFG\","
                         + "\"left\":" + rawProgramJson(left, fileA) + ","
-                        + "\"right\":" + rawProgramJson(right, fileB)
+                        + "\"right\":" + rawProgramJson(right, fileB) + ","
+                        + "\"analysis\":" + walaBackendAnalysisJson(left, right, fileA, fileB,
+                        leftAnalyzed, rightAnalyzed, result)
                         + "}";
             } finally {
                 deleteDirectory(temp);
@@ -177,8 +191,7 @@ public class WebAppMain {
         }
     }
 
-    private static Object compileAndExtractWala(Object extractor, String source, String fileName, Path workDir)
-            throws Exception {
+    private static Path compileSourceForWala(String source, String fileName, Path workDir) throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("JDK compiler is not available");
@@ -203,7 +216,23 @@ public class WebAppMain {
             throw new IllegalStateException("javac failed for " + fileName + ": "
                     + errors.toString(StandardCharsets.UTF_8));
         }
+        return classDir;
+    }
+
+    private static Object extractWala(Object extractor, Path classDir) throws Exception {
         return extractor.getClass().getMethod("extract", Path.class).invoke(extractor, classDir);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<AnalyzedMethod> analyzeWalaClasses(Path classDir) {
+        try {
+            Class<?> backendClass = Class.forName("com.ziqi.codesim.semantic.backend.wala.WalaAnalysisBackend");
+            Object backend = backendClass.getDeclaredConstructor().newInstance();
+            Object analyzedProgram = backendClass.getMethod("analyze", Path.class).invoke(backend, classDir);
+            return (List<AnalyzedMethod>) (List<?>) listValue(analyzedProgram, "methods");
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     private static String safeJavaFileName(String fileName) {
@@ -274,6 +303,336 @@ public class WebAppMain {
                 + "\"uses\":" + stringListJson(listValue(instruction, "rawUseValues")) + ","
                 + "\"declaredTarget\":\"" + escapeJson(stringValue(instruction, "rawDeclaredTargetText")) + "\""
                 + "}";
+    }
+
+    private static String walaBackendAnalysisJson(
+            Object leftProgram,
+            Object rightProgram,
+            String fileA,
+            String fileB,
+            List<AnalyzedMethod> leftAnalyzed,
+            List<AnalyzedMethod> rightAnalyzed,
+            NextPipelineResult result) throws Exception {
+        Map<String, Object> leftRaw = rawMethodsBySignature(leftProgram);
+        Map<String, Object> rightRaw = rawMethodsBySignature(rightProgram);
+        List<String> methodPairs = new ArrayList<>();
+        List<String> blockSets = new ArrayList<>();
+        List<WalaPair> pairs = selectedWalaPairs(leftRaw, rightRaw, leftAnalyzed, rightAnalyzed, result);
+        DiscovreCfgMatcher matcher = new DiscovreCfgMatcher();
+        int index = 1;
+        for (WalaPair pair : pairs) {
+            String blockSetKey = "wala-" + index;
+            DiscovreCfgMatchResult match = pair.leftAnalyzed() == null || pair.rightAnalyzed() == null
+                    ? null
+                    : matcher.match(pair.leftAnalyzed(), pair.rightAnalyzed());
+            blockSets.add("\"" + escapeJson(blockSetKey) + "\":"
+                    + walaBlockSetJson(pair.leftRaw(), pair.rightRaw(), match));
+            methodPairs.add(walaMethodPairJson(pair, blockSetKey, match, index));
+            index++;
+        }
+        return "{"
+                + "\"resultLabel\":\"Real WALA CFG\","
+                + "\"summary\":\"Backend-emitted WALA CFG output.\","
+                + "\"score\":" + (methodPairs.isEmpty() ? "null" : "null") + ","
+                + "\"bestShort\":\"" + escapeJson(pairs.isEmpty() ? "No backend method pair" : pairs.get(0).title()) + "\","
+                + "\"candidateReduction\":\"" + escapeJson(pairs.size() + " backend method pairs") + "\","
+                + "\"tags\":[\"backend CFG output\",\"WALA raw snapshot\",\"DiscovRE CFG matcher\"],"
+                + "\"categories\":[{\"key\":\"wala\",\"title\":\"Real method CFGs\","
+                + "\"description\":\"Choose a method pair emitted by backend analysis.\",\"badge\":\"WALA\"}],"
+                + "\"methodPairs\":[" + String.join(",", methodPairs) + "],"
+                + "\"blockSets\":{" + String.join(",", blockSets) + "},"
+                + "\"files\":{\"left\":\"" + escapeJson(fileA) + "\",\"right\":\"" + escapeJson(fileB) + "\"}"
+                + "}";
+    }
+
+    private static List<WalaPair> selectedWalaPairs(
+            Map<String, Object> leftRaw,
+            Map<String, Object> rightRaw,
+            List<AnalyzedMethod> leftAnalyzed,
+            List<AnalyzedMethod> rightAnalyzed,
+            NextPipelineResult result) throws Exception {
+        List<WalaPair> pairs = new ArrayList<>();
+        Map<String, AnalyzedMethod> leftAnalyzedBySignature = analyzedBySignature(leftAnalyzed);
+        Map<String, AnalyzedMethod> rightAnalyzedBySignature = analyzedBySignature(rightAnalyzed);
+        Map<String, AnalyzedMethod> leftByShortName = analyzedByShortName(leftAnalyzed);
+        Map<String, AnalyzedMethod> rightByShortName = analyzedByShortName(rightAnalyzed);
+        Map<String, Object> leftRawByShortName = rawByShortName(leftRaw);
+        Map<String, Object> rightRawByShortName = rawByShortName(rightRaw);
+        Map<String, WalaPair> unique = new LinkedHashMap<>();
+        for (RegionDecision decision : result.selectedRegionDecisions()) {
+            if (decision.candidate().left().kind() == RegionKind.FILE
+                    || decision.candidate().right().kind() == RegionKind.FILE) {
+                continue;
+            }
+            String leftName = methodNameFromDisplay(decision.candidate().left().displayName());
+            String rightName = methodNameFromDisplay(decision.candidate().right().displayName());
+            Object leftMethod = leftRawByShortName.get(leftName);
+            Object rightMethod = rightRawByShortName.get(rightName);
+            AnalyzedMethod leftMethodAnalyzed = leftByShortName.get(leftName);
+            AnalyzedMethod rightMethodAnalyzed = rightByShortName.get(rightName);
+            if (leftMethodAnalyzed != null && leftMethod == null) {
+                leftMethod = leftRaw.get(leftMethodAnalyzed.signature());
+            }
+            if (rightMethodAnalyzed != null && rightMethod == null) {
+                rightMethod = rightRaw.get(rightMethodAnalyzed.signature());
+            }
+            if (leftMethod == null || rightMethod == null) {
+                continue;
+            }
+            String leftSignature = stringValue(leftMethod, "rawMethodSignature");
+            String rightSignature = stringValue(rightMethod, "rawMethodSignature");
+            if (leftMethodAnalyzed == null) {
+                leftMethodAnalyzed = leftAnalyzedBySignature.get(leftSignature);
+            }
+            if (rightMethodAnalyzed == null) {
+                rightMethodAnalyzed = rightAnalyzedBySignature.get(rightSignature);
+            }
+            String key = leftSignature + " -> " + rightSignature;
+            unique.putIfAbsent(key, new WalaPair(leftMethod, rightMethod, leftMethodAnalyzed, rightMethodAnalyzed));
+        }
+        pairs.addAll(unique.values());
+        return pairs;
+    }
+
+    private static Map<String, Object> rawMethodsBySignature(Object program) throws Exception {
+        Map<String, Object> methods = new LinkedHashMap<>();
+        for (Object clazz : listValue(program, "classes")) {
+            for (Object method : listValue(clazz, "methods")) {
+                methods.put(stringValue(method, "rawMethodSignature"), method);
+            }
+        }
+        return methods;
+    }
+
+    private static Map<String, Object> rawByShortName(Map<String, Object> rawMethods) throws Exception {
+        Map<String, Object> byName = new LinkedHashMap<>();
+        for (Object method : rawMethods.values()) {
+            byName.putIfAbsent(shortMethodName(stringValue(method, "rawMethodSignature")), method);
+        }
+        return byName;
+    }
+
+    private static Map<String, AnalyzedMethod> analyzedBySignature(List<AnalyzedMethod> methods) {
+        Map<String, AnalyzedMethod> bySignature = new LinkedHashMap<>();
+        for (AnalyzedMethod method : methods) {
+            bySignature.put(method.signature(), method);
+        }
+        return bySignature;
+    }
+
+    private static Map<String, AnalyzedMethod> analyzedByShortName(List<AnalyzedMethod> methods) {
+        Map<String, AnalyzedMethod> byName = new LinkedHashMap<>();
+        for (AnalyzedMethod method : methods) {
+            byName.putIfAbsent(shortMethodName(method.signature()), method);
+        }
+        return byName;
+    }
+
+    private static String methodNameFromDisplay(String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            return "";
+        }
+        String text = displayName;
+        int paren = text.indexOf('(');
+        if (paren >= 0) {
+            text = text.substring(0, paren);
+        }
+        int dot = text.lastIndexOf('.');
+        return dot >= 0 ? text.substring(dot + 1) : text;
+    }
+
+    private static String shortMethodName(String signature) {
+        if (signature == null || signature.isBlank()) {
+            return "";
+        }
+        int paren = signature.indexOf('(');
+        String beforeParams = paren >= 0 ? signature.substring(0, paren) : signature;
+        int dot = beforeParams.lastIndexOf('.');
+        return dot >= 0 ? beforeParams.substring(dot + 1) : beforeParams;
+    }
+
+    private static String walaMethodPairJson(WalaPair pair, String blockSetKey,
+                                             DiscovreCfgMatchResult match, int index) throws Exception {
+        double score = match == null ? Double.NaN : match.similarity();
+        return "{"
+                + "\"category\":\"wala\","
+                + "\"categoryLabel\":\"Real method CFGs\","
+                + "\"title\":\"" + escapeJson(pair.title()) + "\","
+                + "\"left\":\"" + escapeJson(stringValue(pair.leftRaw(), "rawMethodSignature")) + "\","
+                + "\"right\":\"" + escapeJson(stringValue(pair.rightRaw(), "rawMethodSignature")) + "\","
+                + "\"score\":" + (Double.isNaN(score) ? "null" : String.format(java.util.Locale.ROOT, "%.6f", score)) + ","
+                + "\"similarity\":" + (Double.isNaN(score) ? "null" : String.format(java.util.Locale.ROOT, "%.6f", score)) + ","
+                + "\"distance\":" + (match == null ? "null" : String.format(java.util.Locale.ROOT, "%.6f", match.distance())) + ","
+                + "\"defaultNode\":\"" + escapeJson(firstNodeId(pair.leftRaw(), "L")) + "\","
+                + "\"explanation\":\"Backend selected method pair from region evidence and WALA CFG analysis.\","
+                + "\"storyTitle\":\"Real WALA CFG\","
+                + "\"storyBody\":\"Blocks and arrows are emitted by backend WALA analysis.\","
+                + "\"blockSet\":\"" + escapeJson(blockSetKey) + "\","
+                + "\"order\":" + index
+                + "}";
+    }
+
+    private static String walaBlockSetJson(Object leftMethod, Object rightMethod,
+                                           DiscovreCfgMatchResult match) throws Exception {
+        return "{"
+                + "\"left\":[" + String.join(",", walaNodeJsons(leftMethod, "L")) + "],"
+                + "\"right\":[" + String.join(",", walaNodeJsons(rightMethod, "R")) + "],"
+                + "\"leftEdges\":[" + String.join(",", walaEdgeJsons(leftMethod, "L")) + "],"
+                + "\"rightEdges\":[" + String.join(",", walaEdgeJsons(rightMethod, "R")) + "],"
+                + "\"matches\":[" + String.join(",", walaMatchJsons(match)) + "],"
+                + "\"matchSource\":\"" + (match == null ? "unavailable" : "DiscovRE CFG matcher") + "\""
+                + "}";
+    }
+
+    private static List<String> walaNodeJsons(Object method, String prefix) throws Exception {
+        List<String> nodes = new ArrayList<>();
+        for (Object block : listValue(method, "blocks")) {
+            int number = intValue(block, "rawBlockNumber");
+            boolean entry = booleanValue(block, "rawIsEntry");
+            boolean exit = booleanValue(block, "rawIsExit");
+            List<?> instructions = listValue(block, "instructions");
+            String firstInstruction = firstInstructionText(instructions);
+            boolean hasInvoke = false;
+            for (Object instruction : instructions) {
+                if (!stringValue(instruction, "rawDeclaredTargetText").isBlank()) {
+                    hasInvoke = true;
+                    break;
+                }
+            }
+            int successorCount = listValue(block, "rawNormalSuccessors").size()
+                    + listValue(block, "rawExceptionalSuccessors").size();
+            String display = entry ? "Entry" : exit ? "Exit" : "BB " + number;
+            String detail = entry ? "method entry"
+                    : exit ? "method exit"
+                    : summarizeInstruction(firstInstruction.isBlank()
+                    ? stringValue(block, "rawBlockString") : firstInstruction);
+            String kind = entry ? "entry" : exit ? "return" : hasInvoke ? "helper"
+                    : successorCount > 1 ? "branch" : "block";
+            String instructionText = instructionText(instructions);
+            nodes.add("{"
+                    + "\"id\":\"" + prefix + "b" + number + "\","
+                    + "\"rawBlockId\":\"b" + number + "\","
+                    + "\"name\":\"" + escapeJson(display) + "\","
+                    + "\"display\":\"" + escapeJson(display) + "\","
+                    + "\"detail\":\"" + escapeJson(detail) + "\","
+                    + "\"kind\":\"" + escapeJson(kind) + "\","
+                    + "\"meaning\":\"" + escapeJson(stringValue(block, "rawBlockString")) + "\","
+                    + "\"number\":" + number + ","
+                    + "\"instructionText\":\"" + escapeJson(instructionText) + "\","
+                    + "\"raw\":" + rawBlockJson(block)
+                    + "}");
+        }
+        return nodes;
+    }
+
+    private static List<String> walaEdgeJsons(Object method, String prefix) throws Exception {
+        List<String> edges = new ArrayList<>();
+        for (Object block : listValue(method, "blocks")) {
+            int from = intValue(block, "rawBlockNumber");
+            for (Object value : listValue(block, "rawNormalSuccessors")) {
+                Integer to = successorNumber(value);
+                if (to != null) {
+                    edges.add(edgeJson(prefix, from, to, to <= from ? "loop" : "flow"));
+                }
+            }
+            for (Object value : listValue(block, "rawExceptionalSuccessors")) {
+                Integer to = successorNumber(value);
+                if (to != null) {
+                    edges.add(edgeJson(prefix, from, to, "exception"));
+                }
+            }
+        }
+        return edges;
+    }
+
+    private static String edgeJson(String prefix, int from, int to, String kind) {
+        return "{"
+                + "\"from\":\"" + prefix + "b" + from + "\","
+                + "\"to\":\"" + prefix + "b" + to + "\","
+                + "\"kind\":\"" + escapeJson(kind) + "\""
+                + "}";
+    }
+
+    private static Integer successorNumber(Object value) {
+        String text = String.valueOf(value).trim();
+        if (text.startsWith("b") || text.startsWith("B")) {
+            text = text.substring(1);
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private static List<String> walaMatchJsons(DiscovreCfgMatchResult match) {
+        if (match == null) {
+            return List.of();
+        }
+        List<String> matches = new ArrayList<>();
+        for (DiscovreBlockPair pair : match.matchedPairs()) {
+            double distance = pair.blockDistance();
+            matches.add("{"
+                    + "\"left\":\"L" + escapeJson(pair.leftBlockId()) + "\","
+                    + "\"right\":\"R" + escapeJson(pair.rightBlockId()) + "\","
+                    + "\"distance\":" + String.format(java.util.Locale.ROOT, "%.6f", distance) + ","
+                    + "\"label\":\"" + escapeJson(pair.leftBlockId() + " -> " + pair.rightBlockId()) + "\","
+                    + "\"friendly\":\"" + escapeJson(blockMatchText(distance)) + "\""
+                    + "}");
+        }
+        return matches;
+    }
+
+    private static String blockMatchText(double distance) {
+        if (distance <= 0.05) return "backend matched · very close";
+        if (distance <= 0.20) return "backend matched · changed";
+        return "backend matched · weak";
+    }
+
+    private static String firstNodeId(Object method, String prefix) throws Exception {
+        List<?> blocks = listValue(method, "blocks");
+        if (blocks.isEmpty()) {
+            return "";
+        }
+        return prefix + "b" + intValue(blocks.get(0), "rawBlockNumber");
+    }
+
+    private static String firstInstructionText(List<?> instructions) throws Exception {
+        for (Object instruction : instructions) {
+            String text = stringValue(instruction, "rawInstructionText");
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return "";
+    }
+
+    private static String instructionText(List<?> instructions) throws Exception {
+        List<String> values = new ArrayList<>();
+        for (Object instruction : instructions) {
+            String text = stringValue(instruction, "rawInstructionText");
+            if (!text.isBlank()) {
+                values.add(text);
+            }
+        }
+        return String.join(" ", values);
+    }
+
+    private static String summarizeInstruction(String text) {
+        return text == null ? "" : text.replaceAll("\\s+", " ").replaceFirst("^\\d+\\s*=\\s*", "");
+    }
+
+    private record WalaPair(
+            Object leftRaw,
+            Object rightRaw,
+            AnalyzedMethod leftAnalyzed,
+            AnalyzedMethod rightAnalyzed
+    ) {
+        String title() throws Exception {
+            return shortMethodName(stringValue(leftRaw, "rawMethodSignature"))
+                    + " -> "
+                    + shortMethodName(stringValue(rightRaw, "rawMethodSignature"));
+        }
     }
 
     private static String unavailableWalaCfgJson(String reason) {
@@ -1957,6 +2316,19 @@ public class WebAppMain {
                     .cfg-layout-loading strong {
                       color: var(--accent);
                     }
+                    .cfg-layout-error {
+                      min-height: 720px;
+                      display: grid;
+                      place-items: center;
+                      text-align: center;
+                      padding: 20px;
+                    }
+                    .cfg-layout-error .cfg-empty {
+                      max-width: 520px;
+                      background: #fff7ed;
+                      border-color: #fdba74;
+                      color: #9a3412;
+                    }
                     .cfg-match-panel {
                       border: 1px solid var(--line);
                       border-radius: 8px;
@@ -2321,7 +2693,7 @@ public class WebAppMain {
                     let activeSection = 'summary';
                     let selectedPairIndex = 0;
                     let cfgDetailOpen = false;
-                    let selectedCfgNode = 'L2';
+                    let selectedCfgNode = '';
                     let selectedNextRegion = 'main-flow';
                     let selectedNextType = 'ALL';
                     let shouldScrollNextRegion = false;
@@ -2335,6 +2707,7 @@ public class WebAppMain {
                     let elkInstance = null;
                     const cfgLayoutCache = new Map();
                     const cfgLayoutPending = new Set();
+                    const cfgLayoutErrors = new Map();
                     let fileAEdited = false;
                     let fileBEdited = false;
                     const astSections = [
@@ -3031,18 +3404,15 @@ public class WebAppMain {
                       if (reportMode === 'cfg') {
                         if (activeSection === 'summary') sectionContent.innerHTML = renderCfgSummary(reportData, files);
                         if (activeSection === 'explorer') sectionContent.innerHTML = renderCfgExplorer(reportData, files);
-                        if (activeSection === 'json') sectionContent.innerHTML = renderJson(reportData);
                       } else if (reportMode === 'next') {
                         if (activeSection === 'summary') sectionContent.innerHTML = renderNextSummary(reportData, files);
                         if (activeSection === 'regions') sectionContent.innerHTML = renderNextRegions(reportData, files);
                         if (activeSection === 'cfg') sectionContent.innerHTML = renderCfgExplorer(reportData, files);
                         if (activeSection === 'source') sectionContent.innerHTML = renderNextSource(reportData, files);
-                        if (activeSection === 'json') sectionContent.innerHTML = renderJson(reportData);
                       } else {
                         if (activeSection === 'summary') sectionContent.innerHTML = renderSummary(reportData, files);
                         if (activeSection === 'methods') sectionContent.innerHTML = renderMethods(reportData, files);
                         if (activeSection === 'evidence') sectionContent.innerHTML = renderEvidence(reportData, files);
-                        if (activeSection === 'json') sectionContent.innerHTML = renderJson(reportData);
                       }
                       bindSectionEvents();
                       if (shouldScrollNextRegion) {
@@ -3507,7 +3877,7 @@ public class WebAppMain {
                         <div class="section-head"><h3>Matches & Closeness</h3><div class="muted">${escapeHtml(method.left)} -> ${escapeHtml(method.right)}</div></div>
                         <div class="cfg-match-panel always">
                           <div class="cfg-links">
-                            ${hasMatches ? blocks.matches.map(match => renderCfgMatchCard(match, blocks)).join('') : '<div class="cfg-empty">No block alignment could be derived from the WALA blocks for this method pair.</div>'}
+                            ${hasMatches ? blocks.matches.map(match => renderCfgMatchCard(match, blocks)).join('') : '<div class="cfg-empty">The backend did not emit block alignment for this method pair.</div>'}
                           </div>
                         </div>
                       </section>`;
@@ -3570,6 +3940,7 @@ public class WebAppMain {
                       const layoutKey = cfgLayoutKey(side, blocks);
                       ensureCfgElkLayout(side, blocks, layoutKey);
                       const layout = cfgLayoutCache.get(layoutKey);
+                      const layoutError = cfgLayoutErrors.get(layoutKey);
                       return `<div class="cfg-graph-card">
                         <div class="cfg-tree-title"><strong>${escapeHtml(fileName)}</strong><span class="tag">${side === 'left' ? 'Left CFG' : 'Right CFG'}</span></div>
                         <div class="cfg-graph-canvas">
@@ -3584,12 +3955,15 @@ public class WebAppMain {
                             </defs>
                             ${renderElkEdges(layout, side)}
                             ${nodes.map(block => renderCfgNode(block, blocks, layout.children?.find(child => child.id === block.id))).join('')}
-                          </svg>` : renderCfgLayoutLoading()}
+                          </svg>` : (layoutError ? renderCfgLayoutError(layoutError) : renderCfgLayoutLoading())}
                         </div>
                       </div>`;
                     }
                     function renderCfgLayoutLoading() {
                       return `<div class="cfg-layout-loading"><strong>Building CFG layout...</strong><span class="muted">ELK is placing blocks and routing arrows.</span></div>`;
+                    }
+                    function renderCfgLayoutError(message) {
+                      return `<div class="cfg-layout-error"><div class="cfg-empty"><strong>CFG layout is unavailable.</strong><br>${escapeHtml(message)}</div></div>`;
                     }
                     function cfgLayoutKey(side, blocks) {
                       const nodeIds = (blocks[side] || []).map(node => node.id).join(',');
@@ -3597,11 +3971,18 @@ public class WebAppMain {
                       return `${side}:${showCfgLoops ? 'loops' : 'main'}:${nodeIds}:${edgeIds}`;
                     }
                     function ensureCfgElkLayout(side, blocks, key) {
-                      if (cfgLayoutCache.has(key) || cfgLayoutPending.has(key)) return;
-                      if (typeof ELK === 'undefined') return;
+                      if (cfgLayoutCache.has(key) || cfgLayoutPending.has(key) || cfgLayoutErrors.has(key)) return;
+                      const ElkCtor = window.ELK || (typeof ELK === 'undefined' ? null : ELK);
+                      if (!ElkCtor) {
+                        cfgLayoutErrors.set(key, 'The ELK graph layout library was not loaded.');
+                        return;
+                      }
                       cfgLayoutPending.add(key);
-                      if (!elkInstance) elkInstance = new ELK();
-                      elkInstance.layout(buildElkGraph(side, blocks))
+                      if (!elkInstance) elkInstance = new ElkCtor();
+                      const layoutTimeout = new Promise((_, reject) => {
+                        window.setTimeout(() => reject(new Error('ELK layout did not finish in time.')), 8000);
+                      });
+                      Promise.race([elkInstance.layout(buildElkGraph(side, blocks)), layoutTimeout])
                         .then(layout => {
                           cfgLayoutCache.set(key, layout);
                           cfgLayoutPending.delete(key);
@@ -3609,8 +3990,12 @@ public class WebAppMain {
                             renderReport();
                           }
                         })
-                        .catch(() => {
+                        .catch(error => {
                           cfgLayoutPending.delete(key);
+                          cfgLayoutErrors.set(key, error && error.message ? error.message : 'ELK layout failed.');
+                          if ((reportMode === 'cfg' || reportMode === 'next') && (activeSection === 'cfg' || activeSection === 'explorer') && cfgDetailOpen && cfgSubView === 'graph') {
+                            renderReport();
+                          }
                         });
                     }
                     function buildElkGraph(side, blocks) {
@@ -3696,7 +4081,7 @@ public class WebAppMain {
                       return `<button class="cfg-match-card" data-cfg-match-node="${escapeHtml(match.left)}" type="button">
                         <div>
                           <strong>${escapeHtml(leftName)} -> ${escapeHtml(rightName)}</strong>
-                          <span>${escapeHtml(match.friendly || 'derived WALA block alignment')}</span>
+                          <span>${escapeHtml(match.friendly || 'backend WALA block alignment')}</span>
                         </div>
                         <div class="cfg-mini-score">
                           <small>${escapeHtml(closenessText(match.distance))}</small>
@@ -3800,7 +4185,7 @@ public class WebAppMain {
                       sectionContent.querySelectorAll('[data-pair]').forEach(btn => {
                         btn.addEventListener('click', () => {
                           selectedPairIndex = Number(btn.dataset.pair);
-                          selectedCfgNode = 'L2';
+                          selectedCfgNode = '';
                           renderReport();
                         });
                       });
@@ -3849,16 +4234,7 @@ public class WebAppMain {
                           if (region) {
                             if (selectedNextType !== 'ALL') selectedNextType = region.type || selectedNextType;
                             nextScrollTargetRegion = region.id;
-	                            if (region.id === 'quantity') selectedCfgNode = 'L3';
-	                            if (region.id === 'inventory') selectedCfgNode = 'L4';
-	                            if (region.id === 'email') selectedCfgNode = 'L5';
-	                            if (region.id === 'region') selectedCfgNode = 'L6';
-	                            if (region.id === 'coupon') selectedCfgNode = 'L7';
-	                            if (region.id === 'channel') selectedCfgNode = 'L8';
-	                            if (region.id === 'stability') selectedCfgNode = 'L9';
-	                            if (region.id === 'fallback') selectedCfgNode = 'L10';
-	                            if (region.id === 'cap') selectedCfgNode = 'L11';
-	                            if (region.id === 'main-flow') selectedCfgNode = 'L1';
+                            selectedCfgNode = region.raw?.cfgNodeId || '';
                           }
                           shouldScrollNextRegion = true;
                           renderReport();
@@ -3921,7 +4297,7 @@ public class WebAppMain {
                           headline: nextRelationshipLabel(fileSummary.relationshipShape, fileSummary.dominantRegionType),
                           interpretation: 'Live evidence from the region-based pipeline.',
                           tags: fileSummary.fileTags || [],
-                          evidenceBreakdown: normalizeNextBreakdown(fileSummary.evidenceBreakdown || [], regions)
+                          evidenceBreakdown: backendNextBreakdown(fileSummary.evidenceBreakdown || [])
                         },
                         nextRegions: regions,
                         cfg: adaptWalaCfgReport(data, regions)
@@ -3952,25 +4328,14 @@ public class WebAppMain {
                         score: region.syntacticSimilarity
                       };
                     }
-                    function normalizeNextBreakdown(items, regions) {
-                      if (items.length) {
-                        return items.map(item => ({
-                          type: normalizeRegionType(item.type),
-                          label: item.type,
-                          regionCount: item.regionCount,
-                          affectedLeftRatio: numberOrZero(item.affectedLeftRatio),
-                          affectedRightRatio: numberOrZero(item.affectedRightRatio)
-                        }));
-                      }
-                      const byType = new Map();
-                      regions.forEach(region => {
-                        const current = byType.get(region.type) || { type: region.type, regionCount: 0, affectedLeftRatio: 0, affectedRightRatio: 0 };
-                        current.regionCount += 1;
-                        current.affectedLeftRatio += rangeLineCount(region.leftRange[0], region.leftRange[1]) / Math.max(1, sourceA.value.split('\\n').length);
-                        current.affectedRightRatio += rangeLineCount(region.rightRange[0], region.rightRange[1]) / Math.max(1, sourceB.value.split('\\n').length);
-                        byType.set(region.type, current);
-                      });
-                      return Array.from(byType.values());
+                    function backendNextBreakdown(items) {
+                      return (items || []).map(item => ({
+                        type: normalizeRegionType(item.type),
+                        label: item.type,
+                        regionCount: item.regionCount,
+                        affectedLeftRatio: numberOrZero(item.affectedLeftRatio),
+                        affectedRightRatio: numberOrZero(item.affectedRightRatio)
+                      }));
                     }
                     function adaptWalaCfgReport(data, regions) {
                       const wala = data.walaCfg || {};
@@ -3984,218 +4349,22 @@ public class WebAppMain {
                           blockSets: {}
                         };
                       }
-                      const leftMethods = normalizeWalaMethods(wala.left, 'left');
-                      const rightMethods = normalizeWalaMethods(wala.right, 'right');
-                      const pairs = buildWalaMethodPairs(leftMethods, rightMethods, regions);
-                      const blockSets = {};
-                      pairs.forEach((pair, index) => {
-                        const key = `wala-${index + 1}`;
-                        pair.blockSet = key;
-                        blockSets[key] = {
-                          left: pair.leftMethod.nodes,
-                          right: pair.rightMethod.nodes,
-                          leftEdges: pair.leftMethod.edges,
-                          rightEdges: pair.rightMethod.edges,
-                          matches: buildWalaBlockMatches(pair.leftMethod.nodes, pair.rightMethod.nodes)
-                        };
-                      });
+                      const analysis = wala.analysis || {};
+                      const pairs = analysis.methodPairs || [];
+                      const blockSets = analysis.blockSets || {};
                       return {
                         available: true,
                         source: wala.source || 'WALA raw CFG',
-                        resultLabel: 'Real WALA CFG',
-                        summary: 'Basic blocks and arrows are extracted from WALA raw CFG output.',
-                        score: null,
-                        bestShort: pairs[0]?.title || 'No WALA method pair',
-                        candidateReduction: `${pairs.length} method views`,
-                        tags: ['real WALA output'],
-                        categories: [
-                          {
-                            key: 'wala',
-                            title: 'Real method CFGs',
-                            description: 'Choose a method pair extracted from WALA bytecode analysis.',
-                            badge: 'WALA'
-                          }
-                        ],
+                        resultLabel: analysis.resultLabel || 'Real WALA CFG',
+                        summary: analysis.summary || '',
+                        score: analysis.score ?? null,
+                        bestShort: analysis.bestShort || pairs[0]?.title || 'No backend method pair',
+                        candidateReduction: analysis.candidateReduction || '',
+                        tags: analysis.tags || [],
+                        categories: analysis.categories || [],
                         methods: pairs,
                         blockSets
                       };
-                    }
-                    function normalizeWalaMethods(program, side) {
-                      return (program?.methods || [])
-                        .filter(method => (method.blocks || []).length)
-                        .map((method, index) => {
-                          const prefix = side === 'left' ? 'L' : 'R';
-                          const nodes = (method.blocks || []).map(block => walaBlockNode(block, method, prefix));
-                          const nodeIds = new Set(nodes.map(node => node.id));
-                          const edges = [];
-                          (method.blocks || []).forEach(block => {
-                            const from = `${prefix}b${block.number}`;
-                            (block.normalSuccessors || []).forEach(to => {
-                              const target = `${prefix}b${to}`;
-                              if (nodeIds.has(from) && nodeIds.has(target)) {
-                                edges.push({ from, to: target, kind: Number(to) <= Number(block.number) ? 'loop' : 'flow' });
-                              }
-                            });
-                            (block.exceptionalSuccessors || []).forEach(to => {
-                              const target = `${prefix}b${to}`;
-                              if (nodeIds.has(from) && nodeIds.has(target)) {
-                                edges.push({ from, to: target, kind: 'exception' });
-                              }
-                            });
-                          });
-                          return {
-                            index,
-                            side,
-                            signature: method.signature || `method-${index + 1}`,
-                            shortName: walaShortMethodName(method.signature || `method-${index + 1}`),
-                            fileName: method.fileName || program?.fileName || '',
-                            raw: method,
-                            nodes,
-                            edges
-                          };
-                        });
-                    }
-                    function walaBlockNode(block, method, prefix) {
-                      const instructions = block.instructions || [];
-                      const firstInstruction = instructions.find(item => item.text)?.text || '';
-                      const display = block.entry ? 'Entry'
-                        : block.exit ? 'Exit'
-                        : `BB ${block.number}`;
-                      const detail = block.entry ? 'method entry'
-                        : block.exit ? 'method exit'
-                        : summarizeWalaInstruction(firstInstruction || block.rawBlockString || 'basic block');
-                      const hasInvoke = instructions.some(item => item.declaredTarget);
-                      const successorCount = (block.normalSuccessors || []).length + (block.exceptionalSuccessors || []).length;
-                      return {
-                        id: `${prefix}b${block.number}`,
-                        name: display,
-                        display,
-                        detail,
-                        kind: block.entry ? 'entry' : block.exit ? 'return' : hasInvoke ? 'helper' : successorCount > 1 ? 'branch' : 'block',
-                        meaning: block.rawBlockString || `${method.signature} basic block ${block.number}`,
-                        raw: JSON.stringify(block, null, 2),
-                        number: Number(block.number),
-                        instructionText: instructions.map(item => item.text || '').filter(Boolean).join(' ')
-                      };
-                    }
-                    function summarizeWalaInstruction(text) {
-                      return String(text || '')
-                        .replace(/\\s+/g, ' ')
-                        .replace(/^\\d+\\s*=\\s*/, '')
-                        .slice(0, 54);
-                    }
-                    function buildWalaMethodPairs(leftMethods, rightMethods, regions) {
-                      const pairs = [];
-                      const seen = new Set();
-                      regions.forEach(region => {
-                        const left = findWalaMethod(leftMethods, region.raw?.left?.displayName);
-                        const right = findWalaMethod(rightMethods, region.raw?.right?.displayName);
-                        if (left && right) {
-                          const key = `${left.signature} -> ${right.signature}`;
-                          if (!seen.has(key)) {
-                            seen.add(key);
-                            pairs.push(walaMethodPair(left, right));
-                          }
-                        }
-                      });
-                      if (!pairs.length) {
-                        const left = firstUsefulWalaMethod(leftMethods);
-                        const right = firstUsefulWalaMethod(rightMethods);
-                        if (left && right) {
-                          pairs.push(walaMethodPair(left, right));
-                        }
-                      }
-                      return pairs;
-                    }
-                    function walaMethodPair(left, right) {
-                      return {
-                        category: 'wala',
-                        categoryLabel: 'Real method CFGs',
-                        title: `${left.shortName} -> ${right.shortName}`,
-                        left: left.signature,
-                        right: right.signature,
-                        score: null,
-                        defaultNode: left.nodes[0]?.id || right.nodes[0]?.id || '',
-                        explanation: 'Open the real WALA CFG for these compiled methods.',
-                        storyTitle: 'Real WALA CFG',
-                        storyBody: 'Blocks and edges come directly from WALA raw CFG output.',
-                        leftMethod: left,
-                        rightMethod: right
-                      };
-                    }
-                    function buildWalaBlockMatches(leftNodes, rightNodes) {
-                      const rightRemaining = new Set(rightNodes.map(node => node.id));
-                      const matches = [];
-                      leftNodes.forEach(left => {
-                        let best = null;
-                        rightNodes.forEach(right => {
-                          if (!rightRemaining.has(right.id)) return;
-                          const distance = walaBlockDistance(left, right);
-                          if (!best || distance < best.distance) {
-                            best = { left, right, distance };
-                          }
-                        });
-                        if (!best) return;
-                        rightRemaining.delete(best.right.id);
-                        matches.push({
-                          left: best.left.id,
-                          right: best.right.id,
-                          distance: Number(best.distance.toFixed(4)),
-                          label: `${best.left.display || best.left.name} -> ${best.right.display || best.right.name}`,
-                          friendly: walaBlockMatchText(best.left, best.right, best.distance)
-                        });
-                      });
-                      return matches.sort((a, b) => {
-                        const leftA = Number(String(a.left).match(/b(\\d+)/)?.[1] || 0);
-                        const leftB = Number(String(b.left).match(/b(\\d+)/)?.[1] || 0);
-                        return leftA - leftB;
-                      });
-                    }
-                    function walaBlockDistance(left, right) {
-                      if (left.kind === 'entry' && right.kind === 'entry') return 0.0;
-                      if (left.kind === 'return' && right.kind === 'return') return 0.0;
-                      const kindCost = left.kind === right.kind ? 0.0 : 0.16;
-                      const numberCost = Number.isFinite(left.number) && Number.isFinite(right.number)
-                        ? Math.min(0.18, Math.abs(left.number - right.number) * 0.03)
-                        : 0.08;
-                      const textSimilarity = tokenJaccard(left.instructionText || left.detail, right.instructionText || right.detail);
-                      const textCost = 0.66 * (1 - textSimilarity);
-                      return Math.min(1, kindCost + numberCost + textCost);
-                    }
-                    function tokenJaccard(left, right) {
-                      const leftTokens = new Set(String(left || '').toLowerCase().match(/[a-z0-9_$.#]+/g) || []);
-                      const rightTokens = new Set(String(right || '').toLowerCase().match(/[a-z0-9_$.#]+/g) || []);
-                      if (!leftTokens.size && !rightTokens.size) return 1;
-                      const intersection = [...leftTokens].filter(token => rightTokens.has(token)).length;
-                      const union = new Set([...leftTokens, ...rightTokens]).size;
-                      return union ? intersection / union : 0;
-                    }
-                    function walaBlockMatchText(left, right, distance) {
-                      if (distance <= 0.05) return 'same WALA block role and close instructions';
-                      if (distance <= 0.20) return 'similar WALA block role with instruction changes';
-                      return 'weak WALA block alignment';
-                    }
-                    function findWalaMethod(methods, displayName) {
-                      const name = methodNameToken(displayName);
-                      if (!name) return null;
-                      return methods.find(method => method.shortName === name)
-                        || methods.find(method => method.signature.includes(`.${name}(`))
-                        || methods.find(method => method.signature.includes(`${name}(`));
-                    }
-                    function firstUsefulWalaMethod(methods) {
-                      return methods.find(method => !method.signature.includes('.<init>('))
-                        || methods[0]
-                        || null;
-                    }
-                    function methodNameToken(value) {
-                      const text = String(value || '');
-                      const withoutArgs = text.split('(')[0];
-                      const parts = withoutArgs.split('.');
-                      return parts[parts.length - 1] || '';
-                    }
-                    function walaShortMethodName(signature) {
-                      const match = String(signature || '').match(/\\.([^.(]+)\\(/);
-                      return match ? match[1] : methodNameToken(signature);
                     }
                     function positiveLine(value) {
                       const n = Number(value);
@@ -4642,14 +4811,19 @@ public class WebAppMain {
     }
 
     private static String elkScriptTag() throws IOException {
-        Path elk = Path.of("web", "vendor", "elk.bundled.js");
+        Path elk = elkVendorPath();
         if (!Files.exists(elk)) {
             return "<script>window.ELK=undefined;</script>";
         }
-        String bundle = Files.readString(elk, StandardCharsets.UTF_8)
-                .replace("</script>", "<\\/script>");
-        return "<script>var module={exports:{}};var exports=module.exports;var define=undefined;\n"
-                + bundle
-                + "\nconst ELK=module.exports.default||module.exports;\n</script>";
+        return "<script src=\"/vendor/elk.bundled.js?v=" + Files.getLastModifiedTime(elk).toMillis()
+                + "\"></script>";
+    }
+
+    private static Path elkVendorPath() {
+        Path fromRepoRoot = Path.of("code-sim", "web", "vendor", "elk.bundled.js");
+        if (Files.exists(fromRepoRoot)) {
+            return fromRepoRoot;
+        }
+        return Path.of("web", "vendor", "elk.bundled.js");
     }
 }
