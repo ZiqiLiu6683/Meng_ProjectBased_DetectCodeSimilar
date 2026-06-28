@@ -2,6 +2,7 @@ package com.ziqi.codesim.semantic.backend.wala;
 
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.core.util.config.AnalysisScopeReader;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisScope;
@@ -86,8 +87,22 @@ public class WalaAnalysisBackend implements AnalysisBackend {
                 method.getReturnType().getName().toString(),
                 parameterTypes,
                 convertCfg(ir),
-                ir.getSymbolTable().getMaxValueNumber()
+                localVariableCount(method, ir)
         );
+    }
+
+    // discovRE's "size of local variables" maps to the JVM method's local variable slot count
+    // (max_locals from the bytecode Code attribute). We read it from the Shrike method when
+    // available and fall back to the SSA value count only if the bytecode size is unavailable.
+    private static int localVariableCount(IMethod method, IR ir) {
+        if (method instanceof ShrikeCTMethod shrikeMethod) {
+            try {
+                return shrikeMethod.getMaxLocals();
+            } catch (Exception ignored) {
+                // Fall back to the SSA value-count approximation below.
+            }
+        }
+        return ir.getSymbolTable().getMaxValueNumber();
     }
 
     private static ControlFlowGraphUnit convertCfg(IR ir) {
@@ -225,14 +240,18 @@ public class WalaAnalysisBackend implements AnalysisBackend {
         if (!(instruction instanceof SSAAbstractInvokeInstruction invoke)) {
             return CallKind.NOT_A_CALL;
         }
-        String target = invoke.getDeclaredTarget().getDeclaringClass().getName().toString();
-        if (target.startsWith("Ljava/") || target.startsWith("Ljavax/") || target.startsWith("Lsun/")) {
-            return CallKind.EXTERNAL;
-        }
         if (invoke.getDeclaredTarget().isInit()) {
             return CallKind.CONSTRUCTOR;
         }
-        return CallKind.INTERNAL;
+        // Internal = the callee belongs to the application's own code base (same set of classes
+        // we analyze); everything else (JDK or any third-party library) is external. This relies
+        // on WALA's class loader of the target type, replacing the previous java/javax/sun
+        // package-prefix heuristic that mislabelled non-JDK libraries (e.g. org.apache) as internal.
+        ClassLoaderReference targetLoader = invoke.getDeclaredTarget().getDeclaringClass().getClassLoader();
+        if (ClassLoaderReference.Application.equals(targetLoader)) {
+            return CallKind.INTERNAL;
+        }
+        return CallKind.EXTERNAL;
     }
 
     private static String operationName(SSAInstruction instruction) {

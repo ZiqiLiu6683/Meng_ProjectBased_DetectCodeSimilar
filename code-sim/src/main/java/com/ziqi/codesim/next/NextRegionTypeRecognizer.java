@@ -3,16 +3,36 @@ package com.ziqi.codesim.next;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 public class NextRegionTypeRecognizer {
     private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
+    // Structural (MCS) thresholds for the second discovRE stage. Heuristic and meant to be
+    // calibrated on evaluation data: below the veto threshold a syntactic clone is overridden
+    // to NON_CLONE (tokens look alike but the control flow clearly differs); at/above the
+    // confirm threshold the structural evidence is recorded as confirmation.
+    private static final double MCS_VETO_THRESHOLD = 0.30;
+    private static final double MCS_CONFIRM_THRESHOLD = 0.50;
+    // Minimum size for a fragment-only clone (neither side a complete unit). Heuristic and
+    // configurable; below this, small matches between otherwise unrelated code are coincidental.
+    private static final int MIN_FRAGMENT_STATEMENTS = 3;
     private static final Set<String> SOURCE_ONLY_CHANNELS = Set.of(
             "EXACT_TEXT_SCAN",
             "NORMALIZED_AST_SCAN",
             "NORMALIZED_TOKEN_KNN_SCAN",
             "STATEMENT_DIFF_SCAN"
     );
+
+    private final StructuralSimilarityOracle structuralOracle;
+
+    public NextRegionTypeRecognizer() {
+        this(StructuralSimilarityOracle.NONE);
+    }
+
+    public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle) {
+        this.structuralOracle = structuralOracle;
+    }
 
     public RegionDecision decide(RegionCandidate candidate) {
         CodeRegion left = candidate.left();
@@ -36,6 +56,17 @@ public class NextRegionTypeRecognizer {
         );
         addStatementTags(tags, editScript);
 
+        // Minimum clone size (NiCad/SourcererCC/discovRE style): a fragment-only match where
+        // neither side is a complete unit and the smaller region is tiny is treated as a
+        // coincidental match, not a clone. A real clone is still captured at the method level.
+        if (isSubMinimumFragment(candidate)) {
+            path.add(String.format(
+                    "Fragment below minimum clone size: neither side is a complete unit and the smaller region has fewer than %d statements; not treated as a clone.",
+                    MIN_FRAGMENT_STATEMENTS));
+            return decision(candidate, CloneRegionType.NON_CLONE, CloneStrength.NONE, 0.0,
+                    renameEvidence, editScript, tags, path);
+        }
+
         if (!left.t1ComparableTokens().isEmpty()
                 && left.t1ComparableTokens().equals(right.t1ComparableTokens())) {
             tags.add(RegionTag.EXACT_COPY);
@@ -49,7 +80,7 @@ public class NextRegionTypeRecognizer {
                 && left.t2NormalizedTokens().equals(right.t2NormalizedTokens())
                 && !editScript.hasAnyChange()) {
             path.add("T2 passed: T2 normalized token sequences are 100% identical and statement edit script is empty.");
-            return decision(candidate, CloneRegionType.T2, CloneStrength.NONE, 1.0,
+            return applyStructuralConfirmation(candidate, CloneRegionType.T2, CloneStrength.NONE, 1.0,
                     renameEvidence, editScript, tags, path);
         }
         path.add("T2 failed: T2 normalized token sequences are not 100% identical or statement edits exist.");
@@ -64,7 +95,7 @@ public class NextRegionTypeRecognizer {
                     "T3 passed: statement edit script has insert/delete/modify evidence and syntactic similarity %.4f is in the BigCloneBench Type-3 range.",
                     syntacticSimilarity
             ));
-            return decision(candidate, CloneRegionType.T3, strength, syntacticSimilarity,
+            return applyStructuralConfirmation(candidate, CloneRegionType.T3, strength, syntacticSimilarity,
                     renameEvidence, editScript, tags, path);
         }
         if (editScript.hasAnyChange()
@@ -82,6 +113,42 @@ public class NextRegionTypeRecognizer {
 
         path.add("T4 not approved in this source-only slice: no independent CFG/dynamic semantic approval is attached to this candidate.");
         return decision(candidate, CloneRegionType.NON_CLONE, CloneStrength.NONE, syntacticSimilarity,
+                renameEvidence, editScript, tags, path);
+    }
+
+    // Second discovRE stage for whole-method clones: consult the structural (MCS) oracle.
+    // Veto a syntactic T2/T3 whose control flow is clearly dissimilar (likely a token-level
+    // false positive); record confirmation when the structure agrees. No-ops when the oracle
+    // has no evidence (non-method regions or source-only pipeline), preserving prior behavior.
+    private RegionDecision applyStructuralConfirmation(RegionCandidate candidate,
+                                                       CloneRegionType type,
+                                                       CloneStrength strength,
+                                                       double syntacticSimilarity,
+                                                       RenameEvidence renameEvidence,
+                                                       StatementEditScript editScript,
+                                                       Set<RegionTag> tags,
+                                                       List<String> path) {
+        OptionalDouble structural = structuralOracle.similarity(candidate.left(), candidate.right());
+        if (structural.isPresent()) {
+            double structuralSimilarity = structural.getAsDouble();
+            if (structuralSimilarity < MCS_VETO_THRESHOLD) {
+                path.add(String.format(
+                        "Structural veto: method CFG similarity %.4f is below %.2f; tokens look similar but control flow differs, overriding %s to NON_CLONE.",
+                        structuralSimilarity, MCS_VETO_THRESHOLD, type));
+                return decision(candidate, CloneRegionType.NON_CLONE, CloneStrength.NONE, syntacticSimilarity,
+                        renameEvidence, editScript, tags, path);
+            }
+            if (structuralSimilarity >= MCS_CONFIRM_THRESHOLD) {
+                path.add(String.format(
+                        "Structural confirmation: method CFG similarity %.4f (>= %.2f).",
+                        structuralSimilarity, MCS_CONFIRM_THRESHOLD));
+            } else {
+                path.add(String.format(
+                        "Structural note: method CFG similarity %.4f (between %.2f and %.2f, kept).",
+                        structuralSimilarity, MCS_VETO_THRESHOLD, MCS_CONFIRM_THRESHOLD));
+            }
+        }
+        return decision(candidate, type, strength, syntacticSimilarity,
                 renameEvidence, editScript, tags, path);
     }
 
@@ -128,6 +195,16 @@ public class NextRegionTypeRecognizer {
             return CloneStrength.MT3;
         }
         return CloneStrength.WT3_T4_BOUNDARY;
+    }
+
+    private static boolean isSubMinimumFragment(RegionCandidate candidate) {
+        if (hasCompleteComparableUnit(candidate)) {
+            return false;
+        }
+        int smaller = Math.min(
+                candidate.left().statementCount(),
+                candidate.right().statementCount());
+        return smaller < MIN_FRAGMENT_STATEMENTS;
     }
 
     private static boolean hasCompleteComparableUnit(RegionCandidate candidate) {

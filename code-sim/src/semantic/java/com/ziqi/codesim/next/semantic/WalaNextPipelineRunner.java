@@ -4,7 +4,10 @@ import com.ziqi.codesim.next.CandidateSignalProvider;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.NextPipelineRunner;
 import com.ziqi.codesim.next.RawToolCfgCandidateProvider;
+import com.ziqi.codesim.next.StructuralSimilarityOracle;
+import com.ziqi.codesim.next.WalaStructuralSimilarityOracle;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
+import com.ziqi.codesim.semantic.backend.wala.WalaAnalysisBackend;
 import com.ziqi.codesim.semantic.backend.wala.raw.WalaRawSnapshotExtractor;
 import com.ziqi.codesim.semantic.knn.KnnFeatureView;
 import com.ziqi.codesim.semantic.raw.RawToolClass;
@@ -66,7 +69,14 @@ public class WalaNextPipelineRunner {
                     view,
                     topK
             );
-            return new NextPipelineRunner(List.of(provider)).run(leftSource, rightSource);
+            // Second discovRE stage: analyze the same classes into method CFGs so the recognizer
+            // can confirm/veto whole-method clones with the approximate-MCS structural matcher.
+            WalaAnalysisBackend backend = new WalaAnalysisBackend();
+            StructuralSimilarityOracle structuralOracle = new WalaStructuralSimilarityOracle(
+                    backend.analyze(leftClasses).methods(),
+                    backend.analyze(rightClasses).methods()
+            );
+            return new NextPipelineRunner(List.of(provider), structuralOracle).run(leftSource, rightSource);
         } catch (IOException ex) {
             throw new AnalysisException("Failed to prepare temporary WALA next-pipeline workspace", ex);
         } finally {

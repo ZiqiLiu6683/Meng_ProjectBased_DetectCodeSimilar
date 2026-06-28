@@ -116,6 +116,12 @@ public class FileLevelAggregator {
         if (dominantType == CloneRegionType.NON_CLONE || acceptedTypeCount == 0) {
             return FileRelationship.NON_CLONE;
         }
+        // Coverage gate first: when only a small fraction of either file is involved, the match
+        // is mostly local fragments and the file is mostly non-clone, regardless of how many
+        // clone types those few fragments span (avoids labelling unrelated files MIXED_CLONE_TYPES).
+        if (minCoverage < PARTIAL_COVERAGE_THRESHOLD) {
+            return FileRelationship.MOSTLY_NON_CLONE;
+        }
         if (acceptedTypeCount > 1) {
             return FileRelationship.MIXED_CLONE_TYPES;
         }

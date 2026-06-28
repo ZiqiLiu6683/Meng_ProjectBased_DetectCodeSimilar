@@ -1,23 +1,23 @@
 # Long-code Next Pipeline Evaluation
 
-Engine: `plain` (source-only (no CFG))
+Engine: `wala` (WALA CFG-on)
 
-Results CSV: `/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/results/long_code_next_pipeline_results.csv`
+Results CSV: `/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/results/long_code_next_pipeline_results_wala.csv`
 
 ## Overall
 
 - Pairs evaluated: 36
 - Strict pass rows: 18
 - Exploratory T4 rows: 12
-- Average runtime: 3708 ms
+- Average runtime: 6892 ms
 
 ## By Expected Type
 
 | Expected | Count | Strict Pass | Inspection Priorities | Relationship Shapes | Dominant Types | Avg Affected L/R | Avg Selected Regions |
 | --- | ---: | ---: | --- | --- | --- | --- | ---: |
 | NON_CLONE | 6 | 6 | {'LOW': 6} | {'LOCAL_SIMILARITIES_ONLY': 6} | {'T3': 6} | 0.11/0.23 | 7.0 |
-| T1 | 6 | 6 | {'HIGH': 6} | {'FULL_OVERLAP': 6} | {'T1': 6} | 0.91/0.90 | 14.0 |
-| T2 | 6 | 6 | {'HIGH': 6} | {'FULL_OVERLAP': 6} | {'T2': 6} | 0.91/0.91 | 14.0 |
+| T1 | 6 | 6 | {'HIGH': 6} | {'FULL_OVERLAP': 6} | {'T1': 6} | 0.92/0.92 | 15.0 |
+| T2 | 6 | 6 | {'HIGH': 6} | {'FULL_OVERLAP': 6} | {'T2': 6} | 0.92/0.92 | 15.0 |
 | T3 | 6 | 0 | {'HIGH': 6} | {'FULL_OVERLAP': 6} | {'T2': 6} | 0.92/0.92 | 15.0 |
 | T4_WEAK | 12 | 0 | {'HIGH': 12} | {'FULL_OVERLAP': 12} | {'T2': 12} | 0.90/0.88 | 14.5 |
 

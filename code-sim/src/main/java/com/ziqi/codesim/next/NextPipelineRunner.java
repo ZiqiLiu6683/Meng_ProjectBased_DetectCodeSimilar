@@ -17,9 +17,14 @@ public class NextPipelineRunner {
     }
 
     public NextPipelineRunner(List<CandidateSignalProvider> signalProviders) {
+        this(signalProviders, StructuralSimilarityOracle.NONE);
+    }
+
+    public NextPipelineRunner(List<CandidateSignalProvider> signalProviders,
+                              StructuralSimilarityOracle structuralOracle) {
         this(new NextEvidenceExtractor(),
                 new NextCandidateDiscovery(signalProviders),
-                new NextRegionTypeRecognizer());
+                new NextRegionTypeRecognizer(structuralOracle));
     }
 
     NextPipelineRunner(NextEvidenceExtractor evidenceExtractor,

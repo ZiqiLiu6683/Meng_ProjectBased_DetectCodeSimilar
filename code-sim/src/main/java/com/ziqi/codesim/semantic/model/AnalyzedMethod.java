@@ -9,8 +9,8 @@ public record AnalyzedMethod(
         String returnType,
         List<String> parameterTypes,
         ControlFlowGraphUnit cfg,
-        // Number of SSA values / local slots, a proxy for discovRE's "size of local
-        // variables" robust numeric feature.
+        // discovRE's "size of local variables" feature: the JVM method's local variable slot
+        // count (bytecode max_locals); falls back to the SSA value count if unavailable.
         int localValueCount
 ) {
     public AnalyzedMethod {
