@@ -7,13 +7,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class ExactKnnIndex {
+/**
+ * Exact nearest-neighbour search by linear scan, O(n) per query. It is exact and
+ * deterministic, which suits the small Java method/block inputs in this project.
+ * discovRE itself uses approximate FLANN k-d trees with PCA dimensionality
+ * reduction for very large binary code bases; that scaling machinery is
+ * intentionally not reproduced here, and {@link KdTreeKnnIndex} provides an exact
+ * tree-based alternative when needed.
+ */
+public class ExactKnnIndex implements KnnIndex {
     private final List<StandardizedFeatureVector> vectors;
 
     public ExactKnnIndex(List<StandardizedFeatureVector> vectors) {
         this.vectors = List.copyOf(vectors);
     }
 
+    @Override
     public List<BlockCandidate> query(StandardizedFeatureVector query, int k) {
         List<BlockCandidate> candidates = new ArrayList<>();
         for (StandardizedFeatureVector candidate : vectors) {

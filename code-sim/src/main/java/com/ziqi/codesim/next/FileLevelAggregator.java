@@ -269,12 +269,23 @@ public class FileLevelAggregator {
         return coverage;
     }
 
+    // Strongest-first order used to attribute each affected line to a single clone type.
+    private static final List<CloneRegionType> STRENGTH_ORDER = List.of(
+            CloneRegionType.T1,
+            CloneRegionType.T2,
+            CloneRegionType.T3,
+            CloneRegionType.T4_CONFIRMED,
+            CloneRegionType.POSSIBLE_T4_CANDIDATE
+    );
+
     private static List<EvidenceBreakdown> evidenceBreakdown(
             Map<CloneRegionType, Integer> typeCounts,
             Map<CloneRegionType, Set<Integer>> coveredLeftLinesByType,
             Map<CloneRegionType, Set<Integer>> coveredRightLinesByType,
             CodeRegion leftFile,
             CodeRegion rightFile) {
+        Map<CloneRegionType, Set<Integer>> exclusiveLeft = exclusiveByStrongestType(coveredLeftLinesByType);
+        Map<CloneRegionType, Set<Integer>> exclusiveRight = exclusiveByStrongestType(coveredRightLinesByType);
         return typeCounts.entrySet().stream()
                 .filter(entry -> entry.getKey() != CloneRegionType.NON_CLONE)
                 .filter(entry -> entry.getValue() > 0)
@@ -282,7 +293,9 @@ public class FileLevelAggregator {
                         entry.getKey(),
                         entry.getValue(),
                         lineCoverage(coveredLeftLinesByType.get(entry.getKey()), leftFile),
-                        lineCoverage(coveredRightLinesByType.get(entry.getKey()), rightFile)
+                        lineCoverage(coveredRightLinesByType.get(entry.getKey()), rightFile),
+                        lineCoverage(exclusiveLeft.get(entry.getKey()), leftFile),
+                        lineCoverage(exclusiveRight.get(entry.getKey()), rightFile)
                 ))
                 .sorted(Comparator
                         .comparingDouble((EvidenceBreakdown breakdown) ->
@@ -290,6 +303,25 @@ public class FileLevelAggregator {
                         .reversed()
                         .thenComparing(breakdown -> breakdown.type().name()))
                 .toList();
+    }
+
+    // Attribute each covered line to its single strongest type, so the per-type line sets
+    // become disjoint and partition the overall affected lines exactly.
+    private static Map<CloneRegionType, Set<Integer>> exclusiveByStrongestType(
+            Map<CloneRegionType, Set<Integer>> coveredLinesByType) {
+        Map<CloneRegionType, Set<Integer>> exclusive = initLineSets();
+        Set<Integer> claimed = new HashSet<>();
+        for (CloneRegionType type : STRENGTH_ORDER) {
+            Set<Integer> lines = coveredLinesByType.get(type);
+            if (lines == null || lines.isEmpty()) {
+                continue;
+            }
+            Set<Integer> own = new HashSet<>(lines);
+            own.removeAll(claimed);
+            exclusive.get(type).addAll(own);
+            claimed.addAll(own);
+        }
+        return exclusive;
     }
 
     private static void addLines(Set<Integer> covered, CodeRegion region) {

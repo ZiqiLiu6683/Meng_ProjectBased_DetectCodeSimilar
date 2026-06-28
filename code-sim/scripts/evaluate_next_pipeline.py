@@ -21,8 +21,34 @@ TYPE_MATCH_ALIASES = {
 }
 
 
+# Engine selection lets us compare the source-only pipeline (plain) against the
+# WALA CFG-on pipeline (wala) without changing the default behavior.
+#   plain : NextPipelineMain          -> source-only, no CFG channel
+#   wala  : WalaNextPipelineMain --json -> mounts RawToolCfgCandidateProvider
+ENGINES = {
+    "plain": {
+        "main_class": "com.ziqi.codesim.next.NextPipelineMain",
+        "profiles": [],
+        "extra_args": [],
+        "suffix": "",
+    },
+    "wala": {
+        "main_class": "com.ziqi.codesim.next.semantic.WalaNextPipelineMain",
+        "profiles": ["-Psemantic-analysis"],
+        "extra_args": ["--json"],
+        "suffix": "_wala",
+    },
+}
+
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate NextPipelineMain on labeled long-code pairs.")
+    parser = argparse.ArgumentParser(description="Evaluate the next-generation region clone pipeline on labeled pairs.")
+    parser.add_argument(
+        "--engine",
+        choices=sorted(ENGINES),
+        default="plain",
+        help="Which decision engine to evaluate: 'plain' (source-only) or 'wala' (CFG-on).",
+    )
     parser.add_argument(
         "--pairs",
         default="evaluation/long_pairs.csv",
@@ -30,13 +56,13 @@ def parse_args():
     )
     parser.add_argument(
         "--output",
-        default="evaluation/results/long_code_next_pipeline_results.csv",
-        help="Output CSV path, relative to code-sim.",
+        default=None,
+        help="Output CSV path, relative to code-sim. Defaults to an engine-specific path.",
     )
     parser.add_argument(
         "--summary",
-        default="evaluation/results/long_code_next_pipeline_summary.md",
-        help="Output Markdown summary path, relative to code-sim.",
+        default=None,
+        help="Output Markdown summary path, relative to code-sim. Defaults to an engine-specific path.",
     )
     parser.add_argument(
         "--limit",
@@ -44,17 +70,26 @@ def parse_args():
         default=0,
         help="Optional maximum number of rows to evaluate.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    suffix = ENGINES[args.engine]["suffix"]
+    if args.output is None:
+        args.output = f"evaluation/results/long_code_next_pipeline_results{suffix}.csv"
+    if args.summary is None:
+        args.summary = f"evaluation/results/long_code_next_pipeline_summary{suffix}.md"
+    return args
 
 
-def run_pair(file_a, file_b):
+def run_pair(file_a, file_b, engine):
+    spec = ENGINES[engine]
+    exec_args = " ".join([file_a, file_b, *spec["extra_args"]])
     start = time.perf_counter()
     cmd = [
         "mvn",
         "-q",
+        *spec["profiles"],
         "exec:java",
-        "-Dexec.mainClass=com.ziqi.codesim.next.NextPipelineMain",
-        f"-Dexec.args={file_a} {file_b}",
+        f"-Dexec.mainClass={spec['main_class']}",
+        f"-Dexec.args={exec_args}",
     ]
     completed = subprocess.run(
         cmd,
@@ -91,13 +126,16 @@ def first_regions_by_type(regions, limit=5):
     return "|".join(names)
 
 
-def write_summary(summary_path, output_path, rows):
+def write_summary(summary_path, output_path, rows, engine="plain"):
     by_expected = defaultdict(list)
     for row in rows:
         by_expected[row["expected_type"]].append(row)
 
+    engine_label = {"plain": "source-only (no CFG)", "wala": "WALA CFG-on"}.get(engine, engine)
     lines = [
         "# Long-code Next Pipeline Evaluation",
+        "",
+        f"Engine: `{engine}` ({engine_label})",
         "",
         f"Results CSV: `{output_path}`",
         "",
@@ -210,7 +248,7 @@ def main():
         for row in rows:
             file_a = Path("evaluation") / row["file_a"]
             file_b = Path("evaluation") / row["file_b"]
-            result, runtime_ms = run_pair(str(file_a), str(file_b))
+            result, runtime_ms = run_pair(str(file_a), str(file_b), args.engine)
             summary = result["fileSummary"]
             counts = summary.get("regionTypeCounts", {})
             coverage = summary.get("regionTypeCoverage", {})
@@ -263,7 +301,7 @@ def main():
                 f"{summary['dominantRegionType']} ({runtime_ms} ms)"
             )
 
-    write_summary(summary_path, output_path, output_rows)
+    write_summary(summary_path, output_path, output_rows, args.engine)
     print(f"Wrote {len(output_rows)} evaluation rows to {output_path}")
     print(f"Wrote summary to {summary_path}")
 

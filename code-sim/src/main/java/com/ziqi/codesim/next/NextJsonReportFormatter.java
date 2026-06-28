@@ -131,7 +131,9 @@ public class NextJsonReportFormatter {
             field(out, level + 2, "typeClass", typeClass(breakdown.type()), true);
             field(out, level + 2, "regionCount", breakdown.regionCount(), true);
             field(out, level + 2, "affectedLeftRatio", breakdown.affectedLeftRatio(), true);
-            field(out, level + 2, "affectedRightRatio", breakdown.affectedRightRatio(), false);
+            field(out, level + 2, "affectedRightRatio", breakdown.affectedRightRatio(), true);
+            field(out, level + 2, "exclusiveAffectedLeftRatio", breakdown.exclusiveAffectedLeftRatio(), true);
+            field(out, level + 2, "exclusiveAffectedRightRatio", breakdown.exclusiveAffectedRightRatio(), false);
             indent(out, level + 1).append('}');
             if (i + 1 < evidenceBreakdown.size()) {
                 out.append(',');

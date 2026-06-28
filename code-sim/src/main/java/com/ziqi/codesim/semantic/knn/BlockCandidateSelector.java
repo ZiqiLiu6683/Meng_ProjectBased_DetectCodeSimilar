@@ -10,13 +10,19 @@ import java.util.Set;
 
 public class BlockCandidateSelector {
     private final RawBlockFeatureExtractor extractor;
+    private final KnnIndexFactory indexFactory;
 
     public BlockCandidateSelector() {
         this(new RawBlockFeatureExtractor());
     }
 
     public BlockCandidateSelector(RawBlockFeatureExtractor extractor) {
+        this(extractor, KnnIndexFactory.EXACT_LINEAR);
+    }
+
+    public BlockCandidateSelector(RawBlockFeatureExtractor extractor, KnnIndexFactory indexFactory) {
         this.extractor = extractor;
+        this.indexFactory = indexFactory;
     }
 
     public Map<String, List<BlockCandidate>> select(
@@ -40,7 +46,7 @@ public class BlockCandidateSelector {
         List<StandardizedFeatureVector> indexVectors = rawIndexVectors.stream()
                 .map(preprocessor::transform)
                 .toList();
-        ExactKnnIndex index = new ExactKnnIndex(indexVectors);
+        KnnIndex index = indexFactory.create(indexVectors);
 
         Map<String, List<BlockCandidate>> results = new LinkedHashMap<>();
         for (RawFeatureVector queryVector : rawQueryVectors) {

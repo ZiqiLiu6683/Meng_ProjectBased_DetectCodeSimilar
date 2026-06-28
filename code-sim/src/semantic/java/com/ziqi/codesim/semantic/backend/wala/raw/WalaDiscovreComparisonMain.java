@@ -6,6 +6,9 @@ import com.ziqi.codesim.semantic.discovre.DiscovreCfgMatcher;
 import com.ziqi.codesim.semantic.knn.BlockCandidate;
 import com.ziqi.codesim.semantic.knn.BlockCandidateSelector;
 import com.ziqi.codesim.semantic.knn.KnnFeatureView;
+import com.ziqi.codesim.semantic.knn.MethodNumericKnnPreFilter;
+import com.ziqi.codesim.semantic.match.MethodCfgMatchResult;
+import com.ziqi.codesim.semantic.match.StaticCfgMatcher;
 import com.ziqi.codesim.semantic.model.AnalyzedMethod;
 import com.ziqi.codesim.semantic.raw.RawToolBlock;
 import com.ziqi.codesim.semantic.raw.RawToolClass;
@@ -41,8 +44,8 @@ public class WalaDiscovreComparisonMain {
     );
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 3 || args.length > 6) {
-            System.err.println("Usage: WalaDiscovreComparisonMain <left-class-dir> <right-class-dir> <output-csv> [view] [blockTopK] [methodTopK]");
+        if (args.length < 3 || args.length > 8) {
+            System.err.println("Usage: WalaDiscovreComparisonMain <left-class-dir> <right-class-dir> <output-csv> [view] [blockTopK] [methodTopK] [methodCandidateSource:numeric|block] [structuralScorer:discovre|mode1]");
             System.exit(2);
         }
         Path leftInput = Path.of(args[0]);
@@ -51,6 +54,14 @@ public class WalaDiscovreComparisonMain {
         KnnFeatureView view = args.length >= 4 ? KnnFeatureView.valueOf(args[3]) : KnnFeatureView.HYBRID_NUMERIC_HASH;
         int blockTopK = args.length >= 5 ? Integer.parseInt(args[4]) : 8;
         int methodTopK = args.length >= 6 ? Integer.parseInt(args[5]) : blockTopK;
+        // discovRE pre-filter source for the method candidate stage:
+        //   numeric (default, paper section III-B): function-level numeric kNN
+        //   block (legacy): method candidates bootstrapped from block-level kNN
+        String methodCandidateSource = args.length >= 7 ? args[6].toLowerCase(java.util.Locale.ROOT) : "numeric";
+        // Structural scorer for the second (expensive) stage:
+        //   discovre (default): approximate maximum common subgraph (MCS) over the CFG
+        //   mode1: StaticCfgMatcher's combined numeric + block + edge-preservation score
+        String structuralScorer = args.length >= 8 ? args[7].toLowerCase(java.util.Locale.ROOT) : "discovre";
 
         WalaAnalysisBackend backend = new WalaAnalysisBackend();
         Map<String, AnalyzedMethod> leftMethods = methodsBySignature(backend.analyze(leftInput).methods());
@@ -66,17 +77,15 @@ public class WalaDiscovreComparisonMain {
                 view,
                 blockTopK
         );
-        Map<String, List<MethodCandidate>> methodCandidates = methodCandidates(
-                leftMethods.keySet(),
-                rightMethods.keySet(),
-                knnCandidates,
-                methodTopK
-        );
+        Map<String, List<MethodCandidate>> methodCandidates = "block".equals(methodCandidateSource)
+                ? methodCandidates(leftMethods.keySet(), rightMethods.keySet(), knnCandidates, methodTopK)
+                : numericMethodCandidates(leftMethods, rightMethods, methodTopK);
 
         DiscovreCfgMatcher matcher = new DiscovreCfgMatcher();
+        StaticCfgMatcher mode1Matcher = new StaticCfgMatcher();
         Files.createDirectories(output.toAbsolutePath().getParent());
         try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
-            writer.write("leftMethodSignature,rightMethodSignature,view,blockTopK,methodTopK,methodCandidateScore,"
+            writer.write("leftMethodSignature,rightMethodSignature,view,blockTopK,methodTopK,methodCandidateSource,methodCandidateScore,structuralScorer,"
                     + "exhaustiveSimilarity,constrainedSimilarity,similarityDelta,"
                     + "exhaustiveDistance,constrainedDistance,exhaustiveCandidatePairs,constrainedCandidatePairs,"
                     + "candidateReduction,exhaustiveMatchedBlocks,constrainedMatchedBlocks");
@@ -88,15 +97,17 @@ public class WalaDiscovreComparisonMain {
                     if (right == null) {
                         continue;
                     }
-                    DiscovreCfgMatchResult exhaustive = matcher.match(left, right);
-                    DiscovreCfgMatchResult constrained = matcher.match(
+                    StructuralScores scores = scoreStructural(
+                            structuralScorer,
                             left,
                             right,
-                            allowedPairsFor(leftSignature, methodCandidate.rightMethodSignature(), knnCandidates)
+                            allowedPairsFor(leftSignature, methodCandidate.rightMethodSignature(), knnCandidates),
+                            matcher,
+                            mode1Matcher
                     );
-                    double reduction = exhaustive.candidatePairCount() == 0
+                    double reduction = scores.exhaustiveCandidatePairs() == 0
                             ? 0.0
-                            : 1.0 - ((double) constrained.candidatePairCount() / exhaustive.candidatePairCount());
+                            : 1.0 - ((double) scores.constrainedCandidatePairs() / scores.exhaustiveCandidatePairs());
                     writer.write(csv(leftSignature));
                     writer.write(',');
                     writer.write(csv(methodCandidate.rightMethodSignature()));
@@ -107,32 +118,56 @@ public class WalaDiscovreComparisonMain {
                     writer.write(',');
                     writer.write(Integer.toString(methodTopK));
                     writer.write(',');
+                    writer.write(methodCandidateSource);
+                    writer.write(',');
                     writer.write(Double.toString(methodCandidate.score()));
                     writer.write(',');
-                    writer.write(Double.toString(exhaustive.similarity()));
+                    writer.write(structuralScorer);
                     writer.write(',');
-                    writer.write(Double.toString(constrained.similarity()));
+                    writer.write(Double.toString(scores.exhaustiveSimilarity()));
                     writer.write(',');
-                    writer.write(Double.toString(exhaustive.similarity() - constrained.similarity()));
+                    writer.write(Double.toString(scores.constrainedSimilarity()));
                     writer.write(',');
-                    writer.write(Double.toString(exhaustive.distance()));
+                    writer.write(Double.toString(scores.exhaustiveSimilarity() - scores.constrainedSimilarity()));
                     writer.write(',');
-                    writer.write(Double.toString(constrained.distance()));
+                    writer.write(Double.toString(scores.exhaustiveDistance()));
                     writer.write(',');
-                    writer.write(Integer.toString(exhaustive.candidatePairCount()));
+                    writer.write(Double.toString(scores.constrainedDistance()));
                     writer.write(',');
-                    writer.write(Integer.toString(constrained.candidatePairCount()));
+                    writer.write(Integer.toString(scores.exhaustiveCandidatePairs()));
+                    writer.write(',');
+                    writer.write(Integer.toString(scores.constrainedCandidatePairs()));
                     writer.write(',');
                     writer.write(Double.toString(reduction));
                     writer.write(',');
-                    writer.write(Integer.toString(exhaustive.matchedBlockCount()));
+                    writer.write(Integer.toString(scores.exhaustiveMatchedBlocks()));
                     writer.write(',');
-                    writer.write(Integer.toString(constrained.matchedBlockCount()));
+                    writer.write(Integer.toString(scores.constrainedMatchedBlocks()));
                     writer.newLine();
                 }
             }
         }
         System.out.println("Wrote WALA discovRE comparison report to " + output.toAbsolutePath());
+    }
+
+    private static Map<String, List<MethodCandidate>> numericMethodCandidates(
+            Map<String, AnalyzedMethod> leftMethods,
+            Map<String, AnalyzedMethod> rightMethods,
+            int methodTopK) {
+        Map<String, List<MethodNumericKnnPreFilter.MethodCandidate>> selected =
+                new MethodNumericKnnPreFilter().select(
+                        new ArrayList<>(leftMethods.values()),
+                        new ArrayList<>(rightMethods.values()),
+                        methodTopK);
+        Map<String, List<MethodCandidate>> converted = new LinkedHashMap<>();
+        for (Map.Entry<String, List<MethodNumericKnnPreFilter.MethodCandidate>> entry : selected.entrySet()) {
+            List<MethodCandidate> candidates = new ArrayList<>();
+            for (MethodNumericKnnPreFilter.MethodCandidate candidate : entry.getValue()) {
+                candidates.add(new MethodCandidate(candidate.rightMethodSignature(), candidate.score()));
+            }
+            converted.put(entry.getKey(), candidates);
+        }
+        return converted;
     }
 
     private static Map<String, List<MethodCandidate>> methodCandidates(
@@ -175,6 +210,45 @@ public class WalaDiscovreComparisonMain {
             selected.put(entry.getKey(), candidates);
         }
         return selected;
+    }
+
+    private static StructuralScores scoreStructural(
+            String structuralScorer,
+            AnalyzedMethod left,
+            AnalyzedMethod right,
+            Map<String, Set<String>> allowedPairs,
+            DiscovreCfgMatcher discovreMatcher,
+            StaticCfgMatcher mode1Matcher) {
+        if ("mode1".equals(structuralScorer)) {
+            MethodCfgMatchResult result = mode1Matcher.match(left, right);
+            double similarity = result.overallSimilarity();
+            double distance = 1.0 - similarity;
+            int matchedBlocks = result.blockMatches().size();
+            // StaticCfgMatcher scores all block pairs and has no constrained variant, so the
+            // exhaustive and constrained columns carry the same Mode-1 values (reduction = 0).
+            int candidatePairs = left.cfg().blocks().size() * right.cfg().blocks().size();
+            return new StructuralScores(
+                    similarity, similarity, distance, distance,
+                    candidatePairs, candidatePairs, matchedBlocks, matchedBlocks);
+        }
+        DiscovreCfgMatchResult exhaustive = discovreMatcher.match(left, right);
+        DiscovreCfgMatchResult constrained = discovreMatcher.match(left, right, allowedPairs);
+        return new StructuralScores(
+                exhaustive.similarity(), constrained.similarity(),
+                exhaustive.distance(), constrained.distance(),
+                exhaustive.candidatePairCount(), constrained.candidatePairCount(),
+                exhaustive.matchedBlockCount(), constrained.matchedBlockCount());
+    }
+
+    private record StructuralScores(
+            double exhaustiveSimilarity,
+            double constrainedSimilarity,
+            double exhaustiveDistance,
+            double constrainedDistance,
+            int exhaustiveCandidatePairs,
+            int constrainedCandidatePairs,
+            int exhaustiveMatchedBlocks,
+            int constrainedMatchedBlocks) {
     }
 
     private static Map<String, AnalyzedMethod> methodsBySignature(List<AnalyzedMethod> methods) {

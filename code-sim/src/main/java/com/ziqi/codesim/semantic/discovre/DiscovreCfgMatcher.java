@@ -8,10 +8,24 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * discovRE structural similarity via an approximate maximum common subgraph (MCS)
+ * over the two control-flow graphs (NDSS'16, section III-C2).
+ *
+ * <p>The search follows McGregor's formulation: the left graph's basic blocks are
+ * mapped one at a time to a compatible right block (or to "no match"), maintaining
+ * neighbourhood/edge consistency with the blocks already mapped. The basic-block
+ * distance d_BB is used both to prune incompatible pairs (threshold 0.5) and to
+ * order the expansion so the closest equivalence is tried first. A branch-and-bound
+ * cut and an iteration budget keep the otherwise exponential search tractable, which
+ * yields the paper's relaxed maximal common subgraph (mCS). The final distance uses
+ * the paper's mCS formula: 1 - (|common| - sum d_BB) / max(|G1|, |G2|).
+ */
 public class DiscovreCfgMatcher {
     private static final double BLOCK_DISTANCE_PRUNE_THRESHOLD = 0.5;
     private final DiscovreBlockFeatureExtractor featureExtractor;
@@ -37,9 +51,21 @@ public class DiscovreCfgMatcher {
             AnalyzedMethod right,
             Map<String, Set<String>> allowedBlockPairs) {
         List<DiscovreBlockPair> candidatePairs = candidatePairs(left, right, allowedBlockPairs);
+        // McGregor maps the left (G1) blocks one by one to a compatible right (G2) block
+        // or to "no match", so group the pruned candidate pairs by left block. candidatePairs
+        // is already sorted by ascending d_BB, so each per-left list keeps that order and the
+        // closest equivalence is expanded first.
+        List<String> leftOrder = new ArrayList<>();
+        for (BasicBlockUnit leftBlock : left.cfg().blocks()) {
+            leftOrder.add(leftBlock.blockId());
+        }
+        Map<String, List<DiscovreBlockPair>> candidatesByLeft = new LinkedHashMap<>();
+        for (DiscovreBlockPair pair : candidatePairs) {
+            candidatesByLeft.computeIfAbsent(pair.leftBlockId(), ignored -> new ArrayList<>()).add(pair);
+        }
         int budget = 16 * Math.max(left.cfg().blocks().size(), right.cfg().blocks().size());
         SearchState state = new SearchState(left, right, budget);
-        search(candidatePairs, 0, new ArrayList<>(), new HashSet<>(), new HashSet<>(), state);
+        mcGregorExpand(leftOrder, 0, candidatesByLeft, new ArrayList<>(), new HashSet<>(), state);
         List<DiscovreBlockPair> bestPairs = state.bestPairs;
         double totalBlockDistance = bestPairs.stream().mapToDouble(DiscovreBlockPair::blockDistance).sum();
         int denominator = Math.max(left.cfg().blocks().size(), right.cfg().blocks().size());
@@ -100,11 +126,11 @@ public class DiscovreCfgMatcher {
         return features;
     }
 
-    private void search(
-            List<DiscovreBlockPair> candidates,
-            int start,
+    private void mcGregorExpand(
+            List<String> leftOrder,
+            int index,
+            Map<String, List<DiscovreBlockPair>> candidatesByLeft,
             List<DiscovreBlockPair> current,
-            Set<String> usedLeft,
             Set<String> usedRight,
             SearchState state) {
         if (state.iterations >= state.budget) {
@@ -113,25 +139,35 @@ public class DiscovreCfgMatcher {
         }
         state.iterations++;
         updateBest(current, state);
-        for (int i = start; i < candidates.size(); i++) {
-            DiscovreBlockPair pair = candidates.get(i);
-            if (usedLeft.contains(pair.leftBlockId()) || usedRight.contains(pair.rightBlockId())) {
+        if (index >= leftOrder.size()) {
+            return;
+        }
+        // Branch-and-bound: each remaining left block can add at most 1.0 to the mCS score,
+        // so abandon this branch if even a perfect completion cannot beat the best so far.
+        double optimistic = mcsScore(current) + (leftOrder.size() - index);
+        if (optimistic <= mcsScore(state.bestPairs)) {
+            return;
+        }
+        String leftBlock = leftOrder.get(index);
+        // Option 1: map this left block to a compatible right block (closest d_BB first).
+        for (DiscovreBlockPair pair : candidatesByLeft.getOrDefault(leftBlock, List.of())) {
+            if (usedRight.contains(pair.rightBlockId())) {
                 continue;
             }
             if (!preservesExistingEdges(pair, current, state.leftEdges, state.rightEdges)) {
                 continue;
             }
             current.add(pair);
-            usedLeft.add(pair.leftBlockId());
             usedRight.add(pair.rightBlockId());
-            search(candidates, i + 1, current, usedLeft, usedRight, state);
+            mcGregorExpand(leftOrder, index + 1, candidatesByLeft, current, usedRight, state);
             current.remove(current.size() - 1);
-            usedLeft.remove(pair.leftBlockId());
             usedRight.remove(pair.rightBlockId());
             if (state.iterations >= state.budget) {
                 return;
             }
         }
+        // Option 2: leave this left block unmatched (McGregor's null assignment).
+        mcGregorExpand(leftOrder, index + 1, candidatesByLeft, current, usedRight, state);
     }
 
     private static boolean preservesExistingEdges(

@@ -24,9 +24,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -532,13 +535,19 @@ public class WebAppMain {
     }
 
     private static List<String> walaEdgeJsons(Object method, String prefix) throws Exception {
+        // A normal edge is only labelled "loop" when it is a genuine back edge, i.e. a DFS
+        // retreating edge whose target is still on the DFS stack (an ancestor of the source).
+        // Labelling purely by block-number order misreports forward jumps (switch/break) and
+        // irreducible flow, so we detect back edges from the real successor graph instead.
+        Set<String> backEdges = normalBackEdgeKeys(method);
         List<String> edges = new ArrayList<>();
         for (Object block : listValue(method, "blocks")) {
             int from = intValue(block, "rawBlockNumber");
             for (Object value : listValue(block, "rawNormalSuccessors")) {
                 Integer to = successorNumber(value);
                 if (to != null) {
-                    edges.add(edgeJson(prefix, from, to, to <= from ? "loop" : "flow"));
+                    String kind = backEdges.contains(from + "->" + to) ? "loop" : "flow";
+                    edges.add(edgeJson(prefix, from, to, kind));
                 }
             }
             for (Object value : listValue(block, "rawExceptionalSuccessors")) {
@@ -549,6 +558,58 @@ public class WebAppMain {
             }
         }
         return edges;
+    }
+
+    private static Set<String> normalBackEdgeKeys(Object method) throws Exception {
+        Map<Integer, List<Integer>> successors = new LinkedHashMap<>();
+        Integer entry = null;
+        for (Object block : listValue(method, "blocks")) {
+            int from = intValue(block, "rawBlockNumber");
+            if (booleanValue(block, "rawIsEntry")) {
+                entry = from;
+            }
+            List<Integer> tos = new ArrayList<>();
+            for (Object value : listValue(block, "rawNormalSuccessors")) {
+                Integer to = successorNumber(value);
+                if (to != null) {
+                    tos.add(to);
+                }
+            }
+            successors.put(from, tos);
+        }
+        Set<String> backEdges = new HashSet<>();
+        Map<Integer, Integer> color = new HashMap<>(); // 0=unvisited, 1=on stack, 2=done
+        List<Integer> roots = new ArrayList<>();
+        if (entry != null) {
+            roots.add(entry);
+        }
+        for (Integer node : successors.keySet()) {
+            if (!roots.contains(node)) {
+                roots.add(node);
+            }
+        }
+        for (Integer root : roots) {
+            if (color.getOrDefault(root, 0) == 0) {
+                markBackEdges(root, successors, color, backEdges);
+            }
+        }
+        return backEdges;
+    }
+
+    private static void markBackEdges(int node,
+                                      Map<Integer, List<Integer>> successors,
+                                      Map<Integer, Integer> color,
+                                      Set<String> backEdges) {
+        color.put(node, 1);
+        for (int next : successors.getOrDefault(node, List.of())) {
+            int state = color.getOrDefault(next, 0);
+            if (state == 1) {
+                backEdges.add(node + "->" + next);
+            } else if (state == 0) {
+                markBackEdges(next, successors, color, backEdges);
+            }
+        }
+        color.put(node, 2);
     }
 
     private static String edgeJson(String prefix, int from, int to, String kind) {

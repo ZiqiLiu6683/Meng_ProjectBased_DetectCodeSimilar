@@ -21,6 +21,7 @@ import com.ibm.wala.ssa.SSANewInstruction;
 import com.ibm.wala.ssa.SSAPutInstruction;
 import com.ibm.wala.ssa.SSAReturnInstruction;
 import com.ibm.wala.ssa.SSACFG;
+import com.ibm.wala.ssa.SymbolTable;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ziqi.codesim.semantic.backend.AnalysisBackend;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
@@ -84,7 +85,8 @@ public class WalaAnalysisBackend implements AnalysisBackend {
                 method.getSignature(),
                 method.getReturnType().getName().toString(),
                 parameterTypes,
-                convertCfg(ir)
+                convertCfg(ir),
+                ir.getSymbolTable().getMaxValueNumber()
         );
     }
 
@@ -124,11 +126,15 @@ public class WalaAnalysisBackend implements AnalysisBackend {
         for (int i = 0; i < instruction.getNumberOfDefs(); i++) {
             defs.add(valueName(instruction.getDef(i)));
         }
+        SymbolTable symbolTable = ir.getSymbolTable();
         List<String> uses = new ArrayList<>();
+        List<String> numericConstants = new ArrayList<>();
+        List<String> stringConstants = new ArrayList<>();
         for (int i = 0; i < instruction.getNumberOfUses(); i++) {
-            uses.add(valueName(instruction.getUse(i)));
+            int value = instruction.getUse(i);
+            uses.add(valueName(value));
+            collectConstantOperand(symbolTable, value, numericConstants, stringConstants);
         }
-        String text = instruction.toString(ir.getSymbolTable());
         return new InstructionUnit(
                 "i" + instruction.iIndex(),
                 ordinal,
@@ -137,9 +143,34 @@ public class WalaAnalysisBackend implements AnalysisBackend {
                 callKindOf(instruction),
                 defs,
                 uses,
-                constantsFrom(text),
-                stringReferencesFrom(text)
+                numericConstants,
+                stringConstants,
+                callTargetOf(instruction)
         );
+    }
+
+    private static String callTargetOf(SSAInstruction instruction) {
+        if (instruction instanceof SSAAbstractInvokeInstruction invoke) {
+            return invoke.getDeclaredTarget().getSignature();
+        }
+        return "";
+    }
+
+    // Extract real constant operands from WALA's symbol table instead of scanning the
+    // instruction's printed text (which also contains SSA value numbers and indices and
+    // therefore over-counts). Only genuine constant operands are recorded.
+    private static void collectConstantOperand(SymbolTable symbolTable, int value,
+                                               List<String> numericConstants,
+                                               List<String> stringConstants) {
+        if (value < 0 || !symbolTable.isConstant(value) || symbolTable.isNullConstant(value)) {
+            return;
+        }
+        Object constant = symbolTable.getConstantValue(value);
+        if (symbolTable.isStringConstant(value)) {
+            stringConstants.add(String.valueOf(constant));
+        } else {
+            numericConstants.add(String.valueOf(constant));
+        }
     }
 
     private static InstructionCategory categoryOf(SSAInstruction instruction) {
@@ -153,8 +184,10 @@ public class WalaAnalysisBackend implements AnalysisBackend {
         if (instruction instanceof SSAAbstractInvokeInstruction) {
             return InstructionCategory.CALL;
         }
-        if (instruction instanceof SSABinaryOpInstruction) {
-            return InstructionCategory.ARITHMETIC;
+        if (instruction instanceof SSABinaryOpInstruction binaryOp) {
+            return isLogicOperator(binaryOp)
+                    ? InstructionCategory.LOGIC
+                    : InstructionCategory.ARITHMETIC;
         }
         if (instruction instanceof SSAComparisonInstruction) {
             return InstructionCategory.COMPARISON;
@@ -175,6 +208,17 @@ public class WalaAnalysisBackend implements AnalysisBackend {
             return InstructionCategory.ASSIGNMENT;
         }
         return InstructionCategory.OTHER;
+    }
+
+    private static boolean isLogicOperator(SSABinaryOpInstruction instruction) {
+        // WALA folds boolean/bitwise/shift binary ops into SSABinaryOpInstruction together
+        // with arithmetic ops. discovRE separates arithmetic vs logic instruction classes,
+        // so we split by operator name: and/or/xor/shl/shr/ushr are logic; add/sub/mul/div/rem
+        // are arithmetic. We compare on the operator name to avoid binding to a specific
+        // shrike enum type (binary vs shift operators implement different interfaces).
+        String operator = instruction.getOperator().toString().toLowerCase(java.util.Locale.ROOT);
+        return operator.equals("and") || operator.equals("or") || operator.equals("xor")
+                || operator.equals("shl") || operator.equals("shr") || operator.equals("ushr");
     }
 
     private static CallKind callKindOf(SSAInstruction instruction) {
@@ -200,30 +244,6 @@ public class WalaAnalysisBackend implements AnalysisBackend {
             simpleName = simpleName.substring(0, simpleName.length() - "Instruction".length());
         }
         return simpleName;
-    }
-
-    private static List<String> constantsFrom(String text) {
-        List<String> constants = new ArrayList<>();
-        for (String token : text.split("[^A-Za-z0-9_.$-]+")) {
-            if (token.matches("-?\\d+(\\.\\d+)?")) {
-                constants.add(token);
-            }
-        }
-        return constants;
-    }
-
-    private static List<String> stringReferencesFrom(String text) {
-        List<String> strings = new ArrayList<>();
-        int index = 0;
-        while (index < text.length()) {
-            int start = text.indexOf('"', index);
-            if (start < 0) break;
-            int end = text.indexOf('"', start + 1);
-            if (end < 0) break;
-            strings.add(text.substring(start + 1, end));
-            index = end + 1;
-        }
-        return strings;
     }
 
     private static String valueName(int valueNumber) {

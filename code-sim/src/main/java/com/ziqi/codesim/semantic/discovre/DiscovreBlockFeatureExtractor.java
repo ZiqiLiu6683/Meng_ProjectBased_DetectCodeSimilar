@@ -23,7 +23,14 @@ public class DiscovreBlockFeatureExtractor {
             if (category == InstructionCategory.LOGIC || category == InstructionCategory.COMPARISON) {
                 logic++;
             }
-            if (category == InstructionCategory.BRANCH || category == InstructionCategory.RETURN) {
+            // discovRE Table III "Transfer" = data-transfer instructions (load/store/move),
+            // NOT redirections (branch/return). In WALA SSA the data-movement categories are
+            // ASSIGNMENT (broad data-def bucket), FIELD_ACCESS (get/put) and ARRAY_ACCESS
+            // (array load/store). Branch/return are redirections and are captured structurally
+            // by the CFG edges, so they are intentionally excluded from the block content distance.
+            if (category == InstructionCategory.ASSIGNMENT
+                    || category == InstructionCategory.FIELD_ACCESS
+                    || category == InstructionCategory.ARRAY_ACCESS) {
                 transfer++;
             }
             strings += instruction.stringReferences().size();

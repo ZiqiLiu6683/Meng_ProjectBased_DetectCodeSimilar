@@ -21,6 +21,10 @@ public record MethodNumericFeatures(
         int stringReferenceCount,
         int instructionCount,
         int parameterCount,
+        // discovRE robust features added: loop estimate via non-trivial strongly-connected
+        // components, and local-variable size proxy (SSA value count).
+        int loopComponentCount,
+        int localValueCount,
         Map<String, Integer> operationHistogram
 ) {
     public MethodNumericFeatures {

@@ -24,7 +24,9 @@ public class NumericFeatureDistance {
                 normalizedAbs(a.constantCount(), b.constantCount()),
                 normalizedAbs(a.stringReferenceCount(), b.stringReferenceCount()),
                 normalizedAbs(a.instructionCount(), b.instructionCount()),
-                normalizedAbs(a.parameterCount(), b.parameterCount())
+                normalizedAbs(a.parameterCount(), b.parameterCount()),
+                normalizedAbs(a.loopComponentCount(), b.loopComponentCount()),
+                normalizedAbs(a.localValueCount(), b.localValueCount())
         );
         return average(numeric, histogramDistance(a.operationHistogram(), b.operationHistogram()));
     }
