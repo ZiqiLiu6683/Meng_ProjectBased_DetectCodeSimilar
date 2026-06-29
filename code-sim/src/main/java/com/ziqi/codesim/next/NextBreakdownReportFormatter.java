@@ -20,6 +20,10 @@ import java.util.Set;
 public class NextBreakdownReportFormatter {
 
     public String format(NextPipelineResult result, String leftName, String rightName) {
+        return format(result, leftName, rightName, "both");
+    }
+
+    public String format(NextPipelineResult result, String leftName, String rightName, String view) {
         FileCloneSummary summary = result.fileSummary();
         List<EvidenceBreakdown> breakdown = summary.evidenceBreakdown();
         StringBuilder out = new StringBuilder();
@@ -28,21 +32,19 @@ public class NextBreakdownReportFormatter {
         out.append('\n');
         appendFile(out, "File B", rightName, summary.matchedCoverageRight(), breakdown, false);
 
-        out.append("\nRegions\n");
-        // Show the same regions that drive the per-type percentages: when there is any
-        // granular (non whole-file) evidence, the whole-file match is redundant context
-        // and is excluded from coverage, so we exclude it from the listing too.
+        // Two views over the same regions, so the user can inspect the problems at whichever
+        // granularity they care about and judge for themselves. Method-level = matches that
+        // involve a whole method/unit; block-level = pure fragment matches (statement windows,
+        // block sequences, control regions). The whole-file match is excluded as redundant
+        // context when finer evidence exists.
         List<RegionDecision> regions = userFacingRegions(result.selectedRegionDecisions());
-        if (regions.isEmpty()) {
-            out.append("  (no clone-like regions)\n");
-        } else {
-            for (RegionDecision decision : regions) {
-                out.append(String.format(Locale.ROOT, "  %-4s %s -> %s%s%n",
-                        decision.type().name(),
-                        decision.candidate().left().displayName(),
-                        decision.candidate().right().displayName(),
-                        tagSuffix(decision.tags())));
-            }
+        boolean showMethod = !"block".equalsIgnoreCase(view);
+        boolean showBlock = !"method".equalsIgnoreCase(view);
+        if (showMethod) {
+            appendRegionSection(out, "Method-level matches", regions, true);
+        }
+        if (showBlock) {
+            appendRegionSection(out, "Block-level matches", regions, false);
         }
 
         out.append(String.format(Locale.ROOT,
@@ -92,6 +94,53 @@ public class NextBreakdownReportFormatter {
                     item.regionCount(),
                     item.regionCount() == 1 ? "" : "s"));
         }
+    }
+
+    private static void appendRegionSection(StringBuilder out, String title,
+                                            List<RegionDecision> regions, boolean methodLevel) {
+        out.append('\n').append(title).append('\n');
+        boolean any = false;
+        for (RegionDecision decision : regions) {
+            if (isMethodLevel(decision) != methodLevel) {
+                continue;
+            }
+            any = true;
+            out.append(String.format(Locale.ROOT, "  %-4s %s -> %s%s%s%n",
+                    decision.type().name(),
+                    decision.candidate().left().displayName(),
+                    decision.candidate().right().displayName(),
+                    tagSuffix(decision.tags()),
+                    rawInfo(decision)));
+        }
+        if (!any) {
+            out.append("  (none)\n");
+        }
+    }
+
+    // Raw numbers for the user to judge instead of system-imposed flags: the matched region
+    // sizes (statements) and, when available, the method CFG structural similarity.
+    private static String rawInfo(RegionDecision decision) {
+        String cfg = Double.isNaN(decision.structuralSimilarity())
+                ? ""
+                : String.format(Locale.ROOT, ", cfg-sim %.2f", decision.structuralSimilarity());
+        return String.format(Locale.ROOT, "   (stmts %d/%d%s)",
+                decision.candidate().left().statementCount(),
+                decision.candidate().right().statementCount(),
+                cfg);
+    }
+
+    // A match is "method-level" when either side is a whole method or comparable unit; otherwise
+    // it is a pure fragment (block-level) match.
+    private static boolean isMethodLevel(RegionDecision decision) {
+        return isCompleteUnit(decision.candidate().left().kind())
+                || isCompleteUnit(decision.candidate().right().kind());
+    }
+
+    private static boolean isCompleteUnit(RegionKind kind) {
+        return kind == RegionKind.METHOD
+                || kind == RegionKind.METHOD_BODY_REGION
+                || kind == RegionKind.CALL_EXPANDED_REGION
+                || kind == RegionKind.FILE;
     }
 
     private static List<RegionDecision> userFacingRegions(List<RegionDecision> selected) {

@@ -7,17 +7,22 @@ import java.nio.file.Path;
 public class NextPipelineMain {
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage: NextPipelineMain <left-java-file> <right-java-file> [--report json|breakdown]");
+            System.err.println("Usage: NextPipelineMain <left-java-file> <right-java-file> [--report json|breakdown] [--view method|block|both]");
             System.exit(2);
         }
         // Default stays json so existing batch-evaluation tooling that parses stdout
         // as JSON is unaffected; breakdown prints the per-file, per-type human report.
         String reportMode = "json";
+        String view = "both";
         for (int i = 2; i < args.length; i++) {
             if ("--report".equals(args[i]) && i + 1 < args.length) {
                 reportMode = args[++i];
             } else if (args[i].startsWith("--report=")) {
                 reportMode = args[i].substring("--report=".length());
+            } else if ("--view".equals(args[i]) && i + 1 < args.length) {
+                view = args[++i];
+            } else if (args[i].startsWith("--view=")) {
+                view = args[i].substring("--view=".length());
             }
         }
         Path leftPath = Path.of(args[0]);
@@ -29,7 +34,8 @@ public class NextPipelineMain {
             System.out.print(new NextBreakdownReportFormatter().format(
                     result,
                     leftPath.getFileName().toString(),
-                    rightPath.getFileName().toString()));
+                    rightPath.getFileName().toString(),
+                    view));
         } else {
             System.out.print(new NextJsonReportFormatter().format(result));
         }

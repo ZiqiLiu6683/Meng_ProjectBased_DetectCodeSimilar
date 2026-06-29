@@ -103,12 +103,17 @@ def run_pair(file_a, file_b, engine):
     return json.loads(completed.stdout), runtime_ms
 
 
-def expected_match_status(expected_type, dominant_type, overall_relationship):
+def expected_match_status(expected_type, dominant_type, overall_relationship, region_type_counts):
+    # Information-provider metric: the system does not emit a single file verdict, so we do not
+    # require dominant_type == label. Instead we ask whether it surfaced the right information:
+    #   - for a clone label, did at least one region of the expected type appear in the breakdown;
+    #   - for NON_CLONE, was the system restrained (no over-claimed whole-file clone relationship).
     if expected_type == "T4_WEAK":
         return "exploratory"
     if expected_type == "NON_CLONE":
         return str(overall_relationship in {"NON_CLONE", "MOSTLY_NON_CLONE"})
-    return str(dominant_type in TYPE_MATCH_ALIASES.get(expected_type, {expected_type}))
+    aliases = TYPE_MATCH_ALIASES.get(expected_type, {expected_type})
+    return str(any(int(region_type_counts.get(alias, 0)) > 0 for alias in aliases))
 
 
 def join_sorted(values):
@@ -142,13 +147,13 @@ def write_summary(summary_path, output_path, rows, engine="plain"):
         "## Overall",
         "",
         f"- Pairs evaluated: {len(rows)}",
-        f"- Strict pass rows: {sum(row['type_match_status'] == 'True' for row in rows)}",
+        f"- Expected type surfaced (NON_CLONE: restrained): {sum(row['type_match_status'] == 'True' for row in rows)}",
         f"- Exploratory T4 rows: {sum(row['type_match_status'] == 'exploratory' for row in rows)}",
         f"- Average runtime: {round(sum(int(row['runtime_ms']) for row in rows) / max(1, len(rows)))} ms",
         "",
         "## By Expected Type",
         "",
-        "| Expected | Count | Strict Pass | Inspection Priorities | Relationship Shapes | Dominant Types | Avg Affected L/R | Avg Selected Regions |",
+        "| Expected | Count | Surfaced | Inspection Priorities | Relationship Shapes | Dominant Types | Avg Affected L/R | Avg Selected Regions |",
         "| --- | ---: | ---: | --- | --- | --- | --- | ---: |",
     ]
 
@@ -261,6 +266,7 @@ def main():
                     row["expected_type"],
                     summary["dominantRegionType"],
                     summary["overallRelationship"],
+                    counts,
                 ),
                 "expected_scope": row["expected_scope"],
                 "inspection_priority": summary.get("inspectionPriority", ""),

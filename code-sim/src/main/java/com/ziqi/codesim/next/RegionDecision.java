@@ -8,6 +8,10 @@ public record RegionDecision(
         CloneRegionType type,
         CloneStrength strength,
         double syntacticSimilarity,
+        // Raw method-CFG structural similarity (approximate MCS); NaN when no method-level
+        // structural evidence applies. Reported as-is for the user to weigh; never used to
+        // change the type.
+        double structuralSimilarity,
         RenameEvidence renameEvidence,
         StatementEditScript statementEditScript,
         Set<RegionTag> tags,
