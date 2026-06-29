@@ -13,7 +13,7 @@ public class NextRegionTypeRecognizer {
     private static final Set<String> SOURCE_ONLY_CHANNELS = Set.of(
             "EXACT_TEXT_SCAN",
             "NORMALIZED_AST_SCAN",
-            "NORMALIZED_TOKEN_KNN_SCAN",
+            "NORMALIZED_TOKEN_OVERLAP_SCAN",
             "STATEMENT_DIFF_SCAN"
     );
 

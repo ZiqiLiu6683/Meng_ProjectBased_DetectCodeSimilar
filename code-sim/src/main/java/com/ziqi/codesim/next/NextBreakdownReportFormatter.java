@@ -3,6 +3,7 @@ package com.ziqi.codesim.next;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -24,6 +25,11 @@ public class NextBreakdownReportFormatter {
     }
 
     public String format(NextPipelineResult result, String leftName, String rightName, String view) {
+        return format(result, leftName, rightName, view, false);
+    }
+
+    public String format(NextPipelineResult result, String leftName, String rightName,
+                         String view, boolean showAll) {
         FileCloneSummary summary = result.fileSummary();
         List<EvidenceBreakdown> breakdown = summary.evidenceBreakdown();
         StringBuilder out = new StringBuilder();
@@ -38,19 +44,22 @@ public class NextBreakdownReportFormatter {
         // block sequences, control regions). The whole-file match is excluded as redundant
         // context when finer evidence exists.
         List<RegionDecision> regions = userFacingRegions(result.selectedRegionDecisions());
+        // De-duplicated (overlapping/contained) regions are not dropped, just held back: shown
+        // only with --show-all, otherwise summarized as a count so no information is silently lost.
+        List<RegionDecision> redundant = userFacingRegions(suppressedRegions(result));
+        int leftSpan = lineSpan(fileRegion(result, true));
+        int rightSpan = lineSpan(fileRegion(result, false));
         boolean showMethod = !"block".equalsIgnoreCase(view);
         boolean showBlock = !"method".equalsIgnoreCase(view);
         if (showMethod) {
-            appendRegionSection(out, "Method-level matches", regions, true);
+            appendRegionSection(out, "Method-level matches", regions, redundant, true, showAll, leftSpan, rightSpan);
         }
         if (showBlock) {
-            appendRegionSection(out, "Block-level matches", regions, false);
+            appendRegionSection(out, "Block-level matches", regions, redundant, false, showAll, leftSpan, rightSpan);
         }
 
         out.append(String.format(Locale.ROOT,
-                "%nnote: dominant=%s, relationship=%s, priority=%s (single-label view, secondary)%n",
-                summary.dominantRegionType(),
-                summary.overallRelationship(),
+                "%nnote: inspection priority = %s (guidance for what to review first; the system intentionally assigns no single file-level clone type)%n",
                 summary.inspectionPriority()));
         return out.toString();
     }
@@ -97,24 +106,115 @@ public class NextBreakdownReportFormatter {
     }
 
     private static void appendRegionSection(StringBuilder out, String title,
-                                            List<RegionDecision> regions, boolean methodLevel) {
-        out.append('\n').append(title).append('\n');
-        boolean any = false;
+                                            List<RegionDecision> regions,
+                                            List<RegionDecision> redundant,
+                                            boolean methodLevel,
+                                            boolean showAll,
+                                            int leftSpan,
+                                            int rightSpan) {
+        List<RegionDecision> inView = new ArrayList<>();
         for (RegionDecision decision : regions) {
-            if (isMethodLevel(decision) != methodLevel) {
-                continue;
+            if (isMethodLevel(decision) == methodLevel) {
+                inView.add(decision);
             }
-            any = true;
-            out.append(String.format(Locale.ROOT, "  %-4s %s -> %s%s%s%n",
-                    decision.type().name(),
-                    decision.candidate().left().displayName(),
-                    decision.candidate().right().displayName(),
-                    tagSuffix(decision.tags()),
-                    rawInfo(decision)));
         }
-        if (!any) {
+        out.append('\n').append(title);
+        // Per-view coverage: how much of each file this view's regions touch, computed as a union
+        // of covered lines over the file's line span (no double-counting of overlapping regions).
+        if (!inView.isEmpty() && (leftSpan > 0 || rightSpan > 0)) {
+            out.append(String.format(Locale.ROOT, "   (covers A %d%% / B %d%%)",
+                    percent(coveredLineCount(inView, true), leftSpan),
+                    percent(coveredLineCount(inView, false), rightSpan)));
+        }
+        out.append('\n');
+        for (RegionDecision decision : inView) {
+            appendRegionLine(out, decision, "");
+        }
+        if (inView.isEmpty()) {
             out.append("  (none)\n");
         }
+        // Held-back (de-duplicated) regions for this view: shown with --show-all, otherwise counted.
+        List<RegionDecision> redundantHere = redundant.stream()
+                .filter(decision -> isMethodLevel(decision) == methodLevel)
+                .toList();
+        if (!redundantHere.isEmpty()) {
+            if (showAll) {
+                for (RegionDecision decision : redundantHere) {
+                    appendRegionLine(out, decision, " [redundant]");
+                }
+            } else {
+                out.append(String.format(Locale.ROOT,
+                        "  (+%d redundant/contained region%s hidden; use --show-all to list)%n",
+                        redundantHere.size(), redundantHere.size() == 1 ? "" : "s"));
+            }
+        }
+    }
+
+    // Union of source lines covered by a view's regions on one side, so overlapping regions are
+    // counted once. Mirrors FileLevelAggregator's line-set coverage so the numbers are consistent.
+    private static int coveredLineCount(List<RegionDecision> regions, boolean left) {
+        Set<Integer> lines = new HashSet<>();
+        for (RegionDecision decision : regions) {
+            CodeRegion region = left ? decision.candidate().left() : decision.candidate().right();
+            if (region.beginLine() < 0 || region.endLine() < region.beginLine()) {
+                continue;
+            }
+            for (int line = region.beginLine(); line <= region.endLine(); line++) {
+                lines.add(line);
+            }
+        }
+        return lines.size();
+    }
+
+    private static int percent(int covered, int span) {
+        if (span <= 0) {
+            return 0;
+        }
+        return (int) Math.min(100, Math.round(100.0 * covered / span));
+    }
+
+    private static int lineSpan(CodeRegion region) {
+        if (region == null || region.beginLine() < 0 || region.endLine() < region.beginLine()) {
+            return 0;
+        }
+        return region.endLine() - region.beginLine() + 1;
+    }
+
+    private static CodeRegion fileRegion(NextPipelineResult result, boolean left) {
+        for (RegionDecision decision : result.regionDecisions()) {
+            CodeRegion region = left ? decision.candidate().left() : decision.candidate().right();
+            if (region.kind() == RegionKind.FILE) {
+                return region;
+            }
+        }
+        return null;
+    }
+
+    private static void appendRegionLine(StringBuilder out, RegionDecision decision, String marker) {
+        out.append(String.format(Locale.ROOT, "  %-4s %s -> %s%s%s%s%n",
+                decision.type().name(),
+                decision.candidate().left().displayName(),
+                decision.candidate().right().displayName(),
+                tagSuffix(decision.tags()),
+                rawInfo(decision),
+                marker));
+    }
+
+    // Accepted clone regions that were de-duplicated away (in the full region list but not in the
+    // selected/shown set). Not dropped -- surfaced on demand so no information is silently lost.
+    private static List<RegionDecision> suppressedRegions(NextPipelineResult result) {
+        java.util.Set<String> selectedIds = new java.util.HashSet<>();
+        for (RegionDecision decision : result.selectedRegionDecisions()) {
+            selectedIds.add(decision.candidate().candidateId());
+        }
+        List<RegionDecision> suppressed = new ArrayList<>();
+        for (RegionDecision decision : result.regionDecisions()) {
+            if (decision.type() != CloneRegionType.NON_CLONE
+                    && !selectedIds.contains(decision.candidate().candidateId())) {
+                suppressed.add(decision);
+            }
+        }
+        return suppressed;
     }
 
     // Raw numbers for the user to judge instead of system-imposed flags: the matched region

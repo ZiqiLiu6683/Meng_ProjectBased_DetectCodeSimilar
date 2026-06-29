@@ -4,9 +4,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.core.util.config.AnalysisScopeReader;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
-import com.ibm.wala.ipa.callgraph.AnalysisScope;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
-import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
@@ -14,6 +12,7 @@ import com.ibm.wala.ssa.SSACFG;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
+import com.ziqi.codesim.semantic.backend.wala.WalaClassHierarchies;
 import com.ziqi.codesim.semantic.raw.RawToolBlock;
 import com.ziqi.codesim.semantic.raw.RawToolClass;
 import com.ziqi.codesim.semantic.raw.RawToolInstruction;
@@ -21,7 +20,6 @@ import com.ziqi.codesim.semantic.raw.RawToolMethod;
 import com.ziqi.codesim.semantic.raw.RawToolProgram;
 import com.ziqi.codesim.semantic.raw.RawToolRecord;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -29,13 +27,19 @@ import java.util.List;
 
 public class WalaRawSnapshotExtractor {
     public RawToolProgram extract(Path input) throws AnalysisException {
+        return extract(
+                WalaClassHierarchies.build(input),
+                new AnalysisCacheImpl(),
+                input.toAbsolutePath().toString());
+    }
+
+    /**
+     * Extract a raw snapshot from an already-built class hierarchy and IR cache, so a caller can
+     * share them with the structural analysis backend instead of paying for a second WALA pass.
+     */
+    public RawToolProgram extract(ClassHierarchy hierarchy, AnalysisCacheImpl cache, String inputLabel)
+            throws AnalysisException {
         try {
-            AnalysisScope scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(
-                    input.toAbsolutePath().toString(),
-                    null
-            );
-            ClassHierarchy hierarchy = ClassHierarchyFactory.makeWithPhantom(scope);
-            AnalysisCacheImpl cache = new AnalysisCacheImpl();
             List<RawToolClass> classes = new ArrayList<>();
             for (IClass clazz : hierarchy) {
                 if (!ClassLoaderReference.Application.equals(clazz.getClassLoader().getReference())) {
@@ -49,14 +53,12 @@ public class WalaRawSnapshotExtractor {
             return new RawToolProgram(
                     "WALA",
                     resolveWalaVersion(),
-                    input.toAbsolutePath().toString(),
+                    inputLabel,
                     classes,
-                    List.of(record("program.input", input.toAbsolutePath().toString(), "program"))
+                    List.of(record("program.input", inputLabel, "program"))
             );
-        } catch (IOException | RuntimeException ex) {
-            throw new AnalysisException("Failed to extract WALA raw snapshot: " + input, ex);
-        } catch (Exception ex) {
-            throw new AnalysisException("Failed to build WALA class hierarchy for raw snapshot: " + input, ex);
+        } catch (RuntimeException ex) {
+            throw new AnalysisException("Failed to extract WALA raw snapshot: " + inputLabel, ex);
         }
     }
 

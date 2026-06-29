@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -76,12 +75,12 @@ public class RawToolCfgCandidateProvider implements CandidateSignalProvider {
             }
         }
 
-        Map<String, List<CodeRegion>> leftRegionsByName = methodRegionsByName(evidencePackage.leftRegions());
-        Map<String, List<CodeRegion>> rightRegionsByName = methodRegionsByName(evidencePackage.rightRegions());
+        MethodRegionIndex leftRegionIndex = MethodRegionIndex.build(evidencePackage.leftRegions());
+        MethodRegionIndex rightRegionIndex = MethodRegionIndex.build(evidencePackage.rightRegions());
         List<CandidateSignal> signals = new ArrayList<>();
         for (Map.Entry<MethodPairKey, MethodDistanceAccumulator> entry : distances.entrySet()) {
-            Optional<CodeRegion> leftRegion = regionForMethod(leftRegionsByName, entry.getKey().leftMethodKey());
-            Optional<CodeRegion> rightRegion = regionForMethod(rightRegionsByName, entry.getKey().rightMethodKey());
+            Optional<CodeRegion> leftRegion = leftRegionIndex.resolve(entry.getKey().leftMethodKey());
+            Optional<CodeRegion> rightRegion = rightRegionIndex.resolve(entry.getKey().rightMethodKey());
             if (leftRegion.isEmpty() || rightRegion.isEmpty()) {
                 continue;
             }
@@ -116,32 +115,52 @@ public class RawToolCfgCandidateProvider implements CandidateSignalProvider {
         return new BlockIndex(blocks, methodByBlockId);
     }
 
-    private static Map<String, List<CodeRegion>> methodRegionsByName(List<CodeRegion> regions) {
-        Map<String, List<CodeRegion>> byName = new HashMap<>();
-        for (CodeRegion region : regions) {
-            if (region.kind() != RegionKind.METHOD) {
-                continue;
-            }
-            byName.computeIfAbsent(normalize(region.displayName()), ignored -> new ArrayList<>())
-                    .add(region);
-            byName.computeIfAbsent(normalize(simpleMethodName(region.displayName())), ignored -> new ArrayList<>())
-                    .add(region);
-        }
-        return byName;
-    }
+    // Resolves a WALA bytecode method key (e.g. "com.example.Foo.bar(ILjava/lang/String;)V") to the
+    // matching source-side METHOD region (display name "Foo.bar(int,String)"). Overloads are kept
+    // distinct by an erased-type signature; only when that is inconclusive does it fall back to
+    // arity, then to a unique simple name. If the simple name is still ambiguous it returns empty
+    // rather than guessing the wrong overload (no fabricated pairing).
+    private static final class MethodRegionIndex {
+        private final Map<String, List<CodeRegion>> bySignature = new HashMap<>();
+        private final Map<String, List<CodeRegion>> byNameAndArity = new HashMap<>();
+        private final Map<String, List<CodeRegion>> bySimpleName = new HashMap<>();
 
-    private static Optional<CodeRegion> regionForMethod(Map<String, List<CodeRegion>> regionsByName,
-                                                        String rawMethodKey) {
-        List<CodeRegion> exact = regionsByName.get(normalize(rawMethodKey));
-        if (exact != null && !exact.isEmpty()) {
-            return Optional.of(exact.get(0));
+        static MethodRegionIndex build(List<CodeRegion> regions) {
+            MethodRegionIndex index = new MethodRegionIndex();
+            for (CodeRegion region : regions) {
+                if (region.kind() != RegionKind.METHOD) {
+                    continue;
+                }
+                String name = MethodSignatureKeys.simpleName(region.displayName());
+                List<String> types = MethodSignatureKeys.sourceParamTypes(region.displayName());
+                add(index.bySignature, MethodSignatureKeys.signatureKey(name, types), region);
+                add(index.byNameAndArity, MethodSignatureKeys.normalize(name) + "/" + types.size(), region);
+                add(index.bySimpleName, MethodSignatureKeys.normalize(name), region);
+            }
+            return index;
         }
-        String simple = simpleMethodName(rawMethodKey);
-        List<CodeRegion> bySimpleName = regionsByName.get(normalize(simple));
-        if (bySimpleName != null && !bySimpleName.isEmpty()) {
-            return Optional.of(bySimpleName.get(0));
+
+        Optional<CodeRegion> resolve(String rawMethodKey) {
+            String name = MethodSignatureKeys.simpleName(rawMethodKey);
+            List<String> types = MethodSignatureKeys.bytecodeParamTypes(rawMethodKey);
+            List<CodeRegion> bySig = bySignature.get(MethodSignatureKeys.signatureKey(name, types));
+            if (bySig != null && !bySig.isEmpty()) {
+                return Optional.of(bySig.get(0));
+            }
+            List<CodeRegion> byArity = byNameAndArity.get(MethodSignatureKeys.normalize(name) + "/" + types.size());
+            if (byArity != null && byArity.size() == 1) {
+                return Optional.of(byArity.get(0));
+            }
+            List<CodeRegion> bySimple = bySimpleName.get(MethodSignatureKeys.normalize(name));
+            if (bySimple != null && bySimple.size() == 1) {
+                return Optional.of(bySimple.get(0));
+            }
+            return Optional.empty();
         }
-        return Optional.empty();
+
+        private static void add(Map<String, List<CodeRegion>> map, String key, CodeRegion region) {
+            map.computeIfAbsent(key, ignored -> new ArrayList<>()).add(region);
+        }
     }
 
     private static Optional<CodeRegion> linkedBodyRegion(List<CodeRegion> regions, CodeRegion methodRegion) {
@@ -162,23 +181,6 @@ public class RawToolCfgCandidateProvider implements CandidateSignalProvider {
             return signature;
         }
         return declaring + "." + signature;
-    }
-
-    private static String simpleMethodName(String value) {
-        String cleaned = value;
-        int paren = cleaned.indexOf('(');
-        if (paren >= 0) {
-            cleaned = cleaned.substring(0, paren);
-        }
-        int dot = cleaned.lastIndexOf('.');
-        if (dot >= 0) {
-            cleaned = cleaned.substring(dot + 1);
-        }
-        return cleaned;
-    }
-
-    private static String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
     }
 
     private record BlockIndex(

@@ -103,15 +103,24 @@ def run_pair(file_a, file_b, engine):
     return json.loads(completed.stdout), runtime_ms
 
 
-def expected_match_status(expected_type, dominant_type, overall_relationship, region_type_counts):
+# Restraint threshold lives HERE in the evaluation (a measurement tool), not in the system:
+# a NON_CLONE pair is "restrained" when only a small fraction of either file is involved. The
+# system itself just reports raw coverage and assigns no file-level verdict.
+NON_CLONE_MAX_COVERAGE = 0.20
+
+
+def expected_match_status(expected_type, dominant_type, overall_relationship,
+                          region_type_counts, coverage_left, coverage_right):
     # Information-provider metric: the system does not emit a single file verdict, so we do not
     # require dominant_type == label. Instead we ask whether it surfaced the right information:
     #   - for a clone label, did at least one region of the expected type appear in the breakdown;
-    #   - for NON_CLONE, was the system restrained (no over-claimed whole-file clone relationship).
+    #   - for NON_CLONE, was only a small fraction of either file involved (raw coverage), judged
+    #     here in the evaluation rather than by a system-imposed relationship label.
     if expected_type == "T4_WEAK":
         return "exploratory"
     if expected_type == "NON_CLONE":
-        return str(overall_relationship in {"NON_CLONE", "MOSTLY_NON_CLONE"})
+        restrained = min(float(coverage_left), float(coverage_right)) < NON_CLONE_MAX_COVERAGE
+        return str(restrained)
     aliases = TYPE_MATCH_ALIASES.get(expected_type, {expected_type})
     return str(any(int(region_type_counts.get(alias, 0)) > 0 for alias in aliases))
 
@@ -153,22 +162,27 @@ def write_summary(summary_path, output_path, rows, engine="plain"):
         "",
         "## By Expected Type",
         "",
-        "| Expected | Count | Surfaced | Inspection Priorities | Relationship Shapes | Dominant Types | Avg Affected L/R | Avg Selected Regions |",
-        "| --- | ---: | ---: | --- | --- | --- | --- | ---: |",
+        # No single-verdict columns (dominant type / relationship shape): the system assigns no
+        # file-level label. Instead show the actual per-type region evidence that was surfaced.
+        "| Expected | Count | Surfaced | Inspection Priorities | Region Types Surfaced | Avg Affected L/R | Avg Selected Regions |",
+        "| --- | ---: | ---: | --- | --- | --- | ---: |",
     ]
 
+    type_keys = ["T1", "T2", "T3", "T4_CONFIRMED", "POSSIBLE_T4_CANDIDATE", "NON_CLONE"]
     for expected_type in sorted(by_expected):
         group = by_expected[expected_type]
-        dominant = Counter(row["dominant_region_type"] for row in group)
         priorities = Counter(row["inspection_priority"] for row in group)
-        shapes = Counter(row["relationship_shape"] for row in group)
+        surfaced_types = {
+            t: sum(int(row[f"count_{t}"]) for row in group) for t in type_keys
+        }
+        surfaced_types = {t: c for t, c in surfaced_types.items() if c}
         strict_pass = sum(row["type_match_status"] == "True" for row in group)
         avg_left = sum(float(row["matched_coverage_left"]) for row in group) / len(group)
         avg_right = sum(float(row["matched_coverage_right"]) for row in group) / len(group)
         avg_selected = sum(int(row["selected_region_count"]) for row in group) / len(group)
         lines.append(
             f"| {expected_type} | {len(group)} | {strict_pass} | "
-            f"{dict(priorities)} | {dict(shapes)} | {dict(dominant)} | "
+            f"{dict(priorities)} | {surfaced_types} | "
             f"{avg_left:.2f}/{avg_right:.2f} | {avg_selected:.1f} |"
         )
 
@@ -176,15 +190,14 @@ def write_summary(summary_path, output_path, rows, engine="plain"):
         "",
         "## Rows Needing Inspection",
         "",
-        "| Pair | Expected | Priority | Shape | Dominant | Affected L/R | Tags | First Regions |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Pair | Expected | Priority | Affected L/R | Tags | First Regions |",
+        "| --- | --- | --- | --- | --- | --- |",
     ])
     for row in rows:
         if row["type_match_status"] == "True":
             continue
         lines.append(
             f"| {row['pair_id']} | {row['expected_type']} | {row['inspection_priority']} | "
-            f"{row['relationship_shape']} | {row['dominant_region_type']} | "
             f"{float(row['matched_coverage_left']):.2f}/"
             f"{float(row['matched_coverage_right']):.2f} | {row['file_tags']} | "
             f"{row['first_regions']} |"
@@ -255,6 +268,9 @@ def main():
             file_b = Path("evaluation") / row["file_b"]
             result, runtime_ms = run_pair(str(file_a), str(file_b), args.engine)
             summary = result["fileSummary"]
+            # The single-label verdict fields are demoted into "legacy" (the system intentionally
+            # assigns no single file-level clone type). Fall back to the top level for older JSON.
+            legacy = summary.get("legacy", summary)
             counts = summary.get("regionTypeCounts", {})
             coverage = summary.get("regionTypeCoverage", {})
             output_row = {
@@ -264,15 +280,17 @@ def main():
                 "expected_type": row["expected_type"],
                 "type_match_status": expected_match_status(
                     row["expected_type"],
-                    summary["dominantRegionType"],
-                    summary["overallRelationship"],
+                    legacy["dominantRegionType"],
+                    legacy["overallRelationship"],
                     counts,
+                    summary["matchedCoverageLeft"],
+                    summary["matchedCoverageRight"],
                 ),
                 "expected_scope": row["expected_scope"],
                 "inspection_priority": summary.get("inspectionPriority", ""),
-                "relationship_shape": summary.get("relationshipShape", ""),
-                "overall_relationship": summary["overallRelationship"],
-                "dominant_region_type": summary["dominantRegionType"],
+                "relationship_shape": legacy.get("relationshipShape", ""),
+                "overall_relationship": legacy["overallRelationship"],
+                "dominant_region_type": legacy["dominantRegionType"],
                 "matched_coverage_left": summary["matchedCoverageLeft"],
                 "matched_coverage_right": summary["matchedCoverageRight"],
                 "unrelated_code_ratio": summary["unrelatedCodeRatio"],
@@ -303,8 +321,8 @@ def main():
             writer.writerow(output_row)
             output_rows.append(output_row)
             print(
-                f"{row['pair_id']}: {summary['overallRelationship']} / "
-                f"{summary['dominantRegionType']} ({runtime_ms} ms)"
+                f"{row['pair_id']}: {legacy['overallRelationship']} / "
+                f"{legacy['dominantRegionType']} ({runtime_ms} ms)"
             )
 
     write_summary(summary_path, output_path, output_rows, args.engine)

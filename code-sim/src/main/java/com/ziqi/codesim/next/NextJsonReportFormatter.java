@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 public class NextJsonReportFormatter {
-    private static final int DEFAULT_MAX_REGIONS = 25;
+    // No silent truncation by default: emit every user-facing region. A caller may still pass a
+    // positive cap (e.g. for a constrained UI), in which case emittedRegionCount vs
+    // selectedRegionCount makes any truncation visible rather than hidden.
+    private static final int DEFAULT_MAX_REGIONS = Integer.MAX_VALUE;
     private final int maxRegions;
 
     public NextJsonReportFormatter() {
@@ -62,21 +65,38 @@ public class NextJsonReportFormatter {
 
     private static void appendFileSummary(StringBuilder out, FileCloneSummary summary, int level) {
         indent(out, level).append("\"fileSummary\": {\n");
+        // inspectionPriority stays top-level: it is review guidance ("look here first"), not a
+        // verdict. The three single-label fields (overallRelationship, relationshipShape,
+        // dominantRegionType) are demoted into "legacy" because the system intentionally assigns
+        // no single file-level clone type; consumers should read the per-region evidence instead.
         field(out, level + 1, "inspectionPriority", summary.inspectionPriority().name(), true);
-        field(out, level + 1, "relationshipShape", summary.relationshipShape().name(), true);
         appendAffectedContent(out, level + 1, summary, true);
         appendDisplaySummary(out, level + 1, summary, true);
         appendEvidenceBreakdown(out, level + 1, summary.evidenceBreakdown(), true);
-        field(out, level + 1, "overallRelationship", summary.overallRelationship().name(), true);
-        field(out, level + 1, "dominantRegionType", summary.dominantRegionType().name(), true);
         field(out, level + 1, "matchedCoverageLeft", summary.matchedCoverageLeft(), true);
         field(out, level + 1, "matchedCoverageRight", summary.matchedCoverageRight(), true);
         field(out, level + 1, "unrelatedCodeRatio", summary.unrelatedCodeRatio(), true);
         appendEnumIntMap(out, level + 1, "regionTypeCounts", summary.regionTypeCounts(), true);
         appendEnumDoubleMap(out, level + 1, "regionTypeCoverage", summary.regionTypeCoverage(), true);
         appendStringArray(out, level + 1, "fileTags",
-                summary.fileTags().stream().map(Enum::name).sorted().toList(), false);
+                summary.fileTags().stream().map(Enum::name).sorted().toList(), true);
+        appendLegacySummary(out, level + 1, summary, false);
         indent(out, level).append('}');
+    }
+
+    // Demoted single-label fields kept only for backward compatibility / tooling. The product
+    // does not reduce a file pair to one label; these are not part of the user-facing verdict.
+    private static void appendLegacySummary(StringBuilder out, int level,
+                                            FileCloneSummary summary, boolean comma) {
+        indent(out, level).append("\"legacy\": {\n");
+        field(out, level + 1, "overallRelationship", summary.overallRelationship().name(), true);
+        field(out, level + 1, "relationshipShape", summary.relationshipShape().name(), true);
+        field(out, level + 1, "dominantRegionType", summary.dominantRegionType().name(), false);
+        indent(out, level).append('}');
+        if (comma) {
+            out.append(',');
+        }
+        out.append('\n');
     }
 
     private static void appendAffectedContent(StringBuilder out, int level,
@@ -157,6 +177,11 @@ public class NextJsonReportFormatter {
         field(out, level + 1, "typeClass", typeClass(decision.type()), true);
         field(out, level + 1, "strength", decision.strength().name(), true);
         field(out, level + 1, "syntacticSimilarity", decision.syntacticSimilarity(), true);
+        if (Double.isNaN(decision.structuralSimilarity())) {
+            indent(out, level + 1).append("\"structuralSimilarity\": null,\n");
+        } else {
+            field(out, level + 1, "structuralSimilarity", decision.structuralSimilarity(), true);
+        }
         appendRegionEndpoint(out, level + 1, "left", decision.candidate().left(), true);
         appendRegionEndpoint(out, level + 1, "right", decision.candidate().right(), true);
         appendRegionDisplay(out, level + 1, decision, displayIndex, true);
@@ -257,13 +282,13 @@ public class NextJsonReportFormatter {
     private static List<String> changeSummaries(RegionDecision decision) {
         List<StatementChange> changes = decision.statementEditScript().changes();
         if (!changes.isEmpty()) {
+            // Emit the full edit script (no silent truncation) so the user sees every change.
             return changes.stream()
-                    .limit(6)
                     .map(NextJsonReportFormatter::statementChangeSummary)
                     .toList();
         }
         if (!decision.decisionPath().isEmpty()) {
-            return decision.decisionPath().stream().limit(6).toList();
+            return decision.decisionPath();
         }
         return List.of(regionSummary(decision));
     }

@@ -9,7 +9,7 @@ Results CSV: `/Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_Pro
 - Pairs evaluated: 36
 - Expected type surfaced (NON_CLONE: restrained): 24
 - Exploratory T4 rows: 12
-- Average runtime: 7175 ms
+- Average runtime: 7149 ms
 
 ## By Expected Type
 

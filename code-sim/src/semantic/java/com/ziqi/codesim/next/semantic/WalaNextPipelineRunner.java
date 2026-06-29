@@ -6,8 +6,11 @@ import com.ziqi.codesim.next.NextPipelineRunner;
 import com.ziqi.codesim.next.RawToolCfgCandidateProvider;
 import com.ziqi.codesim.next.StructuralSimilarityOracle;
 import com.ziqi.codesim.next.WalaStructuralSimilarityOracle;
+import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
+import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
 import com.ziqi.codesim.semantic.backend.wala.WalaAnalysisBackend;
+import com.ziqi.codesim.semantic.backend.wala.WalaClassHierarchies;
 import com.ziqi.codesim.semantic.backend.wala.raw.WalaRawSnapshotExtractor;
 import com.ziqi.codesim.semantic.knn.KnnFeatureView;
 import com.ziqi.codesim.semantic.raw.RawToolClass;
@@ -60,8 +63,19 @@ public class WalaNextPipelineRunner {
             workDir = Files.createTempDirectory("code-sim-next-wala-");
             Path leftClasses = compileSource(workDir.resolve("left"), "LeftInput.java", leftSource);
             Path rightClasses = compileSource(workDir.resolve("right"), "RightInput.java", rightSource);
-            RawToolProgram leftProgram = extractor.extract(leftClasses);
-            RawToolProgram rightProgram = extractor.extract(rightClasses);
+
+            // Build each side's WALA class hierarchy and IR cache once, then share them between the
+            // raw-snapshot extractor (kNN candidates) and the structural backend (CFG/MCS), so the
+            // same classes are not analyzed twice.
+            ClassHierarchy leftHierarchy = WalaClassHierarchies.build(leftClasses);
+            ClassHierarchy rightHierarchy = WalaClassHierarchies.build(rightClasses);
+            AnalysisCacheImpl leftCache = new AnalysisCacheImpl();
+            AnalysisCacheImpl rightCache = new AnalysisCacheImpl();
+            String leftLabel = leftClasses.toAbsolutePath().toString();
+            String rightLabel = rightClasses.toAbsolutePath().toString();
+
+            RawToolProgram leftProgram = extractor.extract(leftHierarchy, leftCache, leftLabel);
+            RawToolProgram rightProgram = extractor.extract(rightHierarchy, rightCache, rightLabel);
             CandidateSignalProvider provider = new RawToolCfgCandidateProvider(
                     methods(leftProgram),
                     methods(rightProgram),
@@ -73,12 +87,17 @@ public class WalaNextPipelineRunner {
             // can confirm/veto whole-method clones with the approximate-MCS structural matcher.
             WalaAnalysisBackend backend = new WalaAnalysisBackend();
             StructuralSimilarityOracle structuralOracle = new WalaStructuralSimilarityOracle(
-                    backend.analyze(leftClasses).methods(),
-                    backend.analyze(rightClasses).methods()
+                    backend.analyze(leftHierarchy, leftCache, leftLabel).methods(),
+                    backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
             );
             return new NextPipelineRunner(List.of(provider), structuralOracle).run(leftSource, rightSource);
-        } catch (IOException ex) {
-            throw new AnalysisException("Failed to prepare temporary WALA next-pipeline workspace", ex);
+        } catch (IOException | AnalysisException | RuntimeException ex) {
+            // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
+            // fall back to the source-only pipeline so the user still gets the syntactic result
+            // (just without cfg-sim). This reports real data, never fabricated CFG output.
+            System.err.println("[WalaNextPipelineRunner] CFG analysis unavailable, "
+                    + "falling back to source-only result: " + ex.getMessage());
+            return new NextPipelineRunner().run(leftSource, rightSource);
         } finally {
             if (workDir != null) {
                 deleteQuietly(workDir);
@@ -92,7 +111,10 @@ public class WalaNextPipelineRunner {
             Path classesDir = sourceRoot.resolve("classes");
             Files.createDirectories(sourceDir);
             Files.createDirectories(classesDir);
-            Path sourceFile = sourceDir.resolve(fileName);
+            // javac requires a public top-level type to live in a file of the same name, so name
+            // the file after the public class/interface/enum/record when present (falling back to
+            // the provided default). Without this, any input with a public class fails to compile.
+            Path sourceFile = sourceDir.resolve(publicTypeFileName(source, fileName));
             Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             if (compiler == null) {
@@ -114,6 +136,17 @@ public class WalaNextPipelineRunner {
         } catch (IOException ex) {
             throw new AnalysisException("Failed to compile source for WALA next pipeline", ex);
         }
+    }
+
+    private static String publicTypeFileName(String source, String fallback) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(
+                "public\\s+(?:final\\s+|abstract\\s+|sealed\\s+|non-sealed\\s+|strictfp\\s+)*"
+                        + "(?:class|interface|enum|record)\\s+([A-Za-z_$][A-Za-z0-9_$]*)")
+                .matcher(source);
+        if (matcher.find()) {
+            return matcher.group(1) + ".java";
+        }
+        return fallback;
     }
 
     private static List<RawToolMethod> methods(RawToolProgram program) {

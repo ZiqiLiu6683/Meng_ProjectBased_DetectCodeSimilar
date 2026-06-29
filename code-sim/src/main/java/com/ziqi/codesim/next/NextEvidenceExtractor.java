@@ -20,7 +20,11 @@ import java.util.stream.Collectors;
 
 public class NextEvidenceExtractor {
     private static final int MAX_STATEMENT_WINDOW_SIZE = 6;
-    private static final int MAX_STATEMENT_WINDOWS_PER_METHOD = 80;
+    // Per-size budget instead of one shared budget: previously the smallest windows consumed
+    // the whole budget first, starving larger windows in big methods (so >5-statement fragment
+    // clones inside large methods were missed). Capping per size keeps both small (fine-grained)
+    // and large windows. Larger methods still bounded to control region explosion.
+    private static final int MAX_WINDOWS_PER_SIZE = 64;
 
     private static final Set<String> JAVA_KEYWORDS = Set.of(
             "abstract", "assert", "boolean", "break", "byte", "case", "catch",
@@ -80,12 +84,13 @@ public class NextEvidenceExtractor {
                                                   String displayName,
                                                   MethodDeclaration method) {
         List<Statement> statements = nonBlockStatements(method);
-        int created = 0;
         for (int size = 2; size <= Math.min(MAX_STATEMENT_WINDOW_SIZE, statements.size()); size++) {
+            int createdThisSize = 0;
             for (int start = 0; start + size <= statements.size(); start++) {
-                if (created >= MAX_STATEMENT_WINDOWS_PER_METHOD) {
-                    return;
+                if (createdThisSize >= MAX_WINDOWS_PER_SIZE) {
+                    break;
                 }
+                createdThisSize++;
                 List<Statement> window = statements.subList(start, start + size);
                 regions.add(regionFromStatements(
                         idPrefix + ":stmt-window:" + start + ":" + size,
@@ -94,7 +99,6 @@ public class NextEvidenceExtractor {
                         displayName + " statements " + (start + 1) + "-" + (start + size),
                         window
                 ));
-                created++;
             }
         }
     }

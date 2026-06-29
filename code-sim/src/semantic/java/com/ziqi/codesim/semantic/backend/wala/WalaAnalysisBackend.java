@@ -3,11 +3,8 @@ package com.ziqi.codesim.semantic.backend.wala;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
-import com.ibm.wala.core.util.config.AnalysisScopeReader;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
-import com.ibm.wala.ipa.callgraph.AnalysisScope;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
-import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
@@ -35,7 +32,6 @@ import com.ziqi.codesim.semantic.model.ControlFlowGraphUnit;
 import com.ziqi.codesim.semantic.model.InstructionCategory;
 import com.ziqi.codesim.semantic.model.InstructionUnit;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -44,13 +40,19 @@ import java.util.List;
 public class WalaAnalysisBackend implements AnalysisBackend {
     @Override
     public AnalyzedProgram analyze(Path input) throws AnalysisException {
+        return analyze(
+                WalaClassHierarchies.build(input),
+                new AnalysisCacheImpl(),
+                input.toAbsolutePath().toString());
+    }
+
+    /**
+     * Analyze an already-built class hierarchy and IR cache, so a caller can share them with the
+     * raw-snapshot extractor instead of paying for a second WALA pass over the same classes.
+     */
+    public AnalyzedProgram analyze(ClassHierarchy hierarchy, AnalysisCacheImpl cache, String inputLabel)
+            throws AnalysisException {
         try {
-            AnalysisScope scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(
-                    input.toAbsolutePath().toString(),
-                    null
-            );
-            ClassHierarchy hierarchy = ClassHierarchyFactory.makeWithPhantom(scope);
-            AnalysisCacheImpl cache = new AnalysisCacheImpl();
             List<AnalyzedMethod> methods = new ArrayList<>();
             for (IClass clazz : hierarchy) {
                 if (!ClassLoaderReference.Application.equals(clazz.getClassLoader().getReference())) {
@@ -67,11 +69,9 @@ public class WalaAnalysisBackend implements AnalysisBackend {
                     methods.add(convertMethod(clazz, method, ir));
                 }
             }
-            return new AnalyzedProgram(input.toAbsolutePath().toString(), methods);
-        } catch (IOException | RuntimeException ex) {
-            throw new AnalysisException("Failed to analyze bytecode input with WALA: " + input, ex);
-        } catch (Exception ex) {
-            throw new AnalysisException("Failed to build WALA class hierarchy for: " + input, ex);
+            return new AnalyzedProgram(inputLabel, methods);
+        } catch (RuntimeException ex) {
+            throw new AnalysisException("Failed to analyze bytecode input with WALA: " + inputLabel, ex);
         }
     }
 

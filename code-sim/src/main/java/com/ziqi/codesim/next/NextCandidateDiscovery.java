@@ -84,7 +84,8 @@ public class NextCandidateDiscovery {
                 right.t2NormalizedTokens()
         );
         if (normalizedTokenSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY) {
-            sources.add(new CandidateSource("NORMALIZED_TOKEN_KNN_SCAN", normalizedTokenSimilarity));
+            // Jaccard overlap of normalized tokens (not a kNN scan): renamed for honesty.
+            sources.add(new CandidateSource("NORMALIZED_TOKEN_OVERLAP_SCAN", normalizedTokenSimilarity));
         }
 
         double statementSimilarity = NextEvidenceExtractor.lcsSimilarity(
