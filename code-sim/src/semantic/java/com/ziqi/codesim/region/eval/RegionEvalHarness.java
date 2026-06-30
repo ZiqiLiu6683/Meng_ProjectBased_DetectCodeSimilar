@@ -1,10 +1,12 @@
 package com.ziqi.codesim.region.eval;
 
-import com.ziqi.codesim.region.RegionSelector;
+import com.ziqi.codesim.region.CloneAnalyzer;
 import com.ziqi.codesim.region.grow.RegionGroup;
+import com.ziqi.codesim.region.semantic.SemanticMethodMatch;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -16,25 +18,28 @@ import java.util.Set;
  */
 public final class RegionEvalHarness {
 
-    private final RegionSelector selector;
+    private final CloneAnalyzer analyzer;
     private final int topK;
     private final double minCoverage;
 
     public RegionEvalHarness() {
-        this(new RegionSelector(), 3, 1.0);
+        this(new CloneAnalyzer(), 3, 1.0);
     }
 
-    public RegionEvalHarness(RegionSelector selector, int topK, double minCoverage) {
-        this.selector = selector;
+    public RegionEvalHarness(CloneAnalyzer analyzer, int topK, double minCoverage) {
+        this.analyzer = analyzer;
         this.topK = topK;
         this.minCoverage = minCoverage;
     }
 
     public EvalResult evaluate(EvalCase evalCase) {
         try {
-            List<RegionGroup> regions = selector.select(evalCase.leftSource(), evalCase.rightSource());
+            CloneAnalyzer.Result analysis = analyzer.analyze(evalCase.leftSource(), evalCase.rightSource());
+
+            // Structural detection: a top-K region linking the expected methods with real coverage.
             int rank = -1;
             RegionGroup matched = null;
+            List<RegionGroup> regions = analysis.regions();
             for (int i = 0; i < regions.size(); i++) {
                 RegionGroup region = regions.get(i);
                 if (coversAll(region.leftMethods(), evalCase.leftMethodHints())
@@ -45,17 +50,24 @@ public final class RegionEvalHarness {
                     break;
                 }
             }
-            boolean detected = rank >= 0 && rank < topK;
-            return new EvalResult(
-                    evalCase,
-                    detected,
-                    rank,
-                    matched == null ? 0.0 : matched.coverage(),
-                    matched == null ? Set.of() : matched.leftMethods(),
-                    matched == null ? Set.of() : matched.rightMethods(),
-                    null);
+            if (rank >= 0 && rank < topK) {
+                return new EvalResult(evalCase, true, "structural", rank, matched.coverage(),
+                        matched.leftMethods(), matched.rightMethods(), null);
+            }
+
+            // Semantic fallback: a proven-equivalent method pair linking the expected methods.
+            Optional<SemanticMethodMatch> semantic = analysis.semanticMatches().stream()
+                    .filter(m -> coversAll(Set.of(m.leftMethod()), evalCase.leftMethodHints())
+                            && coversAll(Set.of(m.rightMethod()), evalCase.rightMethodHints()))
+                    .findFirst();
+            if (semantic.isPresent()) {
+                return new EvalResult(evalCase, true, "semantic", -1, 0.0,
+                        Set.of(semantic.get().leftMethod()), Set.of(semantic.get().rightMethod()), null);
+            }
+
+            return new EvalResult(evalCase, false, "none", -1, 0.0, Set.of(), Set.of(), null);
         } catch (Exception ex) {
-            return new EvalResult(evalCase, false, -1, 0.0, Set.of(), Set.of(),
+            return new EvalResult(evalCase, false, "none", -1, 0.0, Set.of(), Set.of(),
                     ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
     }
@@ -73,15 +85,14 @@ public final class RegionEvalHarness {
         StringBuilder out = new StringBuilder();
         out.append(String.format(Locale.ROOT, "== Region Selector Evaluation (topK=%d, minCoverage=%.1f) ==%n",
                 topK, minCoverage));
-        out.append(String.format(Locale.ROOT, "%-16s %-16s %-7s %-9s %-5s %-9s %s%n",
-                "case", "transform", "expect", "detected", "rank", "coverage", "recoveredRight"));
+        out.append(String.format(Locale.ROOT, "%-16s %-16s %-7s %-9s %-11s %-5s %-9s %s%n",
+                "case", "transform", "expect", "detected", "via", "rank", "coverage", "recoveredRight"));
         for (EvalResult result : results) {
             EvalCase c = result.evalCase();
-            String detected = result.error() != null ? "ERROR"
-                    : (result.detected() ? "YES" : (result.rank() >= 0 ? "below-K" : "no"));
-            out.append(String.format(Locale.ROOT, "%-16s %-16s %-7s %-9s %-5s %-9.2f %s%n",
+            String detected = result.error() != null ? "ERROR" : (result.detected() ? "YES" : "no");
+            out.append(String.format(Locale.ROOT, "%-16s %-16s %-7s %-9s %-11s %-5s %-9.2f %s%n",
                     c.id(), c.transformation(), c.expectClone() ? "clone" : "none",
-                    detected, result.rank() < 0 ? "-" : String.valueOf(result.rank()),
+                    detected, result.detectedVia(), result.rank() < 0 ? "-" : String.valueOf(result.rank()),
                     result.coverage(), result.recoveredRight()));
             if (result.error() != null) {
                 out.append("    error: ").append(result.error()).append(System.lineSeparator());

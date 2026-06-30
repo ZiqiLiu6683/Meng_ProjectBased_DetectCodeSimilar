@@ -167,6 +167,19 @@
           <artifactId>java-smt</artifactId>
           <version>${java-smt.version}</version>
         </dependency>
+        <!-- SMTInterpol: a PURE-JAVA SMT solver (quantifier-free linear integer/real arithmetic).
+             Chosen over Z3 because JavaSMT does not ship a signed Z3 native library for macOS arm64
+             (you'd have to compile+sign it yourself); a pure-Java solver needs no native lib and is
+             fully portable. Nonlinear goals just return UNKNOWN, which Phase B degrades gracefully
+             on. Version pinned to what java-smt 6.0.0 declares. (SMTInterpol's CUP-based SMT-LIB
+             parser dep, edu.tum.cs:java-cup, lives only in the sosy-lab repo, not Maven Central; we
+             build formulas via the JavaSMT API programmatically, not by parsing text, so it is not
+             needed at runtime. If a java_cup class is ever missing, add the sosy-lab Maven repo.) -->
+        <dependency>
+          <groupId>de.uni-freiburg.informatik.ultimate</groupId>
+          <artifactId>smtinterpol</artifactId>
+          <version>2.5-1242-g5c50fb6d</version>
+        </dependency>
       </dependencies>
     </profile>
   </profiles>
