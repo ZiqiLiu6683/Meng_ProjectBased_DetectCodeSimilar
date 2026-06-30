@@ -19,6 +19,11 @@ import com.ziqi.codesim.semantic.model.InstructionCategory;
  *                         {@code binaryop:mul}, {@code invoke:internal}, {@code cond:le}. Variable
  *                         names and SSA value numbers are deliberately excluded so structurally
  *                         equal code matches regardless of identifiers
+ * @param semanticValueHash hash of the normalized SSA symbolic expression this node computes
+ *                          (commutativity + constant/parameter canonicalized, name-free). 0 when
+ *                          the node computes no meaningful value (pseudo-nodes, goto, void). This is
+ *                          the semantic channel: a fast seed-level approximation of "what it
+ *                          computes", NOT a proof of equivalence (that is Phase B's SMT job)
  * @param source           source line range this node maps back to (synthetic for pseudo-nodes)
  * @param instructionText  best-effort human-readable instruction text (may be empty for pseudo-nodes)
  */
@@ -30,6 +35,7 @@ public record SemanticNode(
         String walaKind,
         InstructionCategory operation,
         String operationToken,
+        long semanticValueHash,
         SourceSpan source,
         String instructionText
 ) {

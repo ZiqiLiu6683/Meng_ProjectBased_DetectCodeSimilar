@@ -13,14 +13,18 @@ import java.util.List;
  *       radius. {@code wlHashes.get(0)} is the radius-0 label (just the node itself) and
  *       {@code wlHashes.get(r)} folds in the node's r-hop typed-dependence neighborhood. Keeping
  *       every radius (not only the last) lets the matcher compare at multiple structural scales.</li>
+ *   <li><b>semantic</b> — {@link #semanticValueHash}: hash of the normalized SSA symbolic
+ *       expression the node computes (commutativity + constant/parameter canonicalized). Captures
+ *       "what it computes", including constants the structural channel cannot see. 0 when the node
+ *       computes no value.</li>
  * </ul>
- * The semantic value-hash channel (SSA symbolic expression) is added in the next M2 step.
  *
- * @param nodeId    id of the described node within its {@link SemanticGraph}
- * @param baseLabel lexical channel value
- * @param wlHashes  structural channel: WL label per radius (index 0 == radius 0)
+ * @param nodeId            id of the described node within its {@link SemanticGraph}
+ * @param baseLabel         lexical channel value
+ * @param wlHashes          structural channel: WL label per radius (index 0 == radius 0)
+ * @param semanticValueHash semantic channel: normalized SSA value-expression hash
  */
-public record NodeDescriptor(int nodeId, String baseLabel, List<Long> wlHashes) {
+public record NodeDescriptor(int nodeId, String baseLabel, List<Long> wlHashes, long semanticValueHash) {
 
     public NodeDescriptor {
         wlHashes = List.copyOf(wlHashes);

@@ -33,7 +33,8 @@ public final class NodeDescriptorBuilder {
             descriptors.put(node.id(), new NodeDescriptor(
                     node.id(),
                     WeisfeilerLehmanLabeler.baseLabel(node),
-                    wlHashes.get(node.id())
+                    wlHashes.get(node.id()),
+                    node.semanticValueHash()
             ));
         }
         return descriptors;

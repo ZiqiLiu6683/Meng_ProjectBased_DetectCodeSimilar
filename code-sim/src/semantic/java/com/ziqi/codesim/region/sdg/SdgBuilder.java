@@ -21,6 +21,8 @@ import com.ibm.wala.ipa.slicer.NormalStatement;
 import com.ibm.wala.ipa.slicer.SDG;
 import com.ibm.wala.ipa.slicer.Slicer;
 import com.ibm.wala.ipa.slicer.Statement;
+import com.ibm.wala.ssa.DefUse;
+import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
 import com.ibm.wala.ssa.SSAArrayReferenceInstruction;
 import com.ibm.wala.ssa.SSABinaryOpInstruction;
@@ -32,6 +34,7 @@ import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.ssa.SSANewInstruction;
 import com.ibm.wala.ssa.SSAPutInstruction;
 import com.ibm.wala.ssa.SSAReturnInstruction;
+import com.ibm.wala.ssa.SymbolTable;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ziqi.codesim.region.model.EdgeKind;
 import com.ziqi.codesim.region.model.NodeKind;
@@ -44,9 +47,11 @@ import com.ziqi.codesim.semantic.model.InstructionCategory;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The single WALA adapter for Phase A: builds one file's System Dependence Graph and lifts it into
@@ -119,6 +124,8 @@ public final class SdgBuilder {
         // (cgNode, instructionIndex/valueNumber, kind), so a HashMap matches them correctly; an
         // identity map silently drops every cross-method edge.
         Map<Statement, Integer> idByStatement = new HashMap<>();
+        // One symbolic hasher per method (IR/SymbolTable/DefUse are method-scoped), built lazily.
+        Map<CGNode, SymbolicHasher> hashers = new HashMap<>();
 
         int nextId = 0;
         for (Statement statement : sdg) {
@@ -127,7 +134,13 @@ public final class SdgBuilder {
             }
             int id = nextId++;
             idByStatement.put(statement, id);
-            graph.addNode(toNode(id, statement, callGraph));
+            long semanticValueHash = 0L;
+            if (statement instanceof NormalStatement normal && normal.getInstruction() != null) {
+                SymbolicHasher hasher = hashers.computeIfAbsent(
+                        statement.getNode(), SymbolicHasher::forNode);
+                semanticValueHash = hasher.instructionHash(normal.getInstruction());
+            }
+            graph.addNode(toNode(id, statement, callGraph, semanticValueHash));
         }
 
         for (Statement from : sdg) {
@@ -146,7 +159,8 @@ public final class SdgBuilder {
         return graph.build();
     }
 
-    private static SemanticNode toNode(int id, Statement statement, CallGraph callGraph) {
+    private static SemanticNode toNode(int id, Statement statement, CallGraph callGraph,
+                                       long semanticValueHash) {
         CGNode cgNode = statement.getNode();
         int cgNodeId = callGraph.getNumber(cgNode);
         String methodSignature = cgNode.getMethod().getSignature();
@@ -167,7 +181,7 @@ public final class SdgBuilder {
             operationToken = pseudoToken(kind);
         }
         return new SemanticNode(id, cgNodeId, methodSignature, kind, walaKind, operation,
-                operationToken, source, instructionText);
+                operationToken, semanticValueHash, source, instructionText);
     }
 
     /**
@@ -324,5 +338,129 @@ public final class SdgBuilder {
 
     private static <T> Iterable<T> iterable(Iterator<T> iterator) {
         return () -> iterator;
+    }
+
+    private static long fnv1a(String value) {
+        long hash = 0xcbf29ce484222325L;
+        for (int i = 0; i < value.length(); i++) {
+            hash ^= value.charAt(i);
+            hash *= 0x100000001b3L;
+        }
+        return hash;
+    }
+
+    private static long mix(long a, long b) {
+        long h = a ^ (b + 0x9e3779b97f4a7c15L + (a << 6) + (a >>> 2));
+        h *= 0xff51afd7ed558ccdL;
+        h ^= (h >>> 33);
+        return h;
+    }
+
+    /**
+     * Computes a normalized, name-free hash of the SSA symbolic expression a value (or instruction)
+     * computes, within one method. Commutative operands are sorted, constants are hashed by value,
+     * and parameters by position -- so {@code x*2} and {@code 2*x} match but {@code x*2} and
+     * {@code x*3} do not (the latter is exactly what the WL channel misses, since the constant is
+     * not a graph node). Bounded depth + a visiting guard keep recursion finite across phi/loops.
+     * This is the seed-level semantic approximation; proving real equivalence is Phase B's SMT job.
+     */
+    private static final class SymbolicHasher {
+        private static final int MAX_DEPTH = 12;
+        private static final Set<String> COMMUTATIVE = Set.of("add", "mul", "and", "or", "xor");
+
+        private final IR ir;
+        private final SymbolTable symbolTable;
+        private final DefUse defUse;
+        private final Map<Integer, Integer> parameterPosition = new HashMap<>();
+
+        private SymbolicHasher(IR ir) {
+            this.ir = ir;
+            this.symbolTable = ir == null ? null : ir.getSymbolTable();
+            this.defUse = ir == null ? null : new DefUse(ir);
+            if (ir != null) {
+                int[] params = symbolTable.getParameterValueNumbers();
+                for (int i = 0; i < params.length; i++) {
+                    parameterPosition.put(params[i], i);
+                }
+            }
+        }
+
+        static SymbolicHasher forNode(CGNode node) {
+            IR ir;
+            try {
+                ir = node.getIR();
+            } catch (RuntimeException ex) {
+                ir = null;
+            }
+            return new SymbolicHasher(ir);
+        }
+
+        long instructionHash(SSAInstruction instruction) {
+            if (ir == null) {
+                return 0L;
+            }
+            if (instruction.hasDef()) {
+                return valueHash(instruction.getDef(0), 0, new HashSet<>());
+            }
+            if (instruction instanceof SSAReturnInstruction returnInstruction) {
+                if (returnInstruction.getNumberOfUses() == 0) {
+                    return 0L;
+                }
+                return mix(fnv1a("return"), valueHash(returnInstruction.getUse(0), 0, new HashSet<>()));
+            }
+            if (instruction instanceof SSAConditionalBranchInstruction conditional) {
+                long token = fnv1a("cond:" + conditional.getOperator().toString().toLowerCase(Locale.ROOT));
+                // Comparisons are not commutative (le != ge), so operand order is preserved.
+                long left = valueHash(conditional.getUse(0), 0, new HashSet<>());
+                long right = valueHash(conditional.getUse(1), 0, new HashSet<>());
+                return mix(mix(token, left), right);
+            }
+            return 0L;
+        }
+
+        private long valueHash(int value, int depth, Set<Integer> visiting) {
+            if (value < 0) {
+                return fnv1a("void");
+            }
+            if (symbolTable.isConstant(value)) {
+                if (symbolTable.isNullConstant(value)) {
+                    return fnv1a("const:null");
+                }
+                Object constant = symbolTable.getConstantValue(value);
+                String type = constant == null ? "?" : constant.getClass().getSimpleName();
+                return fnv1a("const:" + type + ":" + constant);
+            }
+            Integer position = parameterPosition.get(value);
+            if (position != null) {
+                return fnv1a("param:" + position);
+            }
+            if (depth >= MAX_DEPTH || !visiting.add(value)) {
+                return fnv1a("opaque");
+            }
+            SSAInstruction def = defUse.getDef(value);
+            long result = def == null ? fnv1a("leaf") : defHash(def, depth, visiting);
+            visiting.remove(value);
+            return result;
+        }
+
+        private long defHash(SSAInstruction def, int depth, Set<Integer> visiting) {
+            long hash = fnv1a("op:" + operationToken(def, categoryOf(def)));
+            int uses = def.getNumberOfUses();
+            long[] children = new long[uses];
+            for (int i = 0; i < uses; i++) {
+                children[i] = valueHash(def.getUse(i), depth + 1, visiting);
+            }
+            if (def instanceof SSABinaryOpInstruction binaryOp && children.length == 2
+                    && COMMUTATIVE.contains(binaryOp.getOperator().toString().toLowerCase(Locale.ROOT))
+                    && children[0] > children[1]) {
+                long swap = children[0];
+                children[0] = children[1];
+                children[1] = swap;
+            }
+            for (long child : children) {
+                hash = mix(hash, child);
+            }
+            return hash;
+        }
     }
 }
