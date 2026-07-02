@@ -1,0 +1,45 @@
+package com.ziqi.codesim.next.semantic;
+
+import com.ziqi.codesim.next.CloneRegionType;
+import com.ziqi.codesim.next.NextPipelineResult;
+import com.ziqi.codesim.next.RegionKind;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Structural seam (Phase A) end-to-end: a helper-extraction clone -- one side inlines {@code x*2+1},
+ * the other splits it across {@code g} calling {@code h} -- is missed by the token backend and by
+ * Phase B (the call breaks the summary), but Phase A aligns it as a boundary-free region group. The
+ * full pipeline must now flag it as a POSSIBLE_T4_CANDIDATE (structural support, no proof), where
+ * before the seam it came out NON_CLONE.
+ */
+@EnabledIfSystemProperty(named = "semantic.tests.enabled", matches = "true")
+class HelperExtractionSeamTest {
+
+    @Test
+    void flagsHelperExtractionAsPossibleType4() throws Exception {
+        String left = "class LeftInput { int f(int x){ return x * 2 + 1; } }";
+        String right = "class RightInput {"
+                + " int g(int y){ return h(y) + 1; }"
+                + " int h(int y){ return y * 2; } }";
+
+        NextPipelineResult result = new WalaNextPipelineRunner().run(left, right);
+
+        boolean possibleT4 = result.regionDecisions().stream()
+                .anyMatch(d -> d.type() == CloneRegionType.POSSIBLE_T4_CANDIDATE);
+        assertTrue(possibleT4,
+                "Phase A's cross-method structural region group must flag helper extraction as a "
+                        + "possible Type-4 candidate");
+
+        // Specifically, f <-> g (the inline-vs-callchain pair) must no longer be NON_CLONE.
+        boolean fgRescued = result.regionDecisions().stream()
+                .filter(d -> d.candidate().left().kind() == RegionKind.METHOD
+                        && d.candidate().right().kind() == RegionKind.METHOD)
+                .filter(d -> d.candidate().left().displayName().contains(".f(")
+                        && d.candidate().right().displayName().contains(".g("))
+                .anyMatch(d -> d.type() != CloneRegionType.NON_CLONE);
+        assertTrue(fgRescued, "f <-> g must be recognized (not NON_CLONE) via the structural region seam");
+    }
+}

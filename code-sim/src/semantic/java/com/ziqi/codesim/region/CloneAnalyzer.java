@@ -44,10 +44,19 @@ public final class CloneAnalyzer {
 
     private final SdgBuilder sdgBuilder = new SdgBuilder();
     private final NodeDescriptorBuilder descriptorBuilder = new NodeDescriptorBuilder();
-    private final SeedMatcher seedMatcher = new SeedMatcher();
+    private final SeedMatcher seedMatcher;
     private final RegionGrower regionGrower = new RegionGrower();
     private final MethodSummaryExtractor summaryExtractor = new MethodSummaryExtractor();
     private final SmtEquivalenceChecker equivalenceChecker = new SmtEquivalenceChecker();
+
+    public CloneAnalyzer() {
+        this(new SeedMatcher());
+    }
+
+    /** @param seedMatcher the seed strategy (e.g. {@link SeedMatcher#bucketOnly()} for ablation) */
+    public CloneAnalyzer(SeedMatcher seedMatcher) {
+        this.seedMatcher = seedMatcher;
+    }
 
     public Result analyze(String leftSource, String rightSource) throws AnalysisException {
         Path workDir = null;

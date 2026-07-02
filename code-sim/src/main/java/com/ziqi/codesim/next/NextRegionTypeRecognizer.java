@@ -10,6 +10,11 @@ public class NextRegionTypeRecognizer {
     // separates a near-miss clone from unrelated code. Everything else is reported as raw
     // numbers for the user to judge, with no system-imposed cutoffs.
     private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
+    // Minimum substance-weighted coverage of a Phase A structural region group before it flags a
+    // possible Type-4 candidate. A floor (>= ~two real computations aligned), like the grower's
+    // minPairs -- not a similarity ratio -- so a trivial one-node structural coincidence does not
+    // raise a candidate.
+    private static final double MIN_STRUCTURAL_REGION_COVERAGE = 2.0;
     private static final Set<String> SOURCE_ONLY_CHANNELS = Set.of(
             "EXACT_TEXT_SCAN",
             "NORMALIZED_AST_SCAN",
@@ -18,13 +23,28 @@ public class NextRegionTypeRecognizer {
     );
 
     private final StructuralSimilarityOracle structuralOracle;
+    private final SemanticEquivalenceOracle semanticOracle;
+    private final StructuralRegionOracle structuralRegionOracle;
 
     public NextRegionTypeRecognizer() {
-        this(StructuralSimilarityOracle.NONE);
+        this(StructuralSimilarityOracle.NONE, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE);
     }
 
     public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle) {
+        this(structuralOracle, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE);
+    }
+
+    public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle,
+                                    SemanticEquivalenceOracle semanticOracle) {
+        this(structuralOracle, semanticOracle, StructuralRegionOracle.NONE);
+    }
+
+    public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle,
+                                    SemanticEquivalenceOracle semanticOracle,
+                                    StructuralRegionOracle structuralRegionOracle) {
         this.structuralOracle = structuralOracle;
+        this.semanticOracle = semanticOracle;
+        this.structuralRegionOracle = structuralRegionOracle;
     }
 
     public RegionDecision decide(RegionCandidate candidate) {
@@ -103,7 +123,34 @@ public class NextRegionTypeRecognizer {
                 syntacticSimilarity
         ));
 
-        path.add("T4 not approved in this source-only slice: no independent CFG/dynamic semantic approval is attached to this candidate.");
+        // T4: T1/T2/T3 did not approve a syntactic clone. Confirm a semantic (Type-4) clone only on
+        // independent positive evidence -- an SMT proof that the two regions compute the same value
+        // for all inputs. This is exactly the "independent semantic approval" the source-only slice
+        // lacked; Phase B now supplies it.
+        if (semanticOracle.provenEquivalent(left, right)) {
+            tags.add(RegionTag.POSSIBLE_SEMANTIC_RELATION);
+            path.add("T4 confirmed: an independent SMT proof shows the two regions compute the same "
+                    + "value for all inputs, despite differing structure.");
+            return decision(candidate, CloneRegionType.T4_CONFIRMED, CloneStrength.NONE, syntacticSimilarity,
+                    structuralSimilarity, renameEvidence, editScript, tags, path);
+        }
+
+        // Possible T4: no equivalence proof, but Phase A found a strong boundary-free structural
+        // region group aligning these methods (e.g. helper extraction -- one side inlines what the
+        // other splits across a callee). Structural support without a behavioural proof is exactly
+        // POSSIBLE_T4_CANDIDATE, not a confirmed clone.
+        double regionCoverage = structuralRegionOracle.regionCoverage(left, right);
+        if (regionCoverage >= MIN_STRUCTURAL_REGION_COVERAGE) {
+            tags.add(RegionTag.POSSIBLE_SEMANTIC_RELATION);
+            path.add(String.format(
+                    "Possible T4: a Phase A cross-method structural region group aligns these methods "
+                            + "with coverage %.2f, but no equivalence proof confirms it.", regionCoverage));
+            return decision(candidate, CloneRegionType.POSSIBLE_T4_CANDIDATE, CloneStrength.NONE,
+                    syntacticSimilarity, structuralSimilarity, renameEvidence, editScript, tags, path);
+        }
+
+        path.add("T4 not approved: no independent semantic-equivalence proof or structural region "
+                + "evidence is attached to this candidate.");
         return decision(candidate, CloneRegionType.NON_CLONE, CloneStrength.NONE, syntacticSimilarity,
                 structuralSimilarity, renameEvidence, editScript, tags, path);
     }

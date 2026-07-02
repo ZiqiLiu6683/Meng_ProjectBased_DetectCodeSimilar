@@ -38,23 +38,48 @@ public final class SeedMatcher {
     private static final double STRENGTH_KNN_SCALE = 0.6;
 
     private final int knnK;
+    private final boolean useKnn;
 
+    /**
+     * Default matcher: bucket-only. An ablation (KnnAblationTest, 2026-07-02) showed the KNN recall
+     * layer changed no detection on the structural corpus — region growth expands from any single
+     * exact-hash anchor, making KNN's extra seeds redundant at region level. KNN is kept but off by
+     * default so we stop paying its O(|A|x|B|) cost; re-enable with {@link #withKnn()} if a future
+     * corpus proves it earns its keep.
+     */
     public SeedMatcher() {
-        this(4);
+        this(4, false);
     }
 
     public SeedMatcher(int knnK) {
+        this(knnK, true);
+    }
+
+    public SeedMatcher(int knnK, boolean useKnn) {
         if (knnK < 1) {
             throw new IllegalArgumentException("knnK must be >= 1: " + knnK);
         }
         this.knnK = knnK;
+        this.useKnn = useKnn;
+    }
+
+    /** Bucket-only matcher (exact-hash seeds, no quadratic KNN recall layer) -- same as the default. */
+    public static SeedMatcher bucketOnly() {
+        return new SeedMatcher(4, false);
+    }
+
+    /** Bucket + KNN recall matcher (adds the quadratic recall layer). */
+    public static SeedMatcher withKnn() {
+        return new SeedMatcher(4, true);
     }
 
     public List<SeedPair> match(Map<Integer, NodeDescriptor> left, Map<Integer, NodeDescriptor> right) {
         Map<PairKey, Accumulator> accumulators = new HashMap<>();
         bucketBySemantic(left, right, accumulators);
         bucketByWl(left, right, accumulators);
-        knn(left, right, accumulators);
+        if (useKnn) {
+            knn(left, right, accumulators);
+        }
 
         List<SeedPair> seeds = new ArrayList<>(accumulators.size());
         for (Map.Entry<PairKey, Accumulator> entry : accumulators.entrySet()) {

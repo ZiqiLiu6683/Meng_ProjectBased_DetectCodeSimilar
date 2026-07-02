@@ -34,29 +34,27 @@ import java.util.Map;
  */
 public final class SmtEquivalenceChecker {
 
+    // One SMTInterpol context per checker instance, created lazily and reused across every check()
+    // (a batch caller keeps a single checker, so all its checks share it). SMTInterpol is pure Java,
+    // so holding the context open leaks no native resource; each check still uses a fresh prover.
+    private SolverContext context;
+    private IntegerFormulaManager imgr;
+    private BooleanFormulaManager bmgr;
+
     public EquivalenceVerdict check(SymbolicExpression left, SymbolicExpression right) {
         if (left.hasUnknown() || right.hasUnknown()) {
             return EquivalenceVerdict.UNKNOWN;
         }
         try {
-            Configuration config = Configuration.defaultConfiguration();
-            LogManager logger = BasicLogManager.create(config);
-            ShutdownManager shutdown = ShutdownManager.create();
-            try (SolverContext context = SolverContextFactory.createSolverContext(
-                    config, logger, shutdown.getNotifier(), Solvers.SMTINTERPOL)) {
-                FormulaManager fmgr = context.getFormulaManager();
-                IntegerFormulaManager imgr = fmgr.getIntegerFormulaManager();
-                BooleanFormulaManager bmgr = fmgr.getBooleanFormulaManager();
+            ensureContext();
+            Map<Integer, IntegerFormula> variables = new HashMap<>();
+            IntegerFormula leftFormula = translate(left, imgr, variables);
+            IntegerFormula rightFormula = translate(right, imgr, variables);
+            BooleanFormula canDiffer = bmgr.not(imgr.equal(leftFormula, rightFormula));
 
-                Map<Integer, IntegerFormula> variables = new HashMap<>();
-                IntegerFormula leftFormula = translate(left, imgr, variables);
-                IntegerFormula rightFormula = translate(right, imgr, variables);
-                BooleanFormula canDiffer = bmgr.not(imgr.equal(leftFormula, rightFormula));
-
-                try (ProverEnvironment prover = context.newProverEnvironment()) {
-                    prover.addConstraint(canDiffer);
-                    return prover.isUnsat() ? EquivalenceVerdict.EQUIVALENT : EquivalenceVerdict.DIFFERENT;
-                }
+            try (ProverEnvironment prover = context.newProverEnvironment()) {
+                prover.addConstraint(canDiffer);
+                return prover.isUnsat() ? EquivalenceVerdict.EQUIVALENT : EquivalenceVerdict.DIFFERENT;
             }
         } catch (UnsupportedOperationException ex) {
             return EquivalenceVerdict.UNSUPPORTED;
@@ -65,6 +63,19 @@ public final class SmtEquivalenceChecker {
             return EquivalenceVerdict.UNKNOWN;
         } catch (Exception ex) {
             return EquivalenceVerdict.UNKNOWN;
+        }
+    }
+
+    private void ensureContext() throws Exception {
+        if (context == null) {
+            Configuration config = Configuration.defaultConfiguration();
+            LogManager logger = BasicLogManager.create(config);
+            ShutdownManager shutdown = ShutdownManager.create();
+            context = SolverContextFactory.createSolverContext(
+                    config, logger, shutdown.getNotifier(), Solvers.SMTINTERPOL);
+            FormulaManager fmgr = context.getFormulaManager();
+            imgr = fmgr.getIntegerFormulaManager();
+            bmgr = fmgr.getBooleanFormulaManager();
         }
     }
 

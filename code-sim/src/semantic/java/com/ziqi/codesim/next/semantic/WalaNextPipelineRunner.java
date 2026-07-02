@@ -1,13 +1,32 @@
 package com.ziqi.codesim.next.semantic;
 
 import com.ziqi.codesim.next.CandidateSignalProvider;
+import com.ziqi.codesim.next.MethodPairEquivalenceOracle;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.NextPipelineRunner;
 import com.ziqi.codesim.next.RawToolCfgCandidateProvider;
+import com.ziqi.codesim.next.RegionGroupStructuralOracle;
+import com.ziqi.codesim.next.SemanticEquivalenceOracle;
+import com.ziqi.codesim.next.SemanticMethodCandidateProvider;
+import com.ziqi.codesim.next.StructuralMethodPair;
+import com.ziqi.codesim.next.StructuralRegionCandidateProvider;
+import com.ziqi.codesim.next.StructuralRegionOracle;
 import com.ziqi.codesim.next.StructuralSimilarityOracle;
 import com.ziqi.codesim.next.WalaStructuralSimilarityOracle;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
+import com.ziqi.codesim.region.descriptor.NodeDescriptorBuilder;
+import com.ziqi.codesim.region.grow.RegionGroup;
+import com.ziqi.codesim.region.grow.RegionGrower;
+import com.ziqi.codesim.region.model.NodeDescriptor;
+import com.ziqi.codesim.region.model.SemanticGraph;
+import com.ziqi.codesim.region.sdg.SdgBuilder;
+import com.ziqi.codesim.region.seed.SeedMatcher;
+import com.ziqi.codesim.region.seed.SeedPair;
+import com.ziqi.codesim.region.semantic.EquivalenceVerdict;
+import com.ziqi.codesim.region.semantic.MethodSummaryExtractor;
+import com.ziqi.codesim.region.semantic.SmtEquivalenceChecker;
+import com.ziqi.codesim.region.semantic.SymbolicExpression;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
 import com.ziqi.codesim.semantic.backend.wala.WalaAnalysisBackend;
 import com.ziqi.codesim.semantic.backend.wala.WalaClassHierarchies;
@@ -25,6 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class WalaNextPipelineRunner {
@@ -90,7 +110,27 @@ public class WalaNextPipelineRunner {
                     backend.analyze(leftHierarchy, leftCache, leftLabel).methods(),
                     backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
             );
-            return new NextPipelineRunner(List.of(provider), structuralOracle).run(leftSource, rightSource);
+
+            // Phase B (semantic): prove which cross-file method pairs compute the same value for all
+            // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
+            // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
+            List<String[]> equivalentPairs = semanticEquivalentPairs(leftClasses, rightClasses);
+            SemanticEquivalenceOracle semanticOracle =
+                    MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
+            CandidateSignalProvider semanticProvider = new SemanticMethodCandidateProvider(equivalentPairs);
+
+            // Phase A (structural): boundary-free region groups. Feed the method pairs they align
+            // (a cross-method group spans several) as candidates + a structural oracle, so the
+            // recognizer can flag helper-extraction / restructured clones that tokens and Phase B
+            // both miss.
+            List<StructuralMethodPair> structuralPairs = structuralMethodPairs(leftClasses, rightClasses);
+            StructuralRegionOracle structuralRegionOracle = RegionGroupStructuralOracle.from(structuralPairs);
+            CandidateSignalProvider structuralProvider = new StructuralRegionCandidateProvider(structuralPairs);
+
+            return new NextPipelineRunner(
+                    List.of(provider, semanticProvider, structuralProvider),
+                    structuralOracle, semanticOracle, structuralRegionOracle)
+                    .run(leftSource, rightSource);
         } catch (IOException | AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
             // fall back to the source-only pipeline so the user still gets the syntactic result
@@ -147,6 +187,47 @@ public class WalaNextPipelineRunner {
             return matcher.group(1) + ".java";
         }
         return fallback;
+    }
+
+    /** Method pairs aligned by Phase A structural region groups (cross-method groups span several). */
+    private static List<StructuralMethodPair> structuralMethodPairs(Path leftClasses, Path rightClasses)
+            throws AnalysisException {
+        SdgBuilder sdgBuilder = new SdgBuilder();
+        NodeDescriptorBuilder descriptorBuilder = new NodeDescriptorBuilder();
+        SemanticGraph leftGraph = sdgBuilder.build(leftClasses, "left");
+        SemanticGraph rightGraph = sdgBuilder.build(rightClasses, "right");
+        Map<Integer, NodeDescriptor> leftDesc = descriptorBuilder.build(leftGraph);
+        Map<Integer, NodeDescriptor> rightDesc = descriptorBuilder.build(rightGraph);
+        List<SeedPair> seeds = new SeedMatcher().match(leftDesc, rightDesc);
+        List<RegionGroup> regions = new RegionGrower().grow(leftGraph, leftDesc, rightGraph, rightDesc, seeds);
+
+        List<StructuralMethodPair> pairs = new ArrayList<>();
+        for (RegionGroup region : regions) {
+            for (String leftMethod : region.leftMethods()) {
+                for (String rightMethod : region.rightMethods()) {
+                    pairs.add(new StructuralMethodPair(leftMethod, rightMethod, region.coverage()));
+                }
+            }
+        }
+        return pairs;
+    }
+
+    /** Cross-file method pairs Phase B proves semantically equivalent, as raw signature pairs. */
+    private static List<String[]> semanticEquivalentPairs(Path leftClasses, Path rightClasses)
+            throws AnalysisException {
+        MethodSummaryExtractor extractor = new MethodSummaryExtractor();
+        Map<String, SymbolicExpression> leftSummaries = extractor.extractAll(leftClasses);
+        Map<String, SymbolicExpression> rightSummaries = extractor.extractAll(rightClasses);
+        SmtEquivalenceChecker checker = new SmtEquivalenceChecker();
+        List<String[]> pairs = new ArrayList<>();
+        for (Map.Entry<String, SymbolicExpression> left : leftSummaries.entrySet()) {
+            for (Map.Entry<String, SymbolicExpression> right : rightSummaries.entrySet()) {
+                if (checker.check(left.getValue(), right.getValue()) == EquivalenceVerdict.EQUIVALENT) {
+                    pairs.add(new String[]{left.getKey(), right.getKey()});
+                }
+            }
+        }
+        return pairs;
     }
 
     private static List<RawToolMethod> methods(RawToolProgram program) {
