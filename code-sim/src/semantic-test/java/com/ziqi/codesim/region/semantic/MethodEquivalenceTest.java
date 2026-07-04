@@ -67,6 +67,35 @@ class MethodEquivalenceTest {
                 "a loop method must degrade to UNKNOWN");
     }
 
+    @Test
+    void inlinesHelperToProveEquivalence() throws Exception {
+        Path sourceDir = tempDir.resolve("src2");
+        Path classesDir = tempDir.resolve("classes2");
+        Files.createDirectories(sourceDir);
+        Files.createDirectories(classesDir);
+        Path sourceFile = sourceDir.resolve("P.java");
+        Files.writeString(sourceFile, """
+                public class P {
+                    public int f(int x) { return x * 2 + 1; }
+                    public int g(int y) { return h(y) + 1; }
+                    public int h(int y) { return y * 2; }
+                }
+                """, StandardCharsets.UTF_8);
+        compile(sourceFile, classesDir);
+
+        Map<String, SymbolicExpression> summaries = new MethodSummaryExtractor().extractAll(classesDir);
+        SmtEquivalenceChecker checker = new SmtEquivalenceChecker();
+
+        // g inlines h -> 2y+1; f -> 2x+1. Equivalent across the call boundary (helper extraction).
+        assertEquals(EquivalenceVerdict.EQUIVALENT,
+                checker.check(summary(summaries, "f"), summary(summaries, "g")),
+                "inlining h into g must let f == g be proven");
+        // f (2x+1) vs the helper h alone (2y) genuinely differ.
+        assertEquals(EquivalenceVerdict.DIFFERENT,
+                checker.check(summary(summaries, "f"), summary(summaries, "h")),
+                "f and the helper h alone differ");
+    }
+
     private static SymbolicExpression summary(Map<String, SymbolicExpression> summaries, String method) {
         return summaries.entrySet().stream()
                 .filter(e -> e.getKey().contains(method + "("))

@@ -3,6 +3,7 @@ package com.ziqi.codesim.region.semantic;
 import com.ziqi.codesim.region.semantic.SymbolicExpression.BinaryOperation;
 import com.ziqi.codesim.region.semantic.SymbolicExpression.Constant;
 import com.ziqi.codesim.region.semantic.SymbolicExpression.Parameter;
+import com.ziqi.codesim.region.semantic.SymbolicExpression.RegionInput;
 import org.sosy_lab.common.ShutdownManager;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.log.BasicLogManager;
@@ -20,6 +21,7 @@ import org.sosy_lab.java_smt.api.SolverException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Decides whether two {@link SymbolicExpression} summaries compute the same value for all inputs,
@@ -64,6 +66,59 @@ public final class SmtEquivalenceChecker {
         } catch (Exception ex) {
             return EquivalenceVerdict.UNKNOWN;
         }
+    }
+
+    /**
+     * Checks whether two REGION output expressions (over {@link RegionInput}s) are equal for all
+     * inputs, with the two regions' inputs matched: a right input aligned to a left input becomes
+     * the same solver variable; an unaligned right input is a distinct variable.
+     *
+     * @param rightInputToLeft right region input SSA value -> the left input it is aligned to
+     */
+    public EquivalenceVerdict checkRegionOutputs(SymbolicExpression left, SymbolicExpression right,
+                                                 Map<Integer, Integer> rightInputToLeft) {
+        if (left.hasUnknown() || right.hasUnknown()) {
+            return EquivalenceVerdict.UNKNOWN;
+        }
+        try {
+            ensureContext();
+            IntegerFormula leftFormula = translateRegion(left, valueId -> "v" + valueId);
+            IntegerFormula rightFormula = translateRegion(right, valueId ->
+                    rightInputToLeft.containsKey(valueId) ? "v" + rightInputToLeft.get(valueId) : "r" + valueId);
+            BooleanFormula canDiffer = bmgr.not(imgr.equal(leftFormula, rightFormula));
+            try (ProverEnvironment prover = context.newProverEnvironment()) {
+                prover.addConstraint(canDiffer);
+                return prover.isUnsat() ? EquivalenceVerdict.EQUIVALENT : EquivalenceVerdict.DIFFERENT;
+            }
+        } catch (UnsupportedOperationException ex) {
+            return EquivalenceVerdict.UNSUPPORTED;
+        } catch (SolverException ex) {
+            return EquivalenceVerdict.UNKNOWN;
+        } catch (Exception ex) {
+            return EquivalenceVerdict.UNKNOWN;
+        }
+    }
+
+    private IntegerFormula translateRegion(SymbolicExpression expression, Function<Integer, String> nameOf) {
+        if (expression instanceof Constant constant) {
+            return imgr.makeNumber(constant.value());
+        }
+        if (expression instanceof RegionInput input) {
+            return imgr.makeVariable(nameOf.apply(input.valueId()));
+        }
+        if (expression instanceof BinaryOperation operation) {
+            IntegerFormula left = translateRegion(operation.left(), nameOf);
+            IntegerFormula right = translateRegion(operation.right(), nameOf);
+            return switch (operation.operator()) {
+                case "add" -> imgr.add(left, right);
+                case "sub" -> imgr.subtract(left, right);
+                case "mul" -> imgr.multiply(left, right);
+                case "div" -> imgr.divide(left, right);
+                case "rem" -> imgr.modulo(left, right);
+                default -> throw new UnsupportedOperationException("operator not modelled: " + operation.operator());
+            };
+        }
+        throw new UnsupportedOperationException("cannot translate region expression: " + expression);
     }
 
     private void ensureContext() throws Exception {

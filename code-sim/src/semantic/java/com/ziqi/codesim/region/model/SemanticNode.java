@@ -24,6 +24,9 @@ import com.ziqi.codesim.semantic.model.InstructionCategory;
  *                          the node computes no meaningful value (pseudo-nodes, goto, void). This is
  *                          the semantic channel: a fast seed-level approximation of "what it
  *                          computes", NOT a proof of equivalence (that is Phase B's SMT job)
+ * @param definedValue     the SSA value number this node's instruction defines, or -1 if none. Lets
+ *                          Phase B's region verifier map a region's nodes back to SSA values to
+ *                          summarize the region's inputs/outputs
  * @param source           source line range this node maps back to (synthetic for pseudo-nodes)
  * @param instructionText  best-effort human-readable instruction text (may be empty for pseudo-nodes)
  */
@@ -36,6 +39,7 @@ public record SemanticNode(
         InstructionCategory operation,
         String operationToken,
         long semanticValueHash,
+        int definedValue,
         SourceSpan source,
         String instructionText
 ) {

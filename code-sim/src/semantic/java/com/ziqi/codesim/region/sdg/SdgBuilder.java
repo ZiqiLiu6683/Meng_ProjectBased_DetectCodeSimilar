@@ -171,17 +171,19 @@ public final class SdgBuilder {
         String instructionText = "";
         InstructionCategory operation = InstructionCategory.OTHER;
         String operationToken;
+        int definedValue = -1;
         if (statement instanceof NormalStatement normal && normal.getInstruction() != null) {
             SSAInstruction instruction = normal.getInstruction();
             instructionText = instruction.toString();
             source = sourceLine(cgNode.getMethod(), normal.getInstructionIndex());
             operation = categoryOf(instruction);
             operationToken = operationToken(instruction, operation);
+            definedValue = instruction.hasDef() ? instruction.getDef(0) : -1;
         } else {
             operationToken = pseudoToken(kind);
         }
         return new SemanticNode(id, cgNodeId, methodSignature, kind, walaKind, operation,
-                operationToken, semanticValueHash, source, instructionText);
+                operationToken, semanticValueHash, definedValue, source, instructionText);
     }
 
     /**

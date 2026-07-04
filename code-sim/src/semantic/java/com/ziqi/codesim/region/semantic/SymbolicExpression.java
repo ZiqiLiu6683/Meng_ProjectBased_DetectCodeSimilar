@@ -9,6 +9,7 @@ package com.ziqi.codesim.region.semantic;
 public sealed interface SymbolicExpression
         permits SymbolicExpression.Constant,
         SymbolicExpression.Parameter,
+        SymbolicExpression.RegionInput,
         SymbolicExpression.BinaryOperation,
         SymbolicExpression.Unknown {
 
@@ -18,6 +19,15 @@ public sealed interface SymbolicExpression
 
     /** The method parameter at a given position (name-free; position 0 is {@code this} for instance methods). */
     record Parameter(int index) implements SymbolicExpression {
+    }
+
+    /**
+     * A free input to a REGION summary: a value used inside the region but defined outside it,
+     * identified by its SSA value number. Region equivalence matches a left region's inputs to a
+     * right region's inputs (by which aligned node/operand consumes them) and treats each matched
+     * pair as the same solver variable.
+     */
+    record RegionInput(int valueId) implements SymbolicExpression {
     }
 
     /** A binary operation whose operator is a WALA operator name (add, sub, mul, div, rem, and, ...). */
@@ -37,6 +47,6 @@ public sealed interface SymbolicExpression
         if (this instanceof BinaryOperation operation) {
             return operation.left().hasUnknown() || operation.right().hasUnknown();
         }
-        return false; // Constant, Parameter
+        return false; // Constant, Parameter, RegionInput
     }
 }

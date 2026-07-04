@@ -27,14 +27,19 @@ class HelperExtractionSeamTest {
 
         NextPipelineResult result = new WalaNextPipelineRunner().run(left, right);
 
-        // The projected Phase A structural region (f's body <-> g+h's bodies) is classified as a
-        // possible Type-4: it fails T1/T2/T3 (inline vs call chain differ syntactically) but carries
-        // strong structural coverage. Before Phase A, helper extraction came out NON_CLONE.
+        // Phase B inlines h into g (2y+1) and proves f == g, so the f<->g method pair is a CONFIRMED
+        // Type-4. Before, helper extraction came out NON_CLONE.
+        boolean confirmedT4 = result.regionDecisions().stream()
+                .anyMatch(d -> d.type() == CloneRegionType.T4_CONFIRMED);
+        assertTrue(confirmedT4,
+                "Phase B must prove helper extraction (f == g via inlining) as a confirmed Type-4");
+
+        // Phase A independently flags the projected cross-method structural region as a possible
+        // Type-4 (structural coverage without a proof).
         boolean possibleT4 = result.regionDecisions().stream()
                 .anyMatch(d -> d.type() == CloneRegionType.POSSIBLE_T4_CANDIDATE
                         && d.candidate().left().kind() == RegionKind.CALL_EXPANDED_REGION);
         assertTrue(possibleT4,
-                "Phase A's projected cross-method structural region must flag helper extraction as a "
-                        + "possible Type-4 candidate");
+                "Phase A's projected cross-method structural region must also flag it as possible Type-4");
     }
 }
