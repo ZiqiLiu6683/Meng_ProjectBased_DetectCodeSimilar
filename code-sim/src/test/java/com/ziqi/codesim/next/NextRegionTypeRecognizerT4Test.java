@@ -30,6 +30,33 @@ class NextRegionTypeRecognizerT4Test {
                 "without semantic evidence the same pair stays NON_CLONE (legacy behaviour)");
     }
 
+    @Test
+    void evidencesT4WhenOnlyDynamicOracleAgrees() {
+        RegionCandidate candidate = structurallyUnrelatedMethodPair();
+
+        DynamicEquivalenceOracle samplesAgree = (left, right) -> true;
+        RegionDecision evidenced = new NextRegionTypeRecognizer(
+                StructuralSimilarityOracle.NONE, SemanticEquivalenceOracle.NONE,
+                StructuralRegionOracle.NONE, samplesAgree)
+                .decide(candidate);
+        assertEquals(CloneRegionType.T4_DYNAMIC_EVIDENCE, evidenced.type(),
+                "no SMT proof but I/O sampling agrees -> the evidence tier, not a confirmed T4");
+        assertTrue(evidenced.tags().contains(RegionTag.POSSIBLE_SEMANTIC_RELATION));
+    }
+
+    @Test
+    void smtProofOutranksDynamicEvidence() {
+        RegionCandidate candidate = structurallyUnrelatedMethodPair();
+
+        SemanticEquivalenceOracle proves = (left, right) -> true;
+        DynamicEquivalenceOracle samplesAgree = (left, right) -> true;
+        RegionDecision decision = new NextRegionTypeRecognizer(
+                StructuralSimilarityOracle.NONE, proves, StructuralRegionOracle.NONE, samplesAgree)
+                .decide(candidate);
+        assertEquals(CloneRegionType.T4_CONFIRMED, decision.type(),
+                "when both fire, the SMT proof wins over dynamic evidence");
+    }
+
     /** Two METHOD regions with fully disjoint tokens/statements, so T1/T2/T3 cannot approve. */
     private static RegionCandidate structurallyUnrelatedMethodPair() {
         CodeRegion left = new CodeRegion(

@@ -126,6 +126,7 @@ public class FileLevelAggregator {
             return FileRelationship.MIXED_CLONE_TYPES;
         }
         if (dominantType == CloneRegionType.T4_CONFIRMED
+                || dominantType == CloneRegionType.T4_DYNAMIC_EVIDENCE
                 || dominantType == CloneRegionType.POSSIBLE_T4_CANDIDATE) {
             return FileRelationship.POSSIBLE_SEMANTIC_RELATION;
         }
@@ -281,6 +282,7 @@ public class FileLevelAggregator {
             CloneRegionType.T2,
             CloneRegionType.T3,
             CloneRegionType.T4_CONFIRMED,
+            CloneRegionType.T4_DYNAMIC_EVIDENCE,
             CloneRegionType.POSSIBLE_T4_CANDIDATE
     );
 

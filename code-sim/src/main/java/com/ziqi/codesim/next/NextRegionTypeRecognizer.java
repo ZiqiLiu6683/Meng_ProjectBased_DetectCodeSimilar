@@ -25,26 +25,37 @@ public class NextRegionTypeRecognizer {
     private final StructuralSimilarityOracle structuralOracle;
     private final SemanticEquivalenceOracle semanticOracle;
     private final StructuralRegionOracle structuralRegionOracle;
+    private final DynamicEquivalenceOracle dynamicOracle;
 
     public NextRegionTypeRecognizer() {
-        this(StructuralSimilarityOracle.NONE, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE);
+        this(StructuralSimilarityOracle.NONE, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE,
+                DynamicEquivalenceOracle.NONE);
     }
 
     public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle) {
-        this(structuralOracle, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE);
+        this(structuralOracle, SemanticEquivalenceOracle.NONE, StructuralRegionOracle.NONE,
+                DynamicEquivalenceOracle.NONE);
     }
 
     public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle,
                                     SemanticEquivalenceOracle semanticOracle) {
-        this(structuralOracle, semanticOracle, StructuralRegionOracle.NONE);
+        this(structuralOracle, semanticOracle, StructuralRegionOracle.NONE, DynamicEquivalenceOracle.NONE);
     }
 
     public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle,
                                     SemanticEquivalenceOracle semanticOracle,
                                     StructuralRegionOracle structuralRegionOracle) {
+        this(structuralOracle, semanticOracle, structuralRegionOracle, DynamicEquivalenceOracle.NONE);
+    }
+
+    public NextRegionTypeRecognizer(StructuralSimilarityOracle structuralOracle,
+                                    SemanticEquivalenceOracle semanticOracle,
+                                    StructuralRegionOracle structuralRegionOracle,
+                                    DynamicEquivalenceOracle dynamicOracle) {
         this.structuralOracle = structuralOracle;
         this.semanticOracle = semanticOracle;
         this.structuralRegionOracle = structuralRegionOracle;
+        this.dynamicOracle = dynamicOracle;
     }
 
     public RegionDecision decide(RegionCandidate candidate) {
@@ -132,6 +143,17 @@ public class NextRegionTypeRecognizer {
             path.add("T4 confirmed: an independent SMT proof shows the two regions compute the same "
                     + "value for all inputs, despite differing structure.");
             return decision(candidate, CloneRegionType.T4_CONFIRMED, CloneStrength.NONE, syntacticSimilarity,
+                    structuralSimilarity, renameEvidence, editScript, tags, path);
+        }
+
+        // T4 by dynamic evidence: SMT could not prove equivalence (loops/nonlinear code), but the
+        // dynamic layer ran both regions on the same inputs and they agreed on every one. This is
+        // strong EVIDENCE, not a proof -- reported as its own tier, strictly below an SMT-confirmed T4.
+        if (dynamicOracle.likelyEquivalent(left, right)) {
+            tags.add(RegionTag.POSSIBLE_SEMANTIC_RELATION);
+            path.add("T4 evidenced: I/O sampling ran the two regions on the same inputs and they agreed "
+                    + "on every tested input (evidence, not proof; SMT could not prove it).");
+            return decision(candidate, CloneRegionType.T4_DYNAMIC_EVIDENCE, CloneStrength.NONE, syntacticSimilarity,
                     structuralSimilarity, renameEvidence, editScript, tags, path);
         }
 

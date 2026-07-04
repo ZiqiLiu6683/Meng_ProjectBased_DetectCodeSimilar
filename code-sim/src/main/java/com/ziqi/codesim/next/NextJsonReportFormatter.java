@@ -242,6 +242,7 @@ public class NextJsonReportFormatter {
             case T2 -> "Names changed (T2)";
             case T3 -> "Code added/changed (T3)";
             case T4_CONFIRMED -> "Same behavior, different code (T4)";
+            case T4_DYNAMIC_EVIDENCE -> "Same behavior by testing (T4)";
             case POSSIBLE_T4_CANDIDATE -> "Possible same behavior (T4)";
             case NON_CLONE -> "No clear match";
         };
@@ -256,7 +257,7 @@ public class NextJsonReportFormatter {
             case T1 -> "t1";
             case T2 -> "t2";
             case T3 -> "t3";
-            case T4_CONFIRMED, POSSIBLE_T4_CANDIDATE -> "t4";
+            case T4_CONFIRMED, T4_DYNAMIC_EVIDENCE, POSSIBLE_T4_CANDIDATE -> "t4";
             case NON_CLONE -> "non-clone";
         };
     }

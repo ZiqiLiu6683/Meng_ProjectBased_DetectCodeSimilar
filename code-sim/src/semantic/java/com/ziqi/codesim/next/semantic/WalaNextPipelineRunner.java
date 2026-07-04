@@ -1,6 +1,8 @@
 package com.ziqi.codesim.next.semantic;
 
 import com.ziqi.codesim.next.CandidateSignalProvider;
+import com.ziqi.codesim.next.DynamicEquivalenceOracle;
+import com.ziqi.codesim.next.MethodPairDynamicOracle;
 import com.ziqi.codesim.next.MethodPairEquivalenceOracle;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.NextPipelineRunner;
@@ -11,6 +13,8 @@ import com.ziqi.codesim.next.SemanticMethodCandidateProvider;
 import com.ziqi.codesim.next.StructuralRegionProjector;
 import com.ziqi.codesim.next.StructuralSimilarityOracle;
 import com.ziqi.codesim.next.WalaStructuralSimilarityOracle;
+import com.ziqi.codesim.region.dynamic.DynamicEquivalenceChecker;
+import com.ziqi.codesim.region.dynamic.DynamicVerdict;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ziqi.codesim.region.descriptor.NodeDescriptorBuilder;
@@ -114,10 +118,21 @@ public class WalaNextPipelineRunner {
             // Phase B (semantic): prove which cross-file method pairs compute the same value for all
             // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
             // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
-            List<String[]> equivalentPairs = semanticEquivalentPairs(leftClasses, rightClasses);
+            SemanticVerdicts verdicts = semanticVerdicts(leftClasses, rightClasses);
+            List<String[]> equivalentPairs = verdicts.equivalent();
             SemanticEquivalenceOracle semanticOracle =
                     MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
             CandidateSignalProvider semanticProvider = new SemanticMethodCandidateProvider(equivalentPairs);
+
+            // Dynamic layer: for the pairs SMT could NOT decide (loops/nonlinear -> UNKNOWN), run both
+            // methods on the same random inputs. Agreement on every input is EVIDENCE (not proof) of a
+            // Type-4 clone, surfaced by the recognizer as T4_DYNAMIC_EVIDENCE. Pairs SMT proved
+            // DIFFERENT are excluded up front (no point sampling a known counterexample).
+            List<String[]> dynamicPairs = dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
+            DynamicEquivalenceOracle dynamicOracle =
+                    MethodPairDynamicOracle.fromRawSignaturePairs(dynamicPairs);
+            CandidateSignalProvider dynamicProvider =
+                    new SemanticMethodCandidateProvider(dynamicPairs, "DYNAMIC_EQUIV_SCAN");
 
             // Phase A (structural): boundary-free region groups, PROJECTED back to source regions and
             // classified in full (Phase A selects the region, the recognizer classifies it). A
@@ -128,7 +143,9 @@ public class WalaNextPipelineRunner {
             List<RegionCandidate> projectedRegions =
                     new StructuralRegionProjector().project(leftSource, rightSource, specs);
 
-            return new NextPipelineRunner(List.of(provider, semanticProvider), structuralOracle, semanticOracle)
+            return new NextPipelineRunner(
+                    List.of(provider, semanticProvider, dynamicProvider),
+                    structuralOracle, semanticOracle, dynamicOracle)
                     .run(leftSource, rightSource, projectedRegions);
         } catch (IOException | AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
@@ -225,22 +242,71 @@ public class WalaNextPipelineRunner {
         });
     }
 
-    /** Cross-file method pairs Phase B proves semantically equivalent, as raw signature pairs. */
-    private static List<String[]> semanticEquivalentPairs(Path leftClasses, Path rightClasses)
+    /**
+     * The SMT outcome for every cross-file method pair, split by verdict: {@code equivalent} pairs are
+     * proven (T4_CONFIRMED); {@code undecided} pairs (UNKNOWN/UNSUPPORTED -- loops, nonlinear code)
+     * are the ones the dynamic layer then samples. Pairs SMT proved DIFFERENT are in neither list.
+     */
+    private record SemanticVerdicts(List<String[]> equivalent, List<String[]> undecided) {
+    }
+
+    /** Run Phase B over the cross product and bucket each pair by SMT verdict. */
+    private static SemanticVerdicts semanticVerdicts(Path leftClasses, Path rightClasses)
             throws AnalysisException {
         MethodSummaryExtractor extractor = new MethodSummaryExtractor();
         Map<String, SymbolicExpression> leftSummaries = extractor.extractAll(leftClasses);
         Map<String, SymbolicExpression> rightSummaries = extractor.extractAll(rightClasses);
         SmtEquivalenceChecker checker = new SmtEquivalenceChecker();
-        List<String[]> pairs = new ArrayList<>();
+        List<String[]> equivalent = new ArrayList<>();
+        List<String[]> undecided = new ArrayList<>();
         for (Map.Entry<String, SymbolicExpression> left : leftSummaries.entrySet()) {
             for (Map.Entry<String, SymbolicExpression> right : rightSummaries.entrySet()) {
-                if (checker.check(left.getValue(), right.getValue()) == EquivalenceVerdict.EQUIVALENT) {
-                    pairs.add(new String[]{left.getKey(), right.getKey()});
+                EquivalenceVerdict verdict = checker.check(left.getValue(), right.getValue());
+                String[] pair = {left.getKey(), right.getKey()};
+                if (verdict == EquivalenceVerdict.EQUIVALENT) {
+                    equivalent.add(pair);
+                } else if (verdict == EquivalenceVerdict.UNKNOWN
+                        || verdict == EquivalenceVerdict.UNSUPPORTED) {
+                    undecided.add(pair);
                 }
             }
         }
+        return new SemanticVerdicts(equivalent, undecided);
+    }
+
+    /**
+     * Of the SMT-undecided pairs, those the dynamic checker found to agree on every sampled input.
+     * The class/method names are parsed from the raw WALA signature (e.g. {@code pkg.A.f(I)I}).
+     */
+    private static List<String[]> dynamicEquivalentPairs(Path leftClasses, Path rightClasses,
+                                                         List<String[]> undecided) {
+        DynamicEquivalenceChecker checker = new DynamicEquivalenceChecker();
+        List<String[]> pairs = new ArrayList<>();
+        for (String[] pair : undecided) {
+            DynamicVerdict verdict = checker.check(
+                    leftClasses, className(pair[0]), methodName(pair[0]),
+                    rightClasses, className(pair[1]), methodName(pair[1]));
+            if (verdict == DynamicVerdict.LIKELY_EQUIVALENT) {
+                pairs.add(pair);
+            }
+        }
         return pairs;
+    }
+
+    /** Fully-qualified declaring class name from a raw WALA method signature ({@code pkg.A.f(I)I} -> {@code pkg.A}). */
+    private static String className(String rawSignature) {
+        int paren = rawSignature.indexOf('(');
+        String qualified = paren >= 0 ? rawSignature.substring(0, paren) : rawSignature;
+        int lastDot = qualified.lastIndexOf('.');
+        return lastDot >= 0 ? qualified.substring(0, lastDot) : qualified;
+    }
+
+    /** Simple method name from a raw WALA method signature ({@code pkg.A.f(I)I} -> {@code f}). */
+    private static String methodName(String rawSignature) {
+        int paren = rawSignature.indexOf('(');
+        String qualified = paren >= 0 ? rawSignature.substring(0, paren) : rawSignature;
+        int lastDot = qualified.lastIndexOf('.');
+        return lastDot >= 0 ? qualified.substring(lastDot + 1) : qualified;
     }
 
     private static List<RawToolMethod> methods(RawToolProgram program) {

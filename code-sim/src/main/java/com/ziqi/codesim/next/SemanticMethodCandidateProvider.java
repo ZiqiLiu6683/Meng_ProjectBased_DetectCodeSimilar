@@ -14,13 +14,24 @@ import java.util.Map;
  */
 public final class SemanticMethodCandidateProvider implements CandidateSignalProvider {
 
-    private static final String CHANNEL = "SEMANTIC_EQUIV_SCAN";
+    private static final String DEFAULT_CHANNEL = "SEMANTIC_EQUIV_SCAN";
 
     private final List<String[]> equivalentRawPairs;
+    private final String channel;
 
     /** @param equivalentRawPairs each {@code {leftRawSignature, rightRawSignature}} proven equivalent */
     public SemanticMethodCandidateProvider(List<String[]> equivalentRawPairs) {
+        this(equivalentRawPairs, DEFAULT_CHANNEL);
+    }
+
+    /**
+     * @param equivalentRawPairs each {@code {leftRawSignature, rightRawSignature}} the source layer matched
+     * @param channel the provenance channel to stamp on emitted signals (e.g. {@code DYNAMIC_EQUIV_SCAN}
+     *                for pairs the dynamic layer matched rather than SMT proved)
+     */
+    public SemanticMethodCandidateProvider(List<String[]> equivalentRawPairs, String channel) {
         this.equivalentRawPairs = List.copyOf(equivalentRawPairs);
+        this.channel = channel;
     }
 
     @Override
@@ -32,7 +43,7 @@ public final class SemanticMethodCandidateProvider implements CandidateSignalPro
             String leftRegionId = leftRegions.get(rawKey(pair[0]));
             String rightRegionId = rightRegions.get(rawKey(pair[1]));
             if (leftRegionId != null && rightRegionId != null) {
-                signals.add(new CandidateSignal(leftRegionId, rightRegionId, CHANNEL, 1.0));
+                signals.add(new CandidateSignal(leftRegionId, rightRegionId, channel, 1.0));
             }
         }
         return signals;

@@ -44,6 +44,16 @@ public class NextPipelineRunner {
                 new NextRegionTypeRecognizer(structuralOracle, semanticOracle, structuralRegionOracle));
     }
 
+    public NextPipelineRunner(List<CandidateSignalProvider> signalProviders,
+                              StructuralSimilarityOracle structuralOracle,
+                              SemanticEquivalenceOracle semanticOracle,
+                              DynamicEquivalenceOracle dynamicOracle) {
+        this(new NextEvidenceExtractor(),
+                new NextCandidateDiscovery(signalProviders),
+                new NextRegionTypeRecognizer(structuralOracle, semanticOracle,
+                        StructuralRegionOracle.NONE, dynamicOracle));
+    }
+
     NextPipelineRunner(NextEvidenceExtractor evidenceExtractor,
                        NextCandidateDiscovery candidateDiscovery,
                        NextRegionTypeRecognizer regionTypeRecognizer) {
