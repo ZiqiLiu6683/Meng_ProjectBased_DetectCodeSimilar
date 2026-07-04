@@ -56,8 +56,18 @@ public class NextPipelineRunner {
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) {
+        return run(leftSource, rightSource, List.of());
+    }
+
+    /**
+     * @param extraCandidates pre-formed candidates to classify alongside the discovered ones (e.g.
+     *                        Phase A structural region groups projected back to source regions).
+     */
+    public NextPipelineResult run(String leftSource, String rightSource,
+                                  List<RegionCandidate> extraCandidates) {
         EvidencePackage evidencePackage = evidenceExtractor.extract(leftSource, rightSource);
-        List<RegionCandidate> candidates = candidateDiscovery.discover(evidencePackage);
+        List<RegionCandidate> candidates = new java.util.ArrayList<>(candidateDiscovery.discover(evidencePackage));
+        candidates.addAll(extraCandidates);
         List<RankedRegionCandidate> rankedCandidates = candidateMergerRanker.mergeAndRank(candidates);
         List<RegionDecision> decisions = rankedCandidates.stream()
                 .map(RankedRegionCandidate::candidate)

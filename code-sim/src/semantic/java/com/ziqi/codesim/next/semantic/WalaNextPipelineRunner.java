@@ -5,17 +5,16 @@ import com.ziqi.codesim.next.MethodPairEquivalenceOracle;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.NextPipelineRunner;
 import com.ziqi.codesim.next.RawToolCfgCandidateProvider;
-import com.ziqi.codesim.next.RegionGroupStructuralOracle;
+import com.ziqi.codesim.next.RegionCandidate;
 import com.ziqi.codesim.next.SemanticEquivalenceOracle;
 import com.ziqi.codesim.next.SemanticMethodCandidateProvider;
-import com.ziqi.codesim.next.StructuralMethodPair;
-import com.ziqi.codesim.next.StructuralRegionCandidateProvider;
-import com.ziqi.codesim.next.StructuralRegionOracle;
+import com.ziqi.codesim.next.StructuralRegionProjector;
 import com.ziqi.codesim.next.StructuralSimilarityOracle;
 import com.ziqi.codesim.next.WalaStructuralSimilarityOracle;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ziqi.codesim.region.descriptor.NodeDescriptorBuilder;
+import com.ziqi.codesim.region.grow.AlignedPair;
 import com.ziqi.codesim.region.grow.RegionGroup;
 import com.ziqi.codesim.region.grow.RegionGrower;
 import com.ziqi.codesim.region.model.NodeDescriptor;
@@ -43,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -119,18 +119,17 @@ public class WalaNextPipelineRunner {
                     MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
             CandidateSignalProvider semanticProvider = new SemanticMethodCandidateProvider(equivalentPairs);
 
-            // Phase A (structural): boundary-free region groups. Feed the method pairs they align
-            // (a cross-method group spans several) as candidates + a structural oracle, so the
-            // recognizer can flag helper-extraction / restructured clones that tokens and Phase B
-            // both miss.
-            List<StructuralMethodPair> structuralPairs = structuralMethodPairs(leftClasses, rightClasses);
-            StructuralRegionOracle structuralRegionOracle = RegionGroupStructuralOracle.from(structuralPairs);
-            CandidateSignalProvider structuralProvider = new StructuralRegionCandidateProvider(structuralPairs);
+            // Phase A (structural): boundary-free region groups, PROJECTED back to source regions and
+            // classified in full (Phase A selects the region, the recognizer classifies it). A
+            // cross-method group projects to a multi-fragment region that fails T1-T3 and is flagged
+            // as a possible Type-4 from its structural coverage.
+            List<StructuralRegionProjector.RegionLineSpec> specs =
+                    structuralRegionSpecs(leftClasses, rightClasses);
+            List<RegionCandidate> projectedRegions =
+                    new StructuralRegionProjector().project(leftSource, rightSource, specs);
 
-            return new NextPipelineRunner(
-                    List.of(provider, semanticProvider, structuralProvider),
-                    structuralOracle, semanticOracle, structuralRegionOracle)
-                    .run(leftSource, rightSource);
+            return new NextPipelineRunner(List.of(provider, semanticProvider), structuralOracle, semanticOracle)
+                    .run(leftSource, rightSource, projectedRegions);
         } catch (IOException | AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
             // fall back to the source-only pipeline so the user still gets the syntactic result
@@ -189,9 +188,9 @@ public class WalaNextPipelineRunner {
         return fallback;
     }
 
-    /** Method pairs aligned by Phase A structural region groups (cross-method groups span several). */
-    private static List<StructuralMethodPair> structuralMethodPairs(Path leftClasses, Path rightClasses)
-            throws AnalysisException {
+    /** Phase A region groups projected to the source lines they cover on each side. */
+    private static List<StructuralRegionProjector.RegionLineSpec> structuralRegionSpecs(
+            Path leftClasses, Path rightClasses) throws AnalysisException {
         SdgBuilder sdgBuilder = new SdgBuilder();
         NodeDescriptorBuilder descriptorBuilder = new NodeDescriptorBuilder();
         SemanticGraph leftGraph = sdgBuilder.build(leftClasses, "left");
@@ -201,15 +200,29 @@ public class WalaNextPipelineRunner {
         List<SeedPair> seeds = new SeedMatcher().match(leftDesc, rightDesc);
         List<RegionGroup> regions = new RegionGrower().grow(leftGraph, leftDesc, rightGraph, rightDesc, seeds);
 
-        List<StructuralMethodPair> pairs = new ArrayList<>();
+        List<StructuralRegionProjector.RegionLineSpec> specs = new ArrayList<>();
         for (RegionGroup region : regions) {
-            for (String leftMethod : region.leftMethods()) {
-                for (String rightMethod : region.rightMethods()) {
-                    pairs.add(new StructuralMethodPair(leftMethod, rightMethod, region.coverage()));
-                }
+            Set<Integer> leftLines = new HashSet<>();
+            Set<Integer> rightLines = new HashSet<>();
+            for (AlignedPair pair : region.alignment()) {
+                collectLines(leftGraph, pair.leftNodeId(), leftLines);
+                collectLines(rightGraph, pair.rightNodeId(), rightLines);
+            }
+            if (!leftLines.isEmpty() && !rightLines.isEmpty()) {
+                specs.add(new StructuralRegionProjector.RegionLineSpec(leftLines, rightLines, region.coverage()));
             }
         }
-        return pairs;
+        return specs;
+    }
+
+    private static void collectLines(SemanticGraph graph, int nodeId, Set<Integer> lines) {
+        graph.node(nodeId).ifPresent(node -> {
+            if (node.source().isKnown()) {
+                for (int line = node.source().beginLine(); line <= node.source().endLine(); line++) {
+                    lines.add(line);
+                }
+            }
+        });
     }
 
     /** Cross-file method pairs Phase B proves semantically equivalent, as raw signature pairs. */

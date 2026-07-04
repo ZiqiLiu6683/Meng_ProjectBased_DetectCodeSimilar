@@ -139,7 +139,11 @@ public class NextRegionTypeRecognizer {
         // region group aligning these methods (e.g. helper extraction -- one side inlines what the
         // other splits across a callee). Structural support without a behavioural proof is exactly
         // POSSIBLE_T4_CANDIDATE, not a confirmed clone.
-        double regionCoverage = structuralRegionOracle.regionCoverage(left, right);
+        // Structural coverage comes either from a projected Phase A region (carried on the candidate
+        // as a STRUCTURAL_REGION_SCAN source) or from the method-keyed oracle.
+        double regionCoverage = Math.max(
+                structuralRegionCoverageFrom(candidate),
+                structuralRegionOracle.regionCoverage(left, right));
         if (regionCoverage >= MIN_STRUCTURAL_REGION_COVERAGE) {
             tags.add(RegionTag.POSSIBLE_SEMANTIC_RELATION);
             path.add(String.format(
@@ -212,6 +216,14 @@ public class NextRegionTypeRecognizer {
                 || kind == RegionKind.METHOD
                 || kind == RegionKind.METHOD_BODY_REGION
                 || kind == RegionKind.CALL_EXPANDED_REGION;
+    }
+
+    private static double structuralRegionCoverageFrom(RegionCandidate candidate) {
+        return candidate.sources().stream()
+                .filter(source -> source.channel().equals("STRUCTURAL_REGION_SCAN"))
+                .mapToDouble(CandidateSource::score)
+                .max()
+                .orElse(0.0);
     }
 
     private static boolean hasExternalCandidateEvidence(RegionCandidate candidate) {

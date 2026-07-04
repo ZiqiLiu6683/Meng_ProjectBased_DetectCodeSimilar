@@ -238,6 +238,48 @@ public class NextEvidenceExtractor {
                 .toList();
     }
 
+    /**
+     * Projects a Phase A structural region group back into a classifiable source region: builds a
+     * {@link CodeRegion} from the outermost source statements that overlap the given 1-based line
+     * numbers. Reuses the same tokenizer/statement machinery the normal regions use, so the
+     * recognizer can classify a Phase A region syntactically (T1/T2/T3) with real source tokens.
+     */
+    public static CodeRegion regionForLines(String source, Set<Integer> lines, RegionSide side,
+                                            RegionKind kind, String id, String displayName) {
+        CompilationUnit cu = AstTokenizer.parse(source);
+        List<Statement> statements = cu.findAll(Statement.class).stream()
+                .filter(s -> !(s instanceof BlockStmt))
+                .filter(s -> overlapsLines(s, lines))
+                .filter(s -> !hasOverlappingStatementAncestor(s, lines))
+                .toList();
+        return regionFromStatements(id, side, kind, displayName, statements);
+    }
+
+    private static boolean overlapsLines(Statement statement, Set<Integer> lines) {
+        return statement.getRange().map(range -> {
+            for (int line = range.begin.line; line <= range.end.line; line++) {
+                if (lines.contains(line)) {
+                    return true;
+                }
+            }
+            return false;
+        }).orElse(false);
+    }
+
+    // Keep only the outermost overlapping statements, so a control statement and its nested body are
+    // not both counted (which would double-count tokens).
+    private static boolean hasOverlappingStatementAncestor(Statement statement, Set<Integer> lines) {
+        Node parent = statement.getParentNode().orElse(null);
+        while (parent != null) {
+            if (parent instanceof Statement ancestor && !(parent instanceof BlockStmt)
+                    && overlapsLines(ancestor, lines)) {
+                return true;
+            }
+            parent = parent.getParentNode().orElse(null);
+        }
+        return false;
+    }
+
     private static boolean isControlStatement(Statement statement) {
         return statement.isIfStmt()
                 || statement.isForStmt()

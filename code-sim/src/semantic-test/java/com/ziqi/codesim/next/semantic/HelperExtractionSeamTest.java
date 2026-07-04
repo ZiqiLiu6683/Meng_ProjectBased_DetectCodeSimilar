@@ -27,19 +27,14 @@ class HelperExtractionSeamTest {
 
         NextPipelineResult result = new WalaNextPipelineRunner().run(left, right);
 
+        // The projected Phase A structural region (f's body <-> g+h's bodies) is classified as a
+        // possible Type-4: it fails T1/T2/T3 (inline vs call chain differ syntactically) but carries
+        // strong structural coverage. Before Phase A, helper extraction came out NON_CLONE.
         boolean possibleT4 = result.regionDecisions().stream()
-                .anyMatch(d -> d.type() == CloneRegionType.POSSIBLE_T4_CANDIDATE);
+                .anyMatch(d -> d.type() == CloneRegionType.POSSIBLE_T4_CANDIDATE
+                        && d.candidate().left().kind() == RegionKind.CALL_EXPANDED_REGION);
         assertTrue(possibleT4,
-                "Phase A's cross-method structural region group must flag helper extraction as a "
+                "Phase A's projected cross-method structural region must flag helper extraction as a "
                         + "possible Type-4 candidate");
-
-        // Specifically, f <-> g (the inline-vs-callchain pair) must no longer be NON_CLONE.
-        boolean fgRescued = result.regionDecisions().stream()
-                .filter(d -> d.candidate().left().kind() == RegionKind.METHOD
-                        && d.candidate().right().kind() == RegionKind.METHOD)
-                .filter(d -> d.candidate().left().displayName().contains(".f(")
-                        && d.candidate().right().displayName().contains(".g("))
-                .anyMatch(d -> d.type() != CloneRegionType.NON_CLONE);
-        assertTrue(fgRescued, "f <-> g must be recognized (not NON_CLONE) via the structural region seam");
     }
 }
