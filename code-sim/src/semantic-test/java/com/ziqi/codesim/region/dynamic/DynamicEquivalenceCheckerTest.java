@@ -77,6 +77,26 @@ class DynamicEquivalenceCheckerTest {
                 "array max vs array sum differ on some input");
     }
 
+    @Test
+    void judgesVoidMethodsByArgumentSideEffects() throws Exception {
+        Path left = compile("left3", "L3",
+                "public class L3 {"
+                        + " public void bubble(int[] a){ for(int i=0;i<a.length;i++){ for(int j=0;j<a.length-1;j++){ if(a[j]>a[j+1]){ int t=a[j]; a[j]=a[j+1]; a[j+1]=t; } } } }"
+                        + " public void reverse(int[] a){ int i=0,j=a.length-1; while(i<j){ int t=a[i]; a[i]=a[j]; a[j]=t; i++; j--; } } }");
+        Path right = compile("right3", "R3",
+                "public class R3 {"
+                        + " public void selection(int[] a){ for(int i=0;i<a.length;i++){ int m=i; for(int j=i+1;j<a.length;j++){ if(a[j]<a[m]){ m=j; } } int t=a[i]; a[i]=a[m]; a[m]=t; } } }");
+
+        DynamicEquivalenceChecker checker = new DynamicEquivalenceChecker();
+
+        assertEquals(DynamicVerdict.LIKELY_EQUIVALENT,
+                checker.check(left, "L3", "bubble", right, "R3", "selection"),
+                "two in-place sorts leave the array in the same state -> equivalent by side effect");
+        assertEquals(DynamicVerdict.DIFFERENT,
+                checker.check(left, "L3", "reverse", right, "R3", "selection"),
+                "in-place reverse vs in-place sort leave different array states");
+    }
+
     private Path compile(String pkg, String type, String source) throws Exception {
         Path sourceDir = tempDir.resolve(pkg + "/src");
         Path classesDir = tempDir.resolve(pkg + "/classes");

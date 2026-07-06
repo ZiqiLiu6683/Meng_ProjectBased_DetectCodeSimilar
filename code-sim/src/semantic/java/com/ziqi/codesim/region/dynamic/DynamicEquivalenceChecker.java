@@ -55,6 +55,11 @@ public final class DynamicEquivalenceChecker {
             if (left == null || right == null || !sameSignature(left, right)) {
                 return DynamicVerdict.UNSUPPORTED;
             }
+            if (!hasObservableOutput(left)) {
+                // void return AND no array argument: the method's only effect is on fields/state we
+                // cannot observe, so we cannot tell two such methods apart -- do not guess.
+                return DynamicVerdict.UNSUPPORTED;
+            }
             Object leftInstance = instance(left);
             Object rightInstance = instance(right);
             if (leftInstance == NO_INSTANCE || rightInstance == NO_INSTANCE) {
@@ -65,12 +70,17 @@ public final class DynamicEquivalenceChecker {
             Class<?>[] parameterTypes = left.getParameterTypes();
             for (int s = 0; s < samples; s++) {
                 Object[] base = randomArguments(parameterTypes, random);
-                Object leftResult = invoke(executor, left, leftInstance, copyArguments(base));
-                Object rightResult = invoke(executor, right, rightInstance, copyArguments(base));
+                Object[] leftArgs = copyArguments(base);
+                Object[] rightArgs = copyArguments(base);
+                Object leftResult = invoke(executor, left, leftInstance, leftArgs);
+                Object rightResult = invoke(executor, right, rightInstance, rightArgs);
                 if (leftResult == FAILED || rightResult == FAILED) {
                     return DynamicVerdict.UNKNOWN;
                 }
-                if (!Objects.deepEquals(leftResult, rightResult)) {
+                // Behaviour = the return value AND the final state of the (copied) arguments, so a
+                // void method whose effect is mutating an array (e.g. an in-place sort) is judged too.
+                if (!Objects.deepEquals(leftResult, rightResult)
+                        || !argumentsEqual(leftArgs, rightArgs)) {
                     return DynamicVerdict.DIFFERENT;
                 }
             }
@@ -92,7 +102,8 @@ public final class DynamicEquivalenceChecker {
         try {
             Class<?> clazz = loader.loadClass(className);
             for (Method method : clazz.getDeclaredMethods()) {
-                if (!method.getName().equals(methodName) || !isSupported(method.getReturnType())) {
+                if (!method.getName().equals(methodName)
+                        || !(method.getReturnType() == void.class || isSupported(method.getReturnType()))) {
                     continue;
                 }
                 boolean allSupported = true;
@@ -111,6 +122,32 @@ public final class DynamicEquivalenceChecker {
             // Class not loadable / linkage error -> unsupported.
         }
         return null;
+    }
+
+    /** True when the method produces something we can compare: a non-void return, or an array we can inspect after the call. */
+    private static boolean hasObservableOutput(Method method) {
+        if (method.getReturnType() != void.class) {
+            return true;
+        }
+        for (Class<?> parameterType : method.getParameterTypes()) {
+            if (parameterType.isArray()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Compare the two sides' arguments after the call (side effects), element-wise with deep equality. */
+    private static boolean argumentsEqual(Object[] left, Object[] right) {
+        if (left.length != right.length) {
+            return false;
+        }
+        for (int i = 0; i < left.length; i++) {
+            if (!Objects.deepEquals(left[i], right[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean sameSignature(Method left, Method right) {
