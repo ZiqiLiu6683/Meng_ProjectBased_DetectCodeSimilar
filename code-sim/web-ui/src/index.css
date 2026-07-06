@@ -20,6 +20,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Lightweight Java syntax highlighting (GitHub light palette). */
+.tok-keyword { color: #cf222e; }
+.tok-type { color: #953800; }
+.tok-string { color: #0a3069; }
+.tok-number { color: #0550ae; }
+.tok-comment { color: #6e7781; font-style: italic; }
+
 /* Thin, unobtrusive scrollbars for the code panes. */
 .scroll-thin::-webkit-scrollbar {
   width: 10px;

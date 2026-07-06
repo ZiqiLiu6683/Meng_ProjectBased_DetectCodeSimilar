@@ -9,13 +9,17 @@ export default {
       },
       colors: {
         ink: {
-          DEFAULT: "#1f2328",
-          soft: "#57606a",
-          faint: "#8c959f",
+          DEFAULT: "#1e2230",
+          soft: "#5b6472",
+          faint: "#93a0b4",
         },
-        line: "#d1d9e0",
+        line: "#e3e6ef",
         surface: "#ffffff",
-        canvas: "#f6f8fa",
+        canvas: "#f5f6fc",
+        panel: "#eef1f9",
+        gutter: "#f3f4fb",
+        accent: { DEFAULT: "#6d5efc", ink: "#4b3fd6", soft: "#eeecff" },
+        cyan: { DEFAULT: "#06b6d4" },
         // Clone family accents (light dev-tool palette).
         t1: { DEFAULT: "#1a7f37", soft: "#dafbe1" },
         t2: { DEFAULT: "#0969da", soft: "#ddf4ff" },
