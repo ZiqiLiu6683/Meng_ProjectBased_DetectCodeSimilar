@@ -51,6 +51,32 @@ class DynamicEquivalenceCheckerTest {
                 "a loop-based method and its closed form: SMT cannot prove it, but I/O sampling agrees");
     }
 
+    @Test
+    void samplesNonIntSignatures() throws Exception {
+        Path left = compile("left2", "L2",
+                "public class L2 {"
+                        + " public int sumLoop(int[] a){ int s=0; for(int i=0;i<a.length;i++){ s+=a[i]; } return s; }"
+                        + " public String rev(String s){ return new StringBuilder(s).reverse().toString(); }"
+                        + " public int maxLoop(int[] a){ if(a.length==0){ return 0; } int m=a[0]; for(int i=1;i<a.length;i++){ if(a[i]>m){ m=a[i]; } } return m; } }");
+        Path right = compile("right2", "R2",
+                "public class R2 {"
+                        + " public int sumRec(int[] a){ return go(a,0); }"
+                        + " private int go(int[] a,int i){ if(i>=a.length){ return 0; } return a[i]+go(a,i+1); }"
+                        + " public String revManual(String s){ char[] c=s.toCharArray(); int i=0,j=c.length-1; while(i<j){ char t=c[i]; c[i]=c[j]; c[j]=t; i++; j--; } return new String(c); } }");
+
+        DynamicEquivalenceChecker checker = new DynamicEquivalenceChecker();
+
+        assertEquals(DynamicVerdict.LIKELY_EQUIVALENT,
+                checker.check(left, "L2", "sumLoop", right, "R2", "sumRec"),
+                "int[] sum via loop vs recursion agree on all sampled arrays");
+        assertEquals(DynamicVerdict.LIKELY_EQUIVALENT,
+                checker.check(left, "L2", "rev", right, "R2", "revManual"),
+                "String reverse two ways agree on all sampled strings");
+        assertEquals(DynamicVerdict.DIFFERENT,
+                checker.check(left, "L2", "maxLoop", right, "R2", "sumRec"),
+                "array max vs array sum differ on some input");
+    }
+
     private Path compile(String pkg, String type, String source) throws Exception {
         Path sourceDir = tempDir.resolve(pkg + "/src");
         Path classesDir = tempDir.resolve(pkg + "/classes");

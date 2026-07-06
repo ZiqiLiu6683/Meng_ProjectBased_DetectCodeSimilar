@@ -48,8 +48,23 @@ public class NextPipelineRunner {
                               StructuralSimilarityOracle structuralOracle,
                               SemanticEquivalenceOracle semanticOracle,
                               DynamicEquivalenceOracle dynamicOracle) {
+        this(signalProviders, structuralOracle, semanticOracle, dynamicOracle, true);
+    }
+
+    /**
+     * @param includeSourceScans when false, the source-only whole-method/file/window scans are
+     *                           disabled, so T1/T2/T3 come only from the region candidates passed to
+     *                           {@link #run(String, String, List)} plus behavioural T4 from the
+     *                           providers. The WALA region pipeline passes false; the source-only
+     *                           fallback keeps them on.
+     */
+    public NextPipelineRunner(List<CandidateSignalProvider> signalProviders,
+                              StructuralSimilarityOracle structuralOracle,
+                              SemanticEquivalenceOracle semanticOracle,
+                              DynamicEquivalenceOracle dynamicOracle,
+                              boolean includeSourceScans) {
         this(new NextEvidenceExtractor(),
-                new NextCandidateDiscovery(signalProviders),
+                new NextCandidateDiscovery(signalProviders, includeSourceScans),
                 new NextRegionTypeRecognizer(structuralOracle, semanticOracle,
                         StructuralRegionOracle.NONE, dynamicOracle));
     }

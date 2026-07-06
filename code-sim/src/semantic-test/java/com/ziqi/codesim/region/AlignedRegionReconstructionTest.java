@@ -103,6 +103,19 @@ class AlignedRegionReconstructionTest {
                 "helper extraction must read as a syntactic clone, not be forced to T4; got " + type);
     }
 
+    // Region-vs-region, not method-vs-method: a shared fragment (a gcd loop) buried in two methods
+    // whose SURROUNDING code differs must be recovered as a clone -- the whole-method span would
+    // dilute it below the T3 threshold and miss it.
+    @Test
+    void fragmentCloneInsideDifferentMethodsIsRecovered() throws Exception {
+        CloneRegionType type = classify(
+                "class A {\n int f(int a,int b){\n  int p=a+1;\n  int q=p*2;\n  int u=q-3;\n  int v=u+p;\n  while(b!=0){\n   int t=b;\n   b=a%b;\n   a=t;\n  }\n  return a;\n }\n}", "f",
+                "class B {\n int g(int x,int y){\n  int m=x*x;\n  int n=m+y;\n  int o=n*n;\n  int w=o-m;\n  while(y!=0){\n   int t=y;\n   y=x%y;\n   x=t;\n  }\n  return x;\n }\n}", "g");
+        assertNotEquals(CloneRegionType.NON_CLONE, type,
+                "the shared gcd-loop fragment must be recovered region-vs-region, not diluted by the "
+                        + "different surrounding code; got " + type);
+    }
+
     private CloneRegionType classify(String leftSource, String leftHint,
                                      String rightSource, String rightHint) throws Exception {
         Path leftClasses = compile("left", leftSource);

@@ -5,6 +5,7 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,28 +14,34 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Dynamic equivalence check by I/O sampling: reflectively runs two compiled methods on the SAME
- * random integer inputs and compares outputs. This catches behaviourally-equivalent, structurally
- * different (Type-4) methods that SMT cannot prove -- loops, nonlinear arithmetic -- at the cost of
+ * random inputs and compares outputs. Catches behaviourally-equivalent, structurally different
+ * (Type-4) methods that SMT cannot prove (loops, recursion, nonlinear arithmetic), at the cost of
  * being EVIDENCE, not proof: {@link DynamicVerdict#LIKELY_EQUIVALENT} means "agreed on every sampled
  * input", never "equal for all inputs".
  *
- * <p>First slice: methods whose parameters and return are all {@code int}. Each invocation runs
- * under a timeout so an input-dependent long/infinite loop cannot hang the caller (it becomes
- * {@link DynamicVerdict#UNKNOWN}).
+ * <p>Supported signatures: parameters and return of primitive types (int/long/short/byte/char/
+ * boolean/double/float), {@link String}, and 1-D arrays of those. Anything else -&gt;
+ * {@link DynamicVerdict#UNSUPPORTED}. Each invocation runs under a timeout so an input-dependent long
+ * loop cannot hang the caller (it becomes {@link DynamicVerdict#UNKNOWN}). Array arguments are copied
+ * before each call so a mutating method (e.g. an in-place sort) cannot corrupt the shared inputs.
  */
 public final class DynamicEquivalenceChecker {
 
+    private static final Object FAILED = new Object(); // invocation failure sentinel (distinct from a null return)
+
     private final int samples;
     private final int inputBound;
+    private final int maxArrayLength;
     private final long timeoutMillis;
 
     public DynamicEquivalenceChecker() {
-        this(64, 128, 500);
+        this(64, 128, 8, 500);
     }
 
-    public DynamicEquivalenceChecker(int samples, int inputBound, long timeoutMillis) {
+    public DynamicEquivalenceChecker(int samples, int inputBound, int maxArrayLength, long timeoutMillis) {
         this.samples = samples;
         this.inputBound = inputBound;
+        this.maxArrayLength = maxArrayLength;
         this.timeoutMillis = timeoutMillis;
     }
 
@@ -43,10 +50,9 @@ public final class DynamicEquivalenceChecker {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try (URLClassLoader leftLoader = loader(leftClasses);
              URLClassLoader rightLoader = loader(rightClasses)) {
-            Method left = intMethod(leftLoader, leftClass, leftMethod);
-            Method right = intMethod(rightLoader, rightClass, rightMethod);
-            if (left == null || right == null
-                    || left.getParameterCount() != right.getParameterCount()) {
+            Method left = supportedMethod(leftLoader, leftClass, leftMethod);
+            Method right = supportedMethod(rightLoader, rightClass, rightMethod);
+            if (left == null || right == null || !sameSignature(left, right)) {
                 return DynamicVerdict.UNSUPPORTED;
             }
             Object leftInstance = instance(left);
@@ -56,15 +62,15 @@ public final class DynamicEquivalenceChecker {
             }
 
             Random random = new Random(0x5EED);
-            int arity = left.getParameterCount();
+            Class<?>[] parameterTypes = left.getParameterTypes();
             for (int s = 0; s < samples; s++) {
-                Object[] args = randomIntArgs(arity, random);
-                Integer leftResult = invoke(executor, left, leftInstance, args);
-                Integer rightResult = invoke(executor, right, rightInstance, args);
-                if (leftResult == null || rightResult == null) {
+                Object[] base = randomArguments(parameterTypes, random);
+                Object leftResult = invoke(executor, left, leftInstance, copyArguments(base));
+                Object rightResult = invoke(executor, right, rightInstance, copyArguments(base));
+                if (leftResult == FAILED || rightResult == FAILED) {
                     return DynamicVerdict.UNKNOWN;
                 }
-                if (!leftResult.equals(rightResult)) {
+                if (!Objects.deepEquals(leftResult, rightResult)) {
                     return DynamicVerdict.DIFFERENT;
                 }
             }
@@ -81,21 +87,22 @@ public final class DynamicEquivalenceChecker {
         return new URLClassLoader(new URL[]{url}, ClassLoader.getPlatformClassLoader());
     }
 
-    private static Method intMethod(URLClassLoader loader, String className, String methodName) {
+    /** First method with the given name whose parameters and return are all sampleable types. */
+    private static Method supportedMethod(URLClassLoader loader, String className, String methodName) {
         try {
             Class<?> clazz = loader.loadClass(className);
             for (Method method : clazz.getDeclaredMethods()) {
-                if (!method.getName().equals(methodName) || method.getReturnType() != int.class) {
+                if (!method.getName().equals(methodName) || !isSupported(method.getReturnType())) {
                     continue;
                 }
-                boolean allInt = true;
+                boolean allSupported = true;
                 for (Class<?> parameterType : method.getParameterTypes()) {
-                    if (parameterType != int.class) {
-                        allInt = false;
+                    if (!isSupported(parameterType)) {
+                        allSupported = false;
                         break;
                     }
                 }
-                if (allInt) {
+                if (allSupported) {
                     method.setAccessible(true);
                     return method;
                 }
@@ -104,6 +111,183 @@ public final class DynamicEquivalenceChecker {
             // Class not loadable / linkage error -> unsupported.
         }
         return null;
+    }
+
+    private static boolean sameSignature(Method left, Method right) {
+        if (left.getReturnType() != right.getReturnType()
+                || left.getParameterCount() != right.getParameterCount()) {
+            return false;
+        }
+        Class<?>[] a = left.getParameterTypes();
+        Class<?>[] b = right.getParameterTypes();
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] != b[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isSupported(Class<?> type) {
+        return type == int.class || type == long.class || type == short.class || type == byte.class
+                || type == char.class || type == boolean.class || type == double.class || type == float.class
+                || type == String.class
+                || type == int[].class || type == long[].class || type == short[].class || type == byte[].class
+                || type == char[].class || type == boolean[].class || type == double[].class
+                || type == float[].class || type == String[].class;
+    }
+
+    private Object[] randomArguments(Class<?>[] parameterTypes, Random random) {
+        Object[] args = new Object[parameterTypes.length];
+        for (int i = 0; i < parameterTypes.length; i++) {
+            args[i] = randomValue(parameterTypes[i], random);
+        }
+        return args;
+    }
+
+    private Object randomValue(Class<?> type, Random random) {
+        if (type == int.class) {
+            return randomInt(random);
+        }
+        if (type == long.class) {
+            return (long) randomInt(random);
+        }
+        if (type == short.class) {
+            return (short) randomInt(random);
+        }
+        if (type == byte.class) {
+            return (byte) (random.nextInt(256) - 128);
+        }
+        if (type == char.class) {
+            return (char) ('a' + random.nextInt(26));
+        }
+        if (type == boolean.class) {
+            return random.nextBoolean();
+        }
+        if (type == double.class) {
+            return (double) randomInt(random);
+        }
+        if (type == float.class) {
+            return (float) randomInt(random);
+        }
+        if (type == String.class) {
+            return randomString(random);
+        }
+        if (type == int[].class) {
+            int[] a = new int[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = randomInt(random);
+            }
+            return a;
+        }
+        if (type == long[].class) {
+            long[] a = new long[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = randomInt(random);
+            }
+            return a;
+        }
+        if (type == short[].class) {
+            short[] a = new short[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = (short) randomInt(random);
+            }
+            return a;
+        }
+        if (type == byte[].class) {
+            byte[] a = new byte[random.nextInt(maxArrayLength + 1)];
+            random.nextBytes(a);
+            return a;
+        }
+        if (type == char[].class) {
+            char[] a = new char[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = (char) ('a' + random.nextInt(26));
+            }
+            return a;
+        }
+        if (type == boolean[].class) {
+            boolean[] a = new boolean[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = random.nextBoolean();
+            }
+            return a;
+        }
+        if (type == double[].class) {
+            double[] a = new double[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = randomInt(random);
+            }
+            return a;
+        }
+        if (type == float[].class) {
+            float[] a = new float[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = randomInt(random);
+            }
+            return a;
+        }
+        if (type == String[].class) {
+            String[] a = new String[random.nextInt(maxArrayLength + 1)];
+            for (int i = 0; i < a.length; i++) {
+                a[i] = randomString(random);
+            }
+            return a;
+        }
+        return null; // unreachable: isSupported gated the signature
+    }
+
+    private int randomInt(Random random) {
+        return random.nextInt(2 * inputBound + 1) - inputBound;
+    }
+
+    private String randomString(Random random) {
+        int length = random.nextInt(maxArrayLength + 1);
+        StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            builder.append((char) ('a' + random.nextInt(26)));
+        }
+        return builder.toString();
+    }
+
+    /** Fresh copies of any array arguments, so an in-place-mutating method cannot corrupt shared inputs. */
+    private static Object[] copyArguments(Object[] args) {
+        Object[] copy = new Object[args.length];
+        for (int i = 0; i < args.length; i++) {
+            copy[i] = copyValue(args[i]);
+        }
+        return copy;
+    }
+
+    private static Object copyValue(Object value) {
+        if (value instanceof int[] a) {
+            return a.clone();
+        }
+        if (value instanceof long[] a) {
+            return a.clone();
+        }
+        if (value instanceof short[] a) {
+            return a.clone();
+        }
+        if (value instanceof byte[] a) {
+            return a.clone();
+        }
+        if (value instanceof char[] a) {
+            return a.clone();
+        }
+        if (value instanceof boolean[] a) {
+            return a.clone();
+        }
+        if (value instanceof double[] a) {
+            return a.clone();
+        }
+        if (value instanceof float[] a) {
+            return a.clone();
+        }
+        if (value instanceof String[] a) {
+            return a.clone();
+        }
+        return value; // primitives (boxed) and String are immutable
     }
 
     private static final Object NO_INSTANCE = new Object();
@@ -121,21 +305,13 @@ public final class DynamicEquivalenceChecker {
         }
     }
 
-    private Object[] randomIntArgs(int arity, Random random) {
-        Object[] args = new Object[arity];
-        for (int i = 0; i < arity; i++) {
-            args[i] = random.nextInt(2 * inputBound + 1) - inputBound;
-        }
-        return args;
-    }
-
-    private Integer invoke(ExecutorService executor, Method method, Object instance, Object[] args) {
+    private Object invoke(ExecutorService executor, Method method, Object instance, Object[] args) {
         Future<Object> future = executor.submit(() -> method.invoke(instance, args));
         try {
-            return (Integer) future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Throwable ex) {
             future.cancel(true);
-            return null;
+            return FAILED;
         }
     }
 }

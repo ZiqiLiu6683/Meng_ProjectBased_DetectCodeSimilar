@@ -9,13 +9,23 @@ import java.util.Map;
 public class NextCandidateDiscovery {
     private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
     private final List<CandidateSignalProvider> signalProviders;
+    // When false, the built-in source-only scans (whole-method / file / window text+AST matching) are
+    // skipped, so ONLY external provider signals (Phase B semantic + dynamic method pairs) create
+    // candidates. The WALA region pipeline uses this: T1/T2/T3 comes from Phase A regions, not from
+    // method-level source scans; those scans are only the WALA-unavailable fallback.
+    private final boolean includeSourceScans;
 
     public NextCandidateDiscovery() {
         this(List.of());
     }
 
     public NextCandidateDiscovery(List<CandidateSignalProvider> signalProviders) {
+        this(signalProviders, true);
+    }
+
+    public NextCandidateDiscovery(List<CandidateSignalProvider> signalProviders, boolean includeSourceScans) {
         this.signalProviders = List.copyOf(signalProviders);
+        this.includeSourceScans = includeSourceScans;
     }
 
     public List<RegionCandidate> discover(EvidencePackage evidencePackage) {
@@ -27,7 +37,8 @@ public class NextCandidateDiscovery {
                 if (!comparable(left, right)) {
                     continue;
                 }
-                List<CandidateSource> sources = new ArrayList<>(sources(left, right));
+                List<CandidateSource> sources = new ArrayList<>(
+                        includeSourceScans ? sources(left, right) : List.of());
                 sources.addAll(externalSources.getOrDefault(
                         new CandidateKey(left.regionId(), right.regionId()),
                         List.of()

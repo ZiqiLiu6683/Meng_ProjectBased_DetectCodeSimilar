@@ -141,9 +141,13 @@ public class WalaNextPipelineRunner {
             List<RegionCandidate> reconstructedRegions =
                     reconstructedRegionCandidates(leftClasses, rightClasses, leftSource, rightSource);
 
+            // Region-only syntactic: T1/T2/T3 come only from the reconstructed Phase A regions;
+            // the source-only whole-method/window scans are disabled (includeSourceScans=false). The
+            // method-level providers stay for behavioural T4 only. The source-only scans remain the
+            // fallback below, used only when WALA is unavailable.
             return new NextPipelineRunner(
                     List.of(provider, semanticProvider, dynamicProvider),
-                    structuralOracle, semanticOracle, dynamicOracle)
+                    structuralOracle, semanticOracle, dynamicOracle, false)
                     .run(leftSource, rightSource, reconstructedRegions);
         } catch (IOException | AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
