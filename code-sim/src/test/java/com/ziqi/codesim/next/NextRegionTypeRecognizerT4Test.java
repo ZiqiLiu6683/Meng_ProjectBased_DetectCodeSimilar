@@ -45,6 +45,28 @@ class NextRegionTypeRecognizerT4Test {
     }
 
     @Test
+    void crossMethodRegionIsSurfacedNotDroppedToNonClone() {
+        // A cross-method aligned region whose content is too different for T1/T2/T3 and has no
+        // equivalence proof must NOT vanish: the CROSS_METHOD_REGION marker keeps it as a tagged
+        // possible clone instead of a similarity number silently dropping it.
+        CodeRegion left = new CodeRegion(
+                "L1", RegionSide.LEFT, RegionKind.CALL_EXPANDED_REGION, "A.f(int)", 1, 1,
+                List.of("a1", "a2", "a3"), List.of("a1", "a2", "a3"), List.of("a1", "a2", "a3"),
+                List.of("stmt_a1", "stmt_a2"), List.of("norm_a1", "norm_a2"));
+        CodeRegion right = new CodeRegion(
+                "R1", RegionSide.RIGHT, RegionKind.CALL_EXPANDED_REGION, "B.g(int)", 1, 1,
+                List.of("b1", "b2", "b3"), List.of("b1", "b2", "b3"), List.of("b1", "b2", "b3"),
+                List.of("stmt_b1", "stmt_b2"), List.of("norm_b1", "norm_b2"));
+        RegionCandidate candidate = new RegionCandidate("CM1", left, right,
+                List.of(new CandidateSource("CROSS_METHOD_REGION", 1.0)));
+
+        RegionDecision decision = new NextRegionTypeRecognizer().decide(candidate);
+        assertEquals(CloneRegionType.POSSIBLE_T4_CANDIDATE, decision.type(),
+                "a cross-method region that T1-T3 could not settle must be surfaced, not dropped");
+        assertTrue(decision.tags().contains(RegionTag.POSSIBLE_SEMANTIC_RELATION));
+    }
+
+    @Test
     void smtProofOutranksDynamicEvidence() {
         RegionCandidate candidate = structurallyUnrelatedMethodPair();
 

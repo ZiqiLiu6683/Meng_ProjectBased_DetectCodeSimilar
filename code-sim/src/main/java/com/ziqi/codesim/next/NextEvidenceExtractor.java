@@ -255,6 +255,90 @@ public class NextEvidenceExtractor {
         return regionFromStatements(id, side, kind, displayName, statements);
     }
 
+    /**
+     * Reconstructs a Phase A region into two boundary-free source regions the recognizer can judge
+     * syntactically. Each side collects ALL non-block statements its spanned methods cover -- crucially
+     * including statements NESTED inside loops/ifs, so an edit inside a loop (e.g. an inserted flag) is
+     * visible as its own statement rather than swallowed by the enclosing loop. The two sides are then
+     * handed to the UNCHANGED recognizer, whose text-LCS does the actual matching (order-tolerant, so
+     * reordered or split statements resolve to T3 naturally -- no forced one-to-one).
+     *
+     * <p>Because the statements come from the spanned methods (not just the aligned lines), a
+     * helper-extracted clone's two methods are compared as one boundary-free unit. When the region
+     * crosses methods, a {@code CROSS_METHOD_REGION} marker rides along so the recognizer never lets a
+     * similarity number silently drop a known cross-method clone to NON_CLONE.
+     *
+     * <p>Tokens (T1/T2 exact comparison) are built from the OUTERMOST statements to avoid double
+     * counting a loop and its body; statement texts (the T3 edit script) are built from ALL nested
+     * statements -- mirroring how ordinary method regions are constructed.
+     */
+    public static RegionCandidate reconstructAlignedRegion(
+            String leftSource, Set<Integer> leftSpanLines,
+            String rightSource, Set<Integer> rightSpanLines,
+            boolean crossMethod, String id) {
+        CodeRegion left = alignedRegion(leftSource, leftSpanLines, id + "L", RegionSide.LEFT);
+        CodeRegion right = alignedRegion(rightSource, rightSpanLines, id + "R", RegionSide.RIGHT);
+        List<CandidateSource> sources = new ArrayList<>();
+        sources.add(new CandidateSource("ALIGNED_REGION_SCAN",
+                Math.max(left.normalizedStatementTexts().size(), right.normalizedStatementTexts().size())));
+        if (crossMethod) {
+            sources.add(new CandidateSource("CROSS_METHOD_REGION", 1.0));
+        }
+        return new RegionCandidate("AR" + id, left, right, List.copyOf(sources));
+    }
+
+    private static CodeRegion alignedRegion(String source, Set<Integer> spanLines, String id, RegionSide side) {
+        CompilationUnit cu = AstTokenizer.parse(source);
+        // Tokens from outermost statements (no double counting); statement texts from ALL non-block
+        // statements including nested ones (so intra-loop edits are visible at statement granularity).
+        List<Statement> outermost = outermostStatementsOverlapping(cu, spanLines);
+        List<Statement> allStatements = cu.findAll(Statement.class).stream()
+                .filter(s -> !(s instanceof BlockStmt))
+                .filter(s -> overlapsLines(s, spanLines))
+                .toList();
+
+        List<String> rawTokens = new ArrayList<>();
+        List<String> t1Tokens = new ArrayList<>();
+        List<String> t2Tokens = new ArrayList<>();
+        for (Statement statement : outermost) {
+            rawTokens.addAll(tokens(statement, TokenView.RAW));
+            t1Tokens.addAll(tokens(statement, TokenView.T1));
+            t2Tokens.addAll(tokens(statement, TokenView.T2));
+        }
+
+        List<String> statementTexts = new ArrayList<>();
+        List<String> normalizedStatementTexts = new ArrayList<>();
+        for (Statement statement : allStatements) {
+            // OWN text (excluding nested statements) so a loop/if contributes only its header, not its
+            // whole body -- otherwise the container's full text differs whenever anything inside it
+            // changes and dilutes the statement-level LCS.
+            String t1 = String.join(" ", ownTokens(statement, TokenView.T1));
+            if (!t1.isBlank()) {
+                statementTexts.add(t1);
+            }
+            String t2 = String.join(" ", ownTokens(statement, TokenView.T2));
+            if (!t2.isBlank()) {
+                normalizedStatementTexts.add(t2);
+            }
+        }
+
+        int beginLine = outermost.stream().flatMap(s -> s.getRange().stream())
+                .mapToInt(r -> r.begin.line).min().orElse(-1);
+        int endLine = outermost.stream().flatMap(s -> s.getRange().stream())
+                .mapToInt(r -> r.end.line).max().orElse(-1);
+        return new CodeRegion(id, side, RegionKind.CALL_EXPANDED_REGION, "aligned region " + id,
+                beginLine, endLine, List.copyOf(rawTokens), List.copyOf(t1Tokens), List.copyOf(t2Tokens),
+                List.copyOf(statementTexts), List.copyOf(normalizedStatementTexts));
+    }
+
+    private static List<Statement> outermostStatementsOverlapping(CompilationUnit cu, Set<Integer> lines) {
+        return cu.findAll(Statement.class).stream()
+                .filter(s -> !(s instanceof BlockStmt))
+                .filter(s -> overlapsLines(s, lines))
+                .filter(s -> !hasOverlappingStatementAncestor(s, lines))
+                .toList();
+    }
+
     private static boolean overlapsLines(Statement statement, Set<Integer> lines) {
         return statement.getRange().map(range -> {
             for (int line = range.begin.line; line <= range.end.line; line++) {
@@ -300,6 +384,40 @@ public class NextEvidenceExtractor {
             String text = token.getText();
             if (text == null || text.isBlank() || isComment(text)) {
                 continue;
+            }
+            tokens.add(switch (view) {
+                case RAW, T1 -> text;
+                case T2 -> normalizeT2(text);
+            });
+        }
+        return List.copyOf(tokens);
+    }
+
+    /**
+     * A statement's OWN tokens: its tokens minus those belonging to any nested non-block statement.
+     * For a leaf statement this is its full text; for a control statement (for/if/while) it is just
+     * the header (condition/init/update), since the body statements are counted as their own units.
+     * This keeps the statement-level comparison from double-representing a loop and its body.
+     */
+    private static List<String> ownTokens(Statement statement, TokenView view) {
+        Optional<com.github.javaparser.TokenRange> range = statement.getTokenRange();
+        if (range.isEmpty()) {
+            return List.of();
+        }
+        List<com.github.javaparser.Range> nestedRanges = statement.findAll(Statement.class).stream()
+                .filter(s -> s != statement && !(s instanceof BlockStmt))
+                .flatMap(s -> s.getRange().stream())
+                .toList();
+        List<String> tokens = new ArrayList<>();
+        for (JavaToken token : range.get()) {
+            String text = token.getText();
+            if (text == null || text.isBlank() || isComment(text)) {
+                continue;
+            }
+            Optional<com.github.javaparser.Range> tokenRange = token.getRange();
+            if (tokenRange.isPresent()
+                    && nestedRanges.stream().anyMatch(nested -> nested.contains(tokenRange.get()))) {
+                continue; // this token belongs to a nested statement, counted on its own
             }
             tokens.add(switch (view) {
                 case RAW, T1 -> text;

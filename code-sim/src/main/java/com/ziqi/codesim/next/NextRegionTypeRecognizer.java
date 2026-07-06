@@ -175,6 +175,18 @@ public class NextRegionTypeRecognizer {
                     syntacticSimilarity, structuralSimilarity, renameEvidence, editScript, tags, path);
         }
 
+        // A cross-method aligned region (helper extraction / reorganization) is a STRUCTURAL FACT
+        // Phase A established. If T1-T3 and the behavioural checks did not settle a type, it must not
+        // be silently dropped by a similarity number -- surface it as a tagged possible clone.
+        if (hasCrossMethodRegionMarker(candidate)) {
+            tags.add(RegionTag.POSSIBLE_SEMANTIC_RELATION);
+            path.add("Possible T4: Phase A found a cross-method aligned region (helper extraction / "
+                    + "reorganization), but no T1-T3 match or equivalence proof settled a type; "
+                    + "surfaced as a possible clone rather than dropped.");
+            return decision(candidate, CloneRegionType.POSSIBLE_T4_CANDIDATE, CloneStrength.NONE,
+                    syntacticSimilarity, structuralSimilarity, renameEvidence, editScript, tags, path);
+        }
+
         path.add("T4 not approved: no independent semantic-equivalence proof or structural region "
                 + "evidence is attached to this candidate.");
         return decision(candidate, CloneRegionType.NON_CLONE, CloneStrength.NONE, syntacticSimilarity,
@@ -238,6 +250,11 @@ public class NextRegionTypeRecognizer {
                 || kind == RegionKind.METHOD
                 || kind == RegionKind.METHOD_BODY_REGION
                 || kind == RegionKind.CALL_EXPANDED_REGION;
+    }
+
+    private static boolean hasCrossMethodRegionMarker(RegionCandidate candidate) {
+        return candidate.sources().stream()
+                .anyMatch(source -> source.channel().equals("CROSS_METHOD_REGION"));
     }
 
     private static double structuralRegionCoverageFrom(RegionCandidate candidate) {
