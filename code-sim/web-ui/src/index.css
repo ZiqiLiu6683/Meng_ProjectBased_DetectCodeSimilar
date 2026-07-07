@@ -20,6 +20,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Progress shimmer for the loading stepper (indeterminate "working" between real ticks). */
+@keyframes cs-shimmer {
+  0% { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+.cs-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  background-size: 180% 100%;
+  animation: cs-shimmer 1.3s linear infinite;
+}
+
 /* Lightweight Java syntax highlighting (GitHub light palette). */
 .tok-keyword { color: #cf222e; }
 .tok-type { color: #953800; }

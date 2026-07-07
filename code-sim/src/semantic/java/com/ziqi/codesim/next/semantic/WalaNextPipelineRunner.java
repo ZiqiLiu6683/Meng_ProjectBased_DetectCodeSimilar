@@ -81,12 +81,25 @@ public class WalaNextPipelineRunner {
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) throws AnalysisException {
+        return run(leftSource, rightSource, stage -> { });
+    }
+
+    /**
+     * As {@link #run(String, String)}, reporting each pipeline stage to {@code progress} the moment it
+     * is reached, for a live progress UI. Stage keys, in real execution order: {@code compile},
+     * {@code graph}, {@code smt}, {@code dynamic}, {@code regions}, {@code classify}. The key
+     * {@code fallback} is reported if WALA is unavailable and the source-only path is used instead.
+     */
+    public NextPipelineResult run(String leftSource, String rightSource, java.util.function.Consumer<String> progress)
+            throws AnalysisException {
         Path workDir = null;
         try {
+            progress.accept("compile");
             workDir = Files.createTempDirectory("code-sim-next-wala-");
             Path leftClasses = compileSource(workDir.resolve("left"), "LeftInput.java", leftSource);
             Path rightClasses = compileSource(workDir.resolve("right"), "RightInput.java", rightSource);
 
+            progress.accept("graph");
             // Build each side's WALA class hierarchy and IR cache once, then share them between the
             // raw-snapshot extractor (kNN candidates) and the structural backend (CFG/MCS), so the
             // same classes are not analyzed twice.
@@ -114,6 +127,7 @@ public class WalaNextPipelineRunner {
                     backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
             );
 
+            progress.accept("smt");
             // Phase B (semantic): prove which cross-file method pairs compute the same value for all
             // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
             // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
@@ -127,6 +141,7 @@ public class WalaNextPipelineRunner {
             // methods on the same random inputs. Agreement on every input is EVIDENCE (not proof) of a
             // Type-4 clone, surfaced by the recognizer as T4_DYNAMIC_EVIDENCE. Pairs SMT proved
             // DIFFERENT are excluded up front (no point sampling a known counterexample).
+            progress.accept("dynamic");
             List<String[]> dynamicPairs = dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
             DynamicEquivalenceOracle dynamicOracle =
                     MethodPairDynamicOracle.fromRawSignaturePairs(dynamicPairs);
@@ -138,6 +153,7 @@ public class WalaNextPipelineRunner {
             // classifies it). Unlike the old flat line-set projection, this keeps the alignment so a
             // helper-extracted / reorganized near-copy reads as a syntactic T1/T2/T3 clone; a truly
             // divergent cross-method region carries a marker so it is surfaced, never silently dropped.
+            progress.accept("regions");
             List<RegionCandidate> reconstructedRegions =
                     reconstructedRegionCandidates(leftClasses, rightClasses, leftSource, rightSource);
 
@@ -145,6 +161,7 @@ public class WalaNextPipelineRunner {
             // the source-only whole-method/window scans are disabled (includeSourceScans=false). The
             // method-level providers stay for behavioural T4 only. The source-only scans remain the
             // fallback below, used only when WALA is unavailable.
+            progress.accept("classify");
             return new NextPipelineRunner(
                     List.of(provider, semanticProvider, dynamicProvider),
                     structuralOracle, semanticOracle, dynamicOracle, false)
@@ -155,6 +172,7 @@ public class WalaNextPipelineRunner {
             // (just without cfg-sim). This reports real data, never fabricated CFG output.
             System.err.println("[WalaNextPipelineRunner] CFG analysis unavailable, "
                     + "falling back to source-only result: " + ex.getMessage());
+            progress.accept("fallback");
             return new NextPipelineRunner().run(leftSource, rightSource);
         } finally {
             if (workDir != null) {

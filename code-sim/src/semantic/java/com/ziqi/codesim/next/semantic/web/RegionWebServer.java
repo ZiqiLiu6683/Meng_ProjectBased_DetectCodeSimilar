@@ -12,6 +12,7 @@ import com.ziqi.codesim.next.RegionKind;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +54,7 @@ public final class RegionWebServer {
         RegionWebServer app = new RegionWebServer(webRoot);
         server.createContext("/api/analyze", app::handleAnalyze);
         server.createContext("/", app::handleStatic);
-        server.setExecutor(null);
+        server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
         server.start();
         System.out.println("CodeSim region web server: http://localhost:" + port + "/");
         System.out.println("Serving SPA from: " + webRoot.toAbsolutePath()
@@ -65,19 +66,37 @@ public final class RegionWebServer {
             send(exchange, 405, "application/json", "{\"error\":\"method not allowed\"}");
             return;
         }
-        try {
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            Map<String, String> form = parseForm(body);
-            String leftName = form.getOrDefault("leftName", "Left.java");
-            String rightName = form.getOrDefault("rightName", "Right.java");
-            String leftSource = form.getOrDefault("leftSource", "");
-            String rightSource = form.getOrDefault("rightSource", "");
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> form = parseForm(body);
+        String leftName = form.getOrDefault("leftName", "Left.java");
+        String rightName = form.getOrDefault("rightName", "Right.java");
+        String leftSource = form.getOrDefault("leftSource", "");
+        String rightSource = form.getOrDefault("rightSource", "");
 
-            NextPipelineResult result = runner.run(leftSource, rightSource);
-            send(exchange, 200, "application/json",
-                    toJson(leftName, leftSource, rightName, rightSource, result));
+        // Server-Sent Events: stream each real pipeline stage as it is reached, then the result. The
+        // progress consumer runs on this same thread (synchronous), so writing frames here is safe.
+        exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
+        exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+        exchange.sendResponseHeaders(200, 0); // 0 => chunked, keeps the stream open
+        OutputStream out = exchange.getResponseBody();
+        try {
+            NextPipelineResult result = runner.run(leftSource, rightSource,
+                    stage -> writeEvent(out, "stage", "{\"stage\":\"" + esc(stage) + "\"}"));
+            writeEvent(out, "result", toJson(leftName, leftSource, rightName, rightSource, result));
         } catch (Exception ex) {
-            send(exchange, 500, "application/json", "{\"error\":\"" + esc(String.valueOf(ex.getMessage())) + "\"}");
+            writeEvent(out, "error", "{\"error\":\"" + esc(String.valueOf(ex.getMessage())) + "\"}");
+        } finally {
+            out.close();
+            exchange.close();
+        }
+    }
+
+    private static void writeEvent(OutputStream out, String event, String data) {
+        try {
+            out.write(("event: " + event + "\ndata: " + data + "\n\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        } catch (IOException ignored) {
+            // Client disconnected mid-stream; nothing to do.
         }
     }
 

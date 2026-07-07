@@ -18,6 +18,16 @@ const TYPE_LABEL: Record<string, string> = {
   POSSIBLE_T4_CANDIDATE: "T4 · possible (cross-method)",
 };
 
+// Real pipeline stages, in the order the backend emits them over SSE.
+const STAGES: { key: string; label: string; hint: string }[] = [
+  { key: "compile", label: "Compile", hint: "compiling both files" },
+  { key: "graph", label: "Graph", hint: "building the dependence graph" },
+  { key: "smt", label: "Equivalence", hint: "proving equivalence with SMT" },
+  { key: "dynamic", label: "Behaviour", hint: "sampling runtime behaviour" },
+  { key: "regions", label: "Regions", hint: "selecting boundary-free regions" },
+  { key: "classify", label: "Classify", hint: "classifying each region" },
+];
+
 // --- Minimal, dependency-free Java highlighter (escapes everything it emits) ---
 const KEYWORDS = new Set(
   ("abstract assert break case catch class const continue default do else enum extends final finally for goto if " +
@@ -53,35 +63,58 @@ function highlight(line: string): string {
 }
 
 export default function App() {
-  const [view, setView] = useState<"input" | "result">("input");
+  const [view, setView] = useState<"input" | "loading" | "result">("input");
   const [leftName, setLeftName] = useState("Left.java");
   const [rightName, setRightName] = useState("Right.java");
   const [leftSource, setLeftSource] = useState(DEMO_LEFT);
   const [rightSource, setRightSource] = useState(DEMO_RIGHT);
   const [data, setData] = useState<AnalyzeResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function analyze() {
-    setLoading(true);
     setError(null);
+    setStage(null);
+    setView("loading");
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ leftName, rightName, leftSource, rightSource }).toString(),
       });
-      if (!res.ok) throw new Error(`backend returned ${res.status}`);
-      const json = (await res.json()) as AnalyzeResponse;
-      setData(json);
-      setView("result");
+      if (!res.ok || !res.body) throw new Error(`backend returned ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let finished = false;
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buf.indexOf("\n\n")) >= 0) {
+          const frame = buf.slice(0, sep);
+          buf = buf.slice(sep + 2);
+          let ev = "message";
+          let payload = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) ev = line.slice(6).trim();
+            else if (line.startsWith("data:")) payload += line.slice(5).trim();
+          }
+          if (ev === "stage") setStage((JSON.parse(payload) as { stage: string }).stage);
+          else if (ev === "result") {
+            setData(JSON.parse(payload) as AnalyzeResponse);
+            setView("result");
+            finished = true;
+          } else if (ev === "error") throw new Error((JSON.parse(payload) as { error: string }).error);
+        }
+      }
     } catch (e) {
       setError(
         `Couldn't reach the region backend (${(e as Error).message}). Start it with the semantic ` +
           "profile, or view the built-in demo.",
       );
-    } finally {
-      setLoading(false);
+      setView("input");
     }
   }
 
@@ -99,7 +132,7 @@ export default function App() {
         showNew={view === "result"}
         backend={view === "result" ? data?.regionBackend : undefined}
       />
-      {view === "input" ? (
+      {view === "input" && (
         <InputView
           leftName={leftName}
           rightName={rightName}
@@ -111,12 +144,11 @@ export default function App() {
           setRightSource={setRightSource}
           onAnalyze={analyze}
           onDemo={showDemo}
-          loading={loading}
           error={error}
         />
-      ) : (
-        data && <ResultView data={data} />
       )}
+      {view === "loading" && <LoadingView leftName={leftName} rightName={rightName} stage={stage} />}
+      {view === "result" && data && <ResultView data={data} />}
     </div>
   );
 }
@@ -183,7 +215,6 @@ function InputView(props: {
   setRightSource: (v: string) => void;
   onAnalyze: () => void;
   onDemo: () => void;
-  loading: boolean;
   error: string | null;
 }) {
   return (
@@ -223,11 +254,10 @@ function InputView(props: {
       <div className="mt-6 flex items-center gap-3">
         <button
           onClick={props.onAnalyze}
-          disabled={props.loading}
-          className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white transition hover:brightness-110 disabled:opacity-50 shadow-[0_4px_14px_rgba(109,94,252,0.35)]"
+          className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white transition hover:brightness-110 shadow-[0_4px_14px_rgba(109,94,252,0.35)]"
           style={{ background: "linear-gradient(135deg,#7c5cff,#06b6d4)" }}
         >
-          {props.loading ? "Analyzing…" : "Analyze"}
+          Analyze
         </button>
         <button
           onClick={props.onDemo}
@@ -471,6 +501,92 @@ function Sidebar(props: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LoadingView({ leftName, rightName, stage }: { leftName: string; rightName: string; stage: string | null }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const id = window.setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const fallback = stage === "fallback";
+  const current = fallback ? STAGES.length - 1 : STAGES.findIndex((s) => s.key === stage);
+  const hint = fallback
+    ? "WALA unavailable — using the source-only fallback"
+    : current >= 0
+      ? STAGES[current].hint
+      : "starting…";
+
+  return (
+    <main className="mx-auto w-full max-w-[720px] px-6 py-24 flex-1 flex flex-col items-center text-center">
+      <span
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full mb-5"
+        style={{ color: "#4b3fd6", background: "#eeecff" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "linear-gradient(135deg,#7c5cff,#06b6d4)" }} />
+        Analyzing
+      </span>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {leftName} <span className="text-ink-faint mx-1">↔</span> {rightName}
+      </h1>
+      <p className="text-ink-soft mt-2 text-sm">{hint}</p>
+
+      <div className="w-full mt-12">
+        <Stepper current={current} />
+      </div>
+
+      <p className="mt-7 text-[13px] text-ink-faint font-mono tabular-nums">{elapsed.toFixed(1)}s elapsed</p>
+    </main>
+  );
+}
+
+function Stepper({ current }: { current: number }) {
+  const total = STAGES.length;
+  const pct = total > 1 ? (Math.max(0, Math.min(current, total - 1)) / (total - 1)) * 100 : 0;
+  return (
+    <div>
+      <div className="relative h-1.5 rounded-full bg-line">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full overflow-hidden"
+          style={{ width: `${pct}%`, background: "linear-gradient(90deg,#7c5cff,#06b6d4)", transition: "width .45s cubic-bezier(.2,.8,.2,1)" }}
+        >
+          <div className="cs-shimmer absolute inset-0" />
+        </div>
+        {STAGES.map((s, i) => {
+          const done = i < current;
+          const active = i === current;
+          const left = total > 1 ? (i / (total - 1)) * 100 : 0;
+          return (
+            <span
+              key={s.key}
+              className="absolute -translate-x-1/2 -translate-y-1/2 top-1/2 rounded-full"
+              style={{
+                left: `${left}%`,
+                width: active ? 15 : 11,
+                height: active ? 15 : 11,
+                background: done || active ? "#ffffff" : "#eef1f9",
+                boxShadow: done
+                  ? "0 0 0 3px #06b6d4"
+                  : active
+                    ? "0 0 0 3px #7c5cff, 0 0 0 6px rgba(124,92,255,0.22)"
+                    : "inset 0 0 0 1.5px #d1d9e0",
+                transition: "all .3s ease",
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-4">
+        {STAGES.map((s, i) => (
+          <span key={s.key} className={`text-[11px] font-medium ${i <= current ? "text-ink" : "text-ink-faint"}`}>
+            {s.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
