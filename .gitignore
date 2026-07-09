@@ -1,2 +1,5 @@
 # macOS
 .DS_Store
+
+# LaTeX final report (not part of the codebase)
+/report/
