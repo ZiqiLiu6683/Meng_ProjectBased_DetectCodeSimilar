@@ -142,7 +142,13 @@ public class WalaNextPipelineRunner {
             // Type-4 clone, surfaced by the recognizer as T4_DYNAMIC_EVIDENCE. Pairs SMT proved
             // DIFFERENT are excluded up front (no point sampling a known counterexample).
             progress.accept("dynamic");
-            List<String[]> dynamicPairs = dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
+            // -Dcodesim.skipDynamic=true disables the dynamic tier. Required for benchmark sweeps
+            // over UNTRUSTED corpus code (e.g. BigCloneBench): the dynamic checker EXECUTES both
+            // methods, and arbitrary corpus fragments may spawn processes, touch files, or call
+            // System.exit (killing a batch JVM). The syntactic categories never need this tier.
+            List<String[]> dynamicPairs = Boolean.getBoolean("codesim.skipDynamic")
+                    ? List.of()
+                    : dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
             DynamicEquivalenceOracle dynamicOracle =
                     MethodPairDynamicOracle.fromRawSignaturePairs(dynamicPairs);
             CandidateSignalProvider dynamicProvider =
