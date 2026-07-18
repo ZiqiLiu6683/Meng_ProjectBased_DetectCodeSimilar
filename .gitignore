@@ -5,5 +5,5 @@
 /report/
 
 # Test
-results/bcb_full/
-results/bcb_smoke/
+/results/bcb_full/
+/results/bcb_smoke/
