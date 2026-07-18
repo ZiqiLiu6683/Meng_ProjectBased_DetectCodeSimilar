@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static synchronized void store(LogConnection connection) throws ReplicatorException {
+    public synchronized void store(LogConnection connection) throws ReplicatorException {
         assertNotDone(connection);
         if (writeConnection != null && writeConnection.isDone()) writeConnection = null;
         int readConnectionsSize = readConnections.size();

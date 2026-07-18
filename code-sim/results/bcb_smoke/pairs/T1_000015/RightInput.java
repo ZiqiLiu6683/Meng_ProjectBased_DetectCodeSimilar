@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static     void readVolumetricData() throws Exception {
+    void readVolumetricData() throws Exception {
         System.err.println("readVolumetricData");
         StringTokenizer st = new StringTokenizer("");
         volumetricData = new float[countX][][];

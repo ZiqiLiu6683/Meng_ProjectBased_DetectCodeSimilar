@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static TriangleMesh triangulateCurve() {
+    private TriangleMesh triangulateCurve() {
         Vec3 v[] = new Vec3[vertex.length], size = getBounds().getSize();
         Vec2 v2[] = new Vec2[vertex.length];
         int i, j, current, count, min;

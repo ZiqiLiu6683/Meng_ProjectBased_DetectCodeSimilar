@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static final byte[] readIncoming() throws IOException {
+    public final byte[] readIncoming() throws IOException {
         boolean done = false;
         boolean negotiate = false;
         baosin.reset();

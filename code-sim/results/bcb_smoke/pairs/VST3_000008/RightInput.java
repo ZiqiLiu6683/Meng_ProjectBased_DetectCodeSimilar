@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static int findIndexBySize(int key) {
+    private int findIndexBySize(int key) {
         int lo = 0;
         int hi = itemsBySize.size() - 1;
         while (lo <= hi) {

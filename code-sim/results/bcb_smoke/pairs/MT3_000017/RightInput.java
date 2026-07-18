@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static Matrix transpose() {
+    public Matrix transpose() {
         Matrix matrixT = new Matrix(columnCount, rowCount);
         int i, j;
         for (i = 0; i < rowCount; i++) {

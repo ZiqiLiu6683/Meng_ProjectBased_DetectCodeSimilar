@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static Object invokeInitializer(Class cls, int methodID, int argAddress, boolean isJvalue, boolean isDotDotStyle) throws Exception {
+    public static Object invokeInitializer(Class cls, int methodID, int argAddress, boolean isJvalue, boolean isDotDotStyle) throws Exception {
         VM_Method mth = VM_MethodDictionary.getValue(methodID);
         VM_Type[] argTypes = mth.getParameterTypes();
         Class[] argClasses = new Class[argTypes.length];

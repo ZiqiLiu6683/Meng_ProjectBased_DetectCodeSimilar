@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static String downloadWebpage3(String address) throws ClientProtocolException, IOException {
+	public static String downloadWebpage3(String address) throws ClientProtocolException, IOException {
 		HttpClient client = HttpClientBuilder.create().build();
 		HttpGet request = new HttpGet(address);
 		HttpResponse response = client.execute(request);

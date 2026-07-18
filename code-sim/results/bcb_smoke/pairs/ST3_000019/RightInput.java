@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void main(String[] args) {
+    public static void main(String[] args) {
         System.out.println("Chapter 1 example 1: Hello World");
         Document document = new Document();
         try {

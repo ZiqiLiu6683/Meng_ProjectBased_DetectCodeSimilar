@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void main(String args[]) throws Exception {
+    public static void main(String args[]) throws Exception {
         Class c = Class.forName("tClass");
         System.out.println(c);
         try {

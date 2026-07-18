@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void setEvelope(Envelope e) {
+    public void setEvelope(Envelope e) {
         setBoundsInMicros(e.getTOn(), e.getTOff());
         gain = e.getGain();
         attackEnd = startByte + milliToByte(e.getTRise());

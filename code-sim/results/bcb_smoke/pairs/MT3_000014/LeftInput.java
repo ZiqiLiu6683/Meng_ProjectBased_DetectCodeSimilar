@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static boolean setRecipeToTimetable(int recipeId, Timestamp time, int meal) {
+    public boolean setRecipeToTimetable(int recipeId, Timestamp time, int meal) {
         System.out.println("setRecipeToTimetable");
         PreparedStatement statement = null;
         StringBuffer query = new StringBuffer("insert into timetable (recipe_id, time, meal) values (?,?,?)");

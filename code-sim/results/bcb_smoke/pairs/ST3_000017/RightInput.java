@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static ProgramMessageSymbol addProgramMessageSymbol(int programID, String name, byte[] bytecode) throws AdaptationException {
+    public ProgramMessageSymbol addProgramMessageSymbol(int programID, String name, byte[] bytecode) throws AdaptationException {
         ProgramMessageSymbol programMessageSymbol = null;
         Connection connection = null;
         PreparedStatement preparedStatement = null;

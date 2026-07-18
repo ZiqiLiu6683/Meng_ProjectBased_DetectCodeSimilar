@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void main(String[] args) {
+    public static void main(String[] args) {
         try {
             String jar = "./test340.jar";
             URLClassLoader theLoader = new URLClassLoader(new URL[] { new URL("file:" + jar) });

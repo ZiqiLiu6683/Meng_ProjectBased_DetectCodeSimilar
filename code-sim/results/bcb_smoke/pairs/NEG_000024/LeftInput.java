@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static synchronized void reading() {
+    public synchronized void reading() {
         if (active_writers == 0 && writer_locks.size() == 0) ++active_readers; else {
             ++waiting_readers;
             try {

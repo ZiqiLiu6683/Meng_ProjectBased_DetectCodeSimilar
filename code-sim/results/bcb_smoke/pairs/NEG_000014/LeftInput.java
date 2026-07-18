@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void write() throws WriterException {
+    public void write() throws WriterException {
         init();
         String currentSQL = null;
         int sqlIndex = 0;

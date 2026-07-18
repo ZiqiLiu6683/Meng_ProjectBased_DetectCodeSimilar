@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void testPreparedStatement0009() throws Exception {
+    public void testPreparedStatement0009() throws Exception {
         Connection cx = getConnection();
         dropTable("#t0009");
         Statement stmt = cx.createStatement();

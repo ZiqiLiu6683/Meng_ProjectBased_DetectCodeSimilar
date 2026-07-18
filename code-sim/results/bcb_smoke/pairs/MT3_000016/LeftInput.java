@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void copy(File from_file, File to_file) throws IOException {
+    public static void copy(File from_file, File to_file) throws IOException {
         if (!from_file.exists()) abort("FileCopy: no such source file: " + from_file.getName());
         if (!from_file.isFile()) abort("FileCopy: can't copy directory: " + from_file.getName());
         if (!from_file.canRead()) abort("FileCopy: source file is unreadable: " + from_file.getName());

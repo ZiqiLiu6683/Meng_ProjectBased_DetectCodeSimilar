@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static int binarySearch(double mouseCoord, int[][] pointCoords) {
+    private int binarySearch(double mouseCoord, int[][] pointCoords) {
         int left = 0;
         int right = pointCoords.length;
         while (left < right) {

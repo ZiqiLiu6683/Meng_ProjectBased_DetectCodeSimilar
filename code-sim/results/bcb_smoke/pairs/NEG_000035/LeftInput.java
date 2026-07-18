@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void addFile(File newEntry, String name) {
+    protected void addFile(File newEntry, String name) {
         if (newEntry.isDirectory()) {
             return;
         }

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static String encrypt(String password) {
+    public static String encrypt(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(password.getBytes());

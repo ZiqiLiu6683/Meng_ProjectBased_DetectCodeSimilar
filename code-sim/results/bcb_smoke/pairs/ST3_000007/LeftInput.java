@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void setDefaultMailBox(final int domainId, final int userId) {
+    public void setDefaultMailBox(final int domainId, final int userId) {
         final EmailAddress defaultMailbox = cmDB.getDefaultMailbox(domainId);
         try {
             connection.setAutoCommit(false);

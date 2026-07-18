@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void align() {
+    public void align() {
         Matrix tmp;
         this.cm1 = new Point3d();
         this.cm2 = new Point3d();

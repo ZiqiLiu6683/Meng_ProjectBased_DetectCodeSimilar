@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static String copyTutorial() throws IOException {
+    private String copyTutorial() throws IOException {
         File inputFile = new File(getFilenameForOriginalTutorial());
         File outputFile = new File(getFilenameForCopiedTutorial());
         FileReader in = new FileReader(inputFile);

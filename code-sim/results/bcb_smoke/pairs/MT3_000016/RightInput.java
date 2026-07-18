@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void copy(String fromFileName, String toFileName) throws IOException {
+    public static void copy(String fromFileName, String toFileName) throws IOException {
         File fromFile = new File(fromFileName);
         File toFile = new File(toFileName);
         if (!fromFile.exists()) throw new IOException("FileCopy: " + "no such source file: " + fromFileName);

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static byte[] textInserterPage(HTTPurl urlData) throws Exception {
+    private byte[] textInserterPage(HTTPurl urlData) throws Exception {
         StringBuffer buff = new StringBuffer();
         PageTemplate template = new PageTemplate(store.getProperty("path.template") + File.separator + "epg-textInsert.html");
         GuideStore guide = GuideStore.getInstance();

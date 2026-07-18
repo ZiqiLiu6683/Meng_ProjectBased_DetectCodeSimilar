@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static double[] readDataFrameVariable(int frame) {
+    public double[] readDataFrameVariable(int frame) {
         if (!getDataWindow().isWithinWindowRange(frame)) {
             System.out.println("CAUTION! accessing frame " + frame + ", outside variable scaling window!");
         }

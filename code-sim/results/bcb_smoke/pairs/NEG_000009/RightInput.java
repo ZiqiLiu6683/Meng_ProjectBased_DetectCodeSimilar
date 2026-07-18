@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static String downloadWebpage2(String address) throws MalformedURLException, IOException {
+	public static String downloadWebpage2(String address) throws MalformedURLException, IOException {
 		URL url = new URL(address);
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		HttpURLConnection.setFollowRedirects(true);

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void addDirectory(ZipOutputStream zout, File fileSource, String innerFolder) throws IOException {
+    private static void addDirectory(ZipOutputStream zout, File fileSource, String innerFolder) throws IOException {
         if (fileSource.isHidden()) {
             System.out.println("Skiping hidden folder " + fileSource.getName());
             return;

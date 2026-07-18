@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void copyFile(File src, File dest) throws IOException {
+    public static void copyFile(File src, File dest) throws IOException {
         FileInputStream fis = new FileInputStream(src);
         FileOutputStream fos = new FileOutputStream(dest);
         java.nio.channels.FileChannel channelSrc = fis.getChannel();

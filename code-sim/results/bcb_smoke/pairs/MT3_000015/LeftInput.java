@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static String MD5(String text) {
+    public String MD5(String text) {
         try {
             MessageDigest md;
             md = MessageDigest.getInstance("MD5");

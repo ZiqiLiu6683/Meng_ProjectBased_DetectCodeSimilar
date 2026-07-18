@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void BubbleSortFloat2(float[] num) {
+	public static void BubbleSortFloat2(float[] num) {
 		int last_exchange;
 		int right_border = num.length - 1;
 		do {

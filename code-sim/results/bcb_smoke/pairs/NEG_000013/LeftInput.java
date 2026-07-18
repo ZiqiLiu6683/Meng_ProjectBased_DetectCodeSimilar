@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void writeGeneProductCount(BufferedReader reader) throws IOException {
+    private void writeGeneProductCount(BufferedReader reader) throws IOException {
         String line;
         while ((line = reader.readLine()) != null && !abort) {
             progress = calculateProgress(line.length());

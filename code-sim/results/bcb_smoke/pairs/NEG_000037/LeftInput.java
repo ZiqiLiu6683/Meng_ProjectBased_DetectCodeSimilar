@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void mksummary() {
+    private void mksummary() {
         summary = new JPanel();
         summary.setLayout(new GridLayout(8, 4, 2, 12));
         summary.setPreferredSize(new Dimension(400, 300));

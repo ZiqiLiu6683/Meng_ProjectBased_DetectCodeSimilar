@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void doOpen() {
+    public void doOpen() {
         final JFileChooser chooser = new JFileChooser();
         chooser.addChoosableFileFilter(new FileFilter() {
 

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static     void getChannelMembers(Channel dstChannel, ClientSession session, ChannelRequestC2S request) {
+    void getChannelMembers(Channel dstChannel, ClientSession session, ChannelRequestC2S request) {
         if (dstChannel != null) {
             Iterator<ClientSession> iter = dstChannel.getSessions();
             ArrayList<String> list = new ArrayList<String>();

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void getGUID(boolean secure) {
+    private void getGUID(boolean secure) {
         MessageDigest md5 = null;
         StringBuffer sbValueBeforeMD5 = new StringBuffer();
         try {

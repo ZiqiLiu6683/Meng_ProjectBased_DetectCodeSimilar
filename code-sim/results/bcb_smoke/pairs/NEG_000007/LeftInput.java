@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void initFile(String id) throws FormatException, IOException {
+    protected void initFile(String id) throws FormatException, IOException {
         if (debug) debug("OpenlabReader.initFile(" + id + ")");
         super.initFile(id);
         in = new RandomAccessStream(id);

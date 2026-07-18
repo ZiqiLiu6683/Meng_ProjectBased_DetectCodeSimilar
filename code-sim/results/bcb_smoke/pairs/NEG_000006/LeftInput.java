@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void mergeSort(int fromIndex, int toIndex, IntComparator c, Swapper swapper) {
+    public static void mergeSort(int fromIndex, int toIndex, IntComparator c, Swapper swapper) {
         int length = toIndex - fromIndex;
         if (length < SMALL) {
             for (int i = fromIndex; i < toIndex; i++) {

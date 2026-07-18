@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static int binarySearch(long[] a, long key) {
+    public static int binarySearch(long[] a, long key) {
         int low = 0;
         int high = a.length - 1;
         while (low <= high) {

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void convert(File src, File dest) throws IOException {
+    public void convert(File src, File dest) throws IOException {
         InputStream in = new BufferedInputStream(new FileInputStream(src));
         DcmParser p = pfact.newDcmParser(in);
         Dataset ds = fact.newDataset();

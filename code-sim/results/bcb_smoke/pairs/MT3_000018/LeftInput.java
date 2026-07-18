@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void copy(String from, String to) throws Exception {
+    public static void copy(String from, String to) throws Exception {
         File inputFile = new File(from);
         File outputFile = new File(to);
         FileInputStream in = new FileInputStream(inputFile);

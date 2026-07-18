@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static Matrix transpose() {
+    public Matrix transpose() {
         Matrix X = new Matrix(n, m);
         double[][] C = X.getArray();
         for (int i = 0; i < m; i++) {

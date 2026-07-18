@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void ZipFiles(File zipfile, File[] files) throws IOException {
+	public static void ZipFiles(File zipfile, File[] files) throws IOException {
 		byte[] buffer = new byte[1024];
 		FileOutputStream fos = new FileOutputStream(zipfile);
 		ZipOutputStream zos = new ZipOutputStream(fos);

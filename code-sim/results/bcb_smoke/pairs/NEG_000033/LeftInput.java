@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static int partition(int left, int right) {
+    private int partition(int left, int right) {
         int mid = (left + right) / 2;
         if (array[left] > array[mid]) xfswap(array, left, mid);
         if (array[left] > array[right]) xfswap(array, left, right);

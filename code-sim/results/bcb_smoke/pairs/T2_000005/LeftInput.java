@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static final Object concat(Object ary, Object ary1) {
+    public static final Object concat(Object ary, Object ary1) {
         int len = Array.getLength(ary) + Array.getLength(ary1);
         if (!ary.getClass().getComponentType().equals(ary1.getClass().getComponentType())) throw new IllegalArgumentException("These concated array component type are different.");
         Object dst = Array.newInstance(ary.getClass().getComponentType(), len);

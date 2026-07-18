@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static void main(String args[]) {
+    public static void main(String args[]) {
         byte blobs[][];
         System.out.println("MyBS Repository Test");
         System.out.println("java.class.path: " + System.getProperty("java.class.path"));

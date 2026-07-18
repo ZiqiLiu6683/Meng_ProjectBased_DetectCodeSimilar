@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static boolean encodeFileToFile(String infile, String outfile) {
+    public static boolean encodeFileToFile(String infile, String outfile) {
         boolean success = false;
         java.io.InputStream in = null;
         java.io.OutputStream out = null;

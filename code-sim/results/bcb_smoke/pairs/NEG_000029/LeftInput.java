@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static Properties loadProperties() {
+    public static Properties loadProperties() {
         try {
             if (url == null) url = ClassLoader.getSystemResource("application.properties");
             if (url == null) throw new FileNotFoundException("application.properties");

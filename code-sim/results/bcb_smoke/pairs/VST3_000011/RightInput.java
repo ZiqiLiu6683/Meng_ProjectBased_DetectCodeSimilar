@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static GalleryResource(DefaultValuesProvider parentDVP, URL resourceURL, File metadataFile) throws Exception {
+    public GalleryResource(DefaultValuesProvider parentDVP, URL resourceURL, File metadataFile) throws Exception {
         super(parentDVP, resourceURL, metadataFile);
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);

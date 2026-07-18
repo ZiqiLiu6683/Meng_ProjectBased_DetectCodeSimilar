@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static static Object[][] dimTransform(Object[][] obj) {
+    public static Object[][] dimTransform(Object[][] obj) {
         if ((obj == null) || (obj.length <= 0)) {
             return null;
         }

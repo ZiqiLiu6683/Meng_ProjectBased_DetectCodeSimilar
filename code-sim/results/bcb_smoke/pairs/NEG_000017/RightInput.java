@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void BubbleSortInt1(int[] num) {
+	public static void BubbleSortInt1(int[] num) {
 		boolean flag = true; // set flag to true to begin first pass
 		int temp; // holding variable
 

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static int binarySearch2(int arr[], int key) {
+	public static int binarySearch2(int arr[], int key) {
 		//Implementation: Iterative, primitive type.
 		int imin = 0;
 		int imax = arr.length - 1;

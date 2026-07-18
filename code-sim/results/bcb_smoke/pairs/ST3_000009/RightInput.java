@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static void copyParseFileToCodeFile() throws IOException {
+    private void copyParseFileToCodeFile() throws IOException {
         InputStream in = new FileInputStream(new File(filenameParse));
         OutputStream out = new FileOutputStream(new File(filenameMisc));
         byte[] buffer = new byte[1024];

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void run() {
+    public void run() {
         try {
             charsExpected = 10000 * (testData[0].length() + testData[1].length());
             String fileName = "/tmp/out" + myNumber;

@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static ProgramSymbol createNewProgramSymbol(int programID, String module, String symbol, int address, int size) throws AdaptationException {
+    public ProgramSymbol createNewProgramSymbol(int programID, String module, String symbol, int address, int size) throws AdaptationException {
         ProgramSymbol programSymbol = null;
         Connection connection = null;
         Statement statement = null;

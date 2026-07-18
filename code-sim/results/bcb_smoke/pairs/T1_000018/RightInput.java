@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static static void readAndRewrite(File inFile, File outFile) throws IOException {
+    private static void readAndRewrite(File inFile, File outFile) throws IOException {
         ImageInputStream iis = ImageIO.createImageInputStream(new BufferedInputStream(new FileInputStream(inFile)));
         DcmParser dcmParser = DcmParserFactory.getInstance().newDcmParser(iis);
         Dataset ds = DcmObjectFactory.getInstance().newDataset();

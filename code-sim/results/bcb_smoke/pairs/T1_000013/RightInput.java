@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class RightInput {
-public static ImageDisplay(ImageDisplayApplet applet, GraphicsConfiguration gc) {
+    public ImageDisplay(ImageDisplayApplet applet, GraphicsConfiguration gc) {
         this.applet = applet;
         if (applet == null) {
             frame = new JFrame(gc);

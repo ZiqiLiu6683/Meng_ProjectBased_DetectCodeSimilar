@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static void write(Message message) throws IOException {
+    public void write(Message message) throws IOException {
         if (this.startDate == null) {
             writeHeader();
             this.startDate = message.getDate();

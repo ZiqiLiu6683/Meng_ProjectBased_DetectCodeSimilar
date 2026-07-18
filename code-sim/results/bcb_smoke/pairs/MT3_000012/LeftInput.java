@@ -1,5 +1,14 @@
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.text.*;
+import java.math.*;
+import java.util.regex.*;
+import java.util.concurrent.*;
+
 public class LeftInput {
-public static final int search(char c, boolean exact) {
+    private final int search(char c, boolean exact) {
         int low = 0;
         int high = children.size() - 1;
         while (low <= high) {
