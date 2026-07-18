@@ -1,0 +1,489 @@
+{"pairId":"java_t1_format_01","status":"ok","wallMs":3864,"stages":{"compile":4,"graph":343,"smt":2005,"dynamic":2871,"regions":2879,"classify":3820},"report":{
+  "fileSummary": {
+    "inspectionPriority": "HIGH",
+    "affectedContent": {
+      "leftRatio": 0.818182,
+      "rightRatio": 0.600000
+    },
+    "display": {
+      "left": {
+        "percent": 82,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      },
+      "right": {
+        "percent": 60,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      }
+    },
+    "evidenceBreakdown": [
+      {
+        "type": "T1",
+        "typeLabel": "No code changes (T1)",
+        "typeButtonLabel": "No code changes (T1)",
+        "typeClass": "t1",
+        "regionCount": 2,
+        "affectedLeftRatio": 0.818182,
+        "affectedRightRatio": 0.600000,
+        "exclusiveAffectedLeftRatio": 0.818182,
+        "exclusiveAffectedRightRatio": 0.600000
+      }
+    ],
+    "matchedCoverageLeft": 0.818182,
+    "matchedCoverageRight": 0.600000,
+    "unrelatedCodeRatio": 0.400000,
+    "regionTypeCounts": {
+      "NON_CLONE": 0,
+      "POSSIBLE_T4_CANDIDATE": 0,
+      "T1": 2,
+      "T2": 0,
+      "T3": 0,
+      "T4_CONFIRMED": 0,
+      "T4_DYNAMIC_EVIDENCE": 0
+    },
+    "regionTypeCoverage": {
+      "NON_CLONE": 0.000000,
+      "POSSIBLE_T4_CANDIDATE": 0.000000,
+      "T1": 0.818182,
+      "T2": 0.000000,
+      "T3": 0.000000,
+      "T4_CONFIRMED": 0.000000,
+      "T4_DYNAMIC_EVIDENCE": 0.000000
+    },
+    "fileTags": ["EXACT_COPY"],
+    "legacy": {
+      "overallRelationship": "PARTIAL_T2",
+      "relationshipShape": "LEFT_EMBEDDED_IN_RIGHT",
+      "dominantRegionType": "T1"
+    }
+  },
+  "acceptedRegionCount": 2,
+  "selectedRegionCount": 2,
+  "suppressedRegionCount": 0,
+  "emittedRegionCount": 2,
+  "regions": [
+    {
+      "candidateId": "AR1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": null,
+      "left": {
+        "regionId": "1L",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1L",
+        "beginLine": 4,
+        "endLine": 9
+      },
+      "right": {
+        "regionId": "1R",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1R",
+        "beginLine": 3,
+        "endLine": 4
+      },
+      "display": {
+        "regionLabel": "T1-1",
+        "title": "aligned region 1L -> aligned region 1R",
+        "summary": "exact copy",
+        "affectedLabel": "Left 6 lines / Right 2 lines",
+        "leftRangeLabel": "lines 4-9",
+        "rightRangeLabel": "lines 3-4",
+        "changeSummaries": ["T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "ALIGNED_REGION_SCAN", "score": 4.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["T1 passed: T1 comparable token sequences are 100% identical."]
+    },
+    {
+      "candidateId": "C1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": 1.000000,
+      "left": {
+        "regionId": "left:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 2,
+        "endLine": 10
+      },
+      "right": {
+        "regionId": "right:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 2,
+        "endLine": 4
+      },
+      "display": {
+        "regionLabel": "T1-2",
+        "title": "FormatBase.countPositive(int[]) -> FormatBase.countPositive(int[])",
+        "summary": "exact copy",
+        "affectedLabel": "Left 9 lines / Right 3 lines",
+        "leftRangeLabel": "lines 2-10",
+        "rightRangeLabel": "lines 2-4",
+        "changeSummaries": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "CFG_KNN_SCAN", "score": 0.415348},
+        {"channel": "DYNAMIC_EQUIV_SCAN", "score": 1.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+    }
+  ]
+}
+}
+{"pairId":"java_t1_comment_02","status":"ok","wallMs":2596,"stages":{"compile":0,"graph":56,"smt":997,"dynamic":1772,"regions":1775,"classify":2580},"report":{
+  "fileSummary": {
+    "inspectionPriority": "HIGH",
+    "affectedContent": {
+      "leftRatio": 0.818182,
+      "rightRatio": 0.833333
+    },
+    "display": {
+      "left": {
+        "percent": 82,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      },
+      "right": {
+        "percent": 83,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      }
+    },
+    "evidenceBreakdown": [
+      {
+        "type": "T1",
+        "typeLabel": "No code changes (T1)",
+        "typeButtonLabel": "No code changes (T1)",
+        "typeClass": "t1",
+        "regionCount": 2,
+        "affectedLeftRatio": 0.818182,
+        "affectedRightRatio": 0.833333,
+        "exclusiveAffectedLeftRatio": 0.818182,
+        "exclusiveAffectedRightRatio": 0.833333
+      }
+    ],
+    "matchedCoverageLeft": 0.818182,
+    "matchedCoverageRight": 0.833333,
+    "unrelatedCodeRatio": 0.181818,
+    "regionTypeCounts": {
+      "NON_CLONE": 0,
+      "POSSIBLE_T4_CANDIDATE": 0,
+      "T1": 2,
+      "T2": 0,
+      "T3": 0,
+      "T4_CONFIRMED": 0,
+      "T4_DYNAMIC_EVIDENCE": 0
+    },
+    "regionTypeCoverage": {
+      "NON_CLONE": 0.000000,
+      "POSSIBLE_T4_CANDIDATE": 0.000000,
+      "T1": 0.833333,
+      "T2": 0.000000,
+      "T3": 0.000000,
+      "T4_CONFIRMED": 0.000000,
+      "T4_DYNAMIC_EVIDENCE": 0.000000
+    },
+    "fileTags": ["EXACT_COPY"],
+    "legacy": {
+      "overallRelationship": "FULL_FILE_T1",
+      "relationshipShape": "FULL_OVERLAP",
+      "dominantRegionType": "T1"
+    }
+  },
+  "acceptedRegionCount": 2,
+  "selectedRegionCount": 2,
+  "suppressedRegionCount": 0,
+  "emittedRegionCount": 2,
+  "regions": [
+    {
+      "candidateId": "AR1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": null,
+      "left": {
+        "regionId": "1L",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1L",
+        "beginLine": 4,
+        "endLine": 9
+      },
+      "right": {
+        "regionId": "1R",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1R",
+        "beginLine": 5,
+        "endLine": 10
+      },
+      "display": {
+        "regionLabel": "T1-1",
+        "title": "aligned region 1L -> aligned region 1R",
+        "summary": "exact copy",
+        "affectedLabel": "Left 6 lines / Right 6 lines",
+        "leftRangeLabel": "lines 4-9",
+        "rightRangeLabel": "lines 5-10",
+        "changeSummaries": ["T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "ALIGNED_REGION_SCAN", "score": 4.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["T1 passed: T1 comparable token sequences are 100% identical."]
+    },
+    {
+      "candidateId": "C1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": 1.000000,
+      "left": {
+        "regionId": "left:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 2,
+        "endLine": 10
+      },
+      "right": {
+        "regionId": "right:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 2,
+        "endLine": 11
+      },
+      "display": {
+        "regionLabel": "T1-2",
+        "title": "FormatBase.countPositive(int[]) -> FormatBase.countPositive(int[])",
+        "summary": "exact copy",
+        "affectedLabel": "Left 9 lines / Right 10 lines",
+        "leftRangeLabel": "lines 2-10",
+        "rightRangeLabel": "lines 2-11",
+        "changeSummaries": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "CFG_KNN_SCAN", "score": 0.415348},
+        {"channel": "DYNAMIC_EQUIV_SCAN", "score": 1.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+    }
+  ]
+}
+}
+{"pairId":"java_t1_whitespace_03","status":"ok","wallMs":4008,"stages":{"compile":0,"graph":61,"smt":950,"dynamic":1706,"regions":1710,"classify":3541},"report":{
+  "fileSummary": {
+    "inspectionPriority": "HIGH",
+    "affectedContent": {
+      "leftRatio": 0.818182,
+      "rightRatio": 0.750000
+    },
+    "display": {
+      "left": {
+        "percent": 82,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      },
+      "right": {
+        "percent": 75,
+        "status": "REVIEW NEEDED",
+        "severityClass": "severity-mid",
+        "description": "Matched or changed code regions."
+      }
+    },
+    "evidenceBreakdown": [
+      {
+        "type": "T1",
+        "typeLabel": "No code changes (T1)",
+        "typeButtonLabel": "No code changes (T1)",
+        "typeClass": "t1",
+        "regionCount": 2,
+        "affectedLeftRatio": 0.818182,
+        "affectedRightRatio": 0.750000,
+        "exclusiveAffectedLeftRatio": 0.818182,
+        "exclusiveAffectedRightRatio": 0.750000
+      }
+    ],
+    "matchedCoverageLeft": 0.818182,
+    "matchedCoverageRight": 0.750000,
+    "unrelatedCodeRatio": 0.250000,
+    "regionTypeCounts": {
+      "NON_CLONE": 0,
+      "POSSIBLE_T4_CANDIDATE": 0,
+      "T1": 2,
+      "T2": 0,
+      "T3": 0,
+      "T4_CONFIRMED": 0,
+      "T4_DYNAMIC_EVIDENCE": 0
+    },
+    "regionTypeCoverage": {
+      "NON_CLONE": 0.000000,
+      "POSSIBLE_T4_CANDIDATE": 0.000000,
+      "T1": 0.818182,
+      "T2": 0.000000,
+      "T3": 0.000000,
+      "T4_CONFIRMED": 0.000000,
+      "T4_DYNAMIC_EVIDENCE": 0.000000
+    },
+    "fileTags": ["EXACT_COPY"],
+    "legacy": {
+      "overallRelationship": "PARTIAL_T2",
+      "relationshipShape": "LEFT_EMBEDDED_IN_RIGHT",
+      "dominantRegionType": "T1"
+    }
+  },
+  "acceptedRegionCount": 2,
+  "selectedRegionCount": 2,
+  "suppressedRegionCount": 0,
+  "emittedRegionCount": 2,
+  "regions": [
+    {
+      "candidateId": "AR1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": null,
+      "left": {
+        "regionId": "1L",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1L",
+        "beginLine": 4,
+        "endLine": 9
+      },
+      "right": {
+        "regionId": "1R",
+        "kind": "CALL_EXPANDED_REGION",
+        "displayName": "aligned region 1R",
+        "beginLine": 7,
+        "endLine": 14
+      },
+      "display": {
+        "regionLabel": "T1-1",
+        "title": "aligned region 1L -> aligned region 1R",
+        "summary": "exact copy",
+        "affectedLabel": "Left 6 lines / Right 8 lines",
+        "leftRangeLabel": "lines 4-9",
+        "rightRangeLabel": "lines 7-14",
+        "changeSummaries": ["T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "ALIGNED_REGION_SCAN", "score": 4.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["T1 passed: T1 comparable token sequences are 100% identical."]
+    },
+    {
+      "candidateId": "C1",
+      "type": "T1",
+      "typeLabel": "No code changes (T1)",
+      "typeButtonLabel": "No code changes (T1)",
+      "typeClass": "t1",
+      "strength": "NONE",
+      "syntacticSimilarity": 1.000000,
+      "structuralSimilarity": 1.000000,
+      "left": {
+        "regionId": "left:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 2,
+        "endLine": 10
+      },
+      "right": {
+        "regionId": "right:method:FormatBase.countPositive(int[])#1",
+        "kind": "METHOD",
+        "displayName": "FormatBase.countPositive(int[])",
+        "beginLine": 4,
+        "endLine": 15
+      },
+      "display": {
+        "regionLabel": "T1-2",
+        "title": "FormatBase.countPositive(int[]) -> FormatBase.countPositive(int[])",
+        "summary": "exact copy",
+        "affectedLabel": "Left 9 lines / Right 12 lines",
+        "leftRangeLabel": "lines 2-10",
+        "rightRangeLabel": "lines 4-15",
+        "changeSummaries": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+      },
+      "sources": [
+        {"channel": "CFG_KNN_SCAN", "score": 0.415348},
+        {"channel": "DYNAMIC_EQUIV_SCAN", "score": 1.000000}
+      ],
+      "tags": ["EXACT_COPY"],
+      "renameEvidence": {
+        "detected": false,
+        "hasConflict": false,
+        "identifierMap": {
+        }
+      },
+      "statementChanges": [
+      ],
+      "decisionPath": ["Method CFG structural similarity: 1.0000 (informational; not used to change the type).", "T1 passed: T1 comparable token sequences are 100% identical."]
+    }
+  ]
+}
+}
