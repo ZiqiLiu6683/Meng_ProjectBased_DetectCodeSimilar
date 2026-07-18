@@ -110,9 +110,15 @@ python scripts\experiments\bcb_extract.py extract `
 
 ```powershell
 # 8 分片 × 1 GB 堆 ≈ 峰值 10 GB 内存，16 GB 机器安全
+# --java-opt 传给每个 JVM；BCB 语料是不可信代码，必须跳过动态执行层
 python scripts\experiments\run_shards.py `
   --manifest results\bcb_full\manifest.csv `
-  --out results\bcb_full\run --shards 8 --xmx 1g
+  --out results\bcb_full\run --shards 8 --xmx 1g `
+  --java-opt "-Dcodesim.skipDynamic=true"
+
+# 注意：PowerShell 中手写 java 命令时，-D 参数必须整体加引号：
+#   java "-Dcodesim.skipDynamic=true" ...
+# 否则 PowerShell 会在小数点处拆分参数导致 ClassNotFoundException。
 ```
 
 - 断点续跑：中断后重复同一命令即可，已完成的对自动跳过。

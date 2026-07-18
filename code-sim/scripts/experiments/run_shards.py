@@ -72,6 +72,8 @@ def main() -> None:
     ap.add_argument("--java", default="java")
     ap.add_argument("--xmx", default="1g")
     ap.add_argument("--limit", type=int, default=0, help="per-shard pair limit (smoke tests)")
+    ap.add_argument("--java-opt", action="append", default=[],
+                    help="extra JVM option, repeatable (e.g. --java-opt -Dcodesim.skipDynamic=true)")
     args = ap.parse_args()
 
     root = code_sim_root()
@@ -82,7 +84,7 @@ def main() -> None:
     procs = []
     for p in shard_inputs:
         out_jsonl = p.with_suffix(".jsonl")
-        cmd = [args.java, f"-Xmx{args.xmx}", "-cp", cp, MAIN_CLASS, str(p), str(out_jsonl)]
+        cmd = [args.java, f"-Xmx{args.xmx}", *args.java_opt, "-cp", cp, MAIN_CLASS, str(p), str(out_jsonl)]
         if args.limit > 0:
             cmd += ["--limit", str(args.limit)]
         log = open(p.with_suffix(".log"), "a", encoding="utf-8")
