@@ -9,6 +9,13 @@ import java.util.regex.*;
 import java.util.concurrent.*;
 import java.util.zip.*;
 import java.security.*;
+import java.lang.reflect.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class LeftInput {
     public ProgramSymbol createNewProgramSymbol(int programID, String module, String symbol, int address, int size) throws AdaptationException {
