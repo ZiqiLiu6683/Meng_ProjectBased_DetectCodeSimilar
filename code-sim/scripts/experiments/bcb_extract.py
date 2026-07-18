@@ -127,6 +127,13 @@ COMMON_IMPORTS = "\n".join([
     "import java.util.concurrent.*;",
     "import java.util.zip.*;",
     "import java.security.*;",
+    "import java.lang.reflect.*;",
+    "import java.sql.Connection;",
+    "import java.sql.DriverManager;",
+    "import java.sql.PreparedStatement;",
+    "import java.sql.ResultSet;",
+    "import java.sql.SQLException;",
+    "import java.sql.Statement;",
 ])
 
 
