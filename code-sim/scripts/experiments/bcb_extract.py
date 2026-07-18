@@ -115,12 +115,23 @@ def cut_fragment(bcb_root: Path, fid: str, subdir: str, name: str,
     return "\n".join(frag) if frag else None
 
 
+COMMON_IMPORTS = "\n".join([
+    "import java.util.*;",
+    "import java.io.*;",
+    "import java.net.*;",
+    "import java.nio.file.*;",
+    "import java.text.*;",
+    "import java.math.*;",
+    "import java.util.regex.*;",
+    "import java.util.concurrent.*;",
+])
+
+
 def wrap(fragment: str, cls: str) -> str:
-    body = re.sub(r"^\s*(public|protected|private)\s+", "public static ",
-                  fragment, count=1)
-    if "static" not in body.split("{")[0]:
-        body = "public static " + fragment
-    return f"public class {cls} {{\n{body}\n}}\n"
+    # Fragment kept verbatim (its own modifiers are legal inside a class);
+    # common JDK imports raise the standalone-compile rate, unused ones are free.
+    # java.sql.* / java.awt.* deliberately omitted (Date/List ambiguity with java.util.*).
+    return f"{COMMON_IMPORTS}\n\npublic class {cls} {{\n{fragment}\n}}\n"
 
 
 def extract(args) -> None:
