@@ -46,7 +46,12 @@ def build_classpath(root: Path) -> str:
     if not cp_file.is_file():
         sys.exit("target/cp.txt missing - run: mvn -Psemantic-analysis "
                  "dependency:build-classpath -Dmdep.outputFile=target/cp.txt")
-    deps = cp_file.read_text(encoding="utf-8").strip()
+    raw = cp_file.read_bytes()
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        deps = raw.decode("utf-16").strip()          # PowerShell-written files
+    else:
+        deps = raw.decode("utf-8-sig").strip()        # tolerates a UTF-8 BOM
+    deps = deps.replace("\x00", "")
     sep = ";" if os.name == "nt" else ":"
     return f"{classes}{sep}{deps}"
 
