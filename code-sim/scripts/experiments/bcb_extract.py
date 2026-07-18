@@ -171,25 +171,36 @@ def extract(args) -> None:
             if want and len(rows) > want:
                 rows = random.sample(rows, want)
 
+            cat_dir = out / "pairs" / cat
+            cat_dir.mkdir(parents=True, exist_ok=True)
             for k, r in enumerate(rows):
                 pair_id = f"{cat}_{k:06d}"
-                frag1 = cut_fragment(args.bcb, r["FUNCTIONALITY_ID"], r["TYPE1"],
-                                     r["NAME1"], int(r["S1"]), int(r["E1"]))
-                frag2 = cut_fragment(args.bcb, r["FUNCTIONALITY_ID"], r["TYPE2"],
-                                     r["NAME2"], int(r["S2"]), int(r["E2"]))
-                if not frag1 or not frag2:
-                    stats[f"{cat}_missing_source"] += 1
-                    continue
-                d = out / "pairs" / pair_id
-                d.mkdir(exist_ok=True)
+                d = cat_dir / pair_id
                 left, right = d / "LeftInput.java", d / "RightInput.java"
-                left.write_text(wrap(frag1, "LeftInput"), encoding="utf-8")
-                right.write_text(wrap(frag2, "RightInput"), encoding="utf-8")
+                try:
+                    if not (left.is_file() and right.is_file()):  # resume-safe
+                        frag1 = cut_fragment(args.bcb, r["FUNCTIONALITY_ID"], r["TYPE1"],
+                                             r["NAME1"], int(r["S1"]), int(r["E1"]))
+                        frag2 = cut_fragment(args.bcb, r["FUNCTIONALITY_ID"], r["TYPE2"],
+                                             r["NAME2"], int(r["S2"]), int(r["E2"]))
+                        if not frag1 or not frag2:
+                            stats[f"{cat}_missing_source"] += 1
+                            continue
+                        d.mkdir(exist_ok=True)
+                        left.write_text(wrap(frag1, "LeftInput"), encoding="utf-8")
+                        right.write_text(wrap(frag2, "RightInput"), encoding="utf-8")
+                except OSError as ex:
+                    stats[f"{cat}_write_failed"] += 1
+                    if stats[f"{cat}_write_failed"] <= 3:
+                        print(f"[bcb] write failed for {pair_id}: {ex}")
+                    continue
                 mw.writerow([pair_id, str(left.resolve()), str(right.resolve())])
                 lw.writerow([pair_id, expected, cat if expected == "T3" else "",
                              r["FUNCTIONALITY_ID"], r["SIM_BOTH"],
                              r["FUNCTION_ID_ONE"], r["FUNCTION_ID_TWO"]])
                 stats[f"{cat}_written"] += 1
+                if stats[f"{cat}_written"] % 10000 == 0:
+                    print(f"[bcb] {cat}: {stats[f'{cat}_written']} written ...")
 
     report = ["# BCB extraction report", ""]
     report += [f"- {k}: {v}" for k, v in sorted(stats.items())]
