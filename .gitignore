@@ -3,3 +3,7 @@
 
 # LaTeX final report (not part of the codebase)
 /report/
+
+# Test
+results/bcb_full/
+results/bcb_smoke/
