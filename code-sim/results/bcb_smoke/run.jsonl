@@ -1,19 +1,19 @@
-{"pairId":"T1_000000","status":"ok","wallMs":6505,"stages":{"compile":6,"fallback":650},"report":{
+{"pairId":"T1_000000","status":"ok","wallMs":6791,"stages":{"compile":4,"fallback":669},"report":{
   "fileSummary": {
     "inspectionPriority": "HIGH",
     "affectedContent": {
-      "leftRatio": 0.882979,
-      "rightRatio": 0.882979
+      "leftRatio": 0.855670,
+      "rightRatio": 0.855670
     },
     "display": {
       "left": {
-        "percent": 88,
+        "percent": 86,
         "status": "REVIEW NEEDED",
         "severityClass": "severity-mid",
         "description": "Matched or changed code regions."
       },
       "right": {
-        "percent": 88,
+        "percent": 86,
         "status": "REVIEW NEEDED",
         "severityClass": "severity-mid",
         "description": "Matched or changed code regions."
@@ -26,15 +26,15 @@
         "typeButtonLabel": "No code changes (T1)",
         "typeClass": "t1",
         "regionCount": 1,
-        "affectedLeftRatio": 0.882979,
-        "affectedRightRatio": 0.882979,
-        "exclusiveAffectedLeftRatio": 0.882979,
-        "exclusiveAffectedRightRatio": 0.882979
+        "affectedLeftRatio": 0.855670,
+        "affectedRightRatio": 0.855670,
+        "exclusiveAffectedLeftRatio": 0.855670,
+        "exclusiveAffectedRightRatio": 0.855670
       }
     ],
-    "matchedCoverageLeft": 0.882979,
-    "matchedCoverageRight": 0.882979,
-    "unrelatedCodeRatio": 0.117021,
+    "matchedCoverageLeft": 0.855670,
+    "matchedCoverageRight": 0.855670,
+    "unrelatedCodeRatio": 0.144330,
     "regionTypeCounts": {
       "NON_CLONE": 0,
       "POSSIBLE_T4_CANDIDATE": 0,
@@ -47,7 +47,7 @@
     "regionTypeCoverage": {
       "NON_CLONE": 0.000000,
       "POSSIBLE_T4_CANDIDATE": 0.000000,
-      "T1": 0.882979,
+      "T1": 0.855670,
       "T2": 0.000000,
       "T3": 0.000000,
       "T4_CONFIRMED": 0.000000,
@@ -78,142 +78,23 @@
         "regionId": "left:method:LeftInput.convert(File,File)#1",
         "kind": "METHOD",
         "displayName": "LeftInput.convert(File,File)",
-        "beginLine": 11,
-        "endLine": 93
+        "beginLine": 14,
+        "endLine": 96
       },
       "right": {
         "regionId": "right:method:RightInput.convert(File,File)#1",
         "kind": "METHOD",
         "displayName": "RightInput.convert(File,File)",
-        "beginLine": 11,
-        "endLine": 93
+        "beginLine": 14,
+        "endLine": 96
       },
       "display": {
         "regionLabel": "T1-1",
         "title": "LeftInput.convert(File,File) -> RightInput.convert(File,File)",
         "summary": "exact copy",
         "affectedLabel": "Left 83 lines / Right 83 lines",
-        "leftRangeLabel": "lines 11-93",
-        "rightRangeLabel": "lines 11-93",
-        "changeSummaries": ["T1 passed: T1 comparable token sequences are 100% identical."]
-      },
-      "sources": [
-        {"channel": "EXACT_TEXT_SCAN", "score": 1.000000},
-        {"channel": "NORMALIZED_AST_SCAN", "score": 1.000000},
-        {"channel": "NORMALIZED_TOKEN_OVERLAP_SCAN", "score": 1.000000},
-        {"channel": "STATEMENT_DIFF_SCAN", "score": 1.000000}
-      ],
-      "tags": ["EXACT_COPY"],
-      "renameEvidence": {
-        "detected": false,
-        "hasConflict": false,
-        "identifierMap": {
-        }
-      },
-      "statementChanges": [
-      ],
-      "decisionPath": ["T1 passed: T1 comparable token sequences are 100% identical."]
-    }
-  ]
-}
-}
-{"pairId":"T1_000001","status":"ok","wallMs":185,"stages":{"compile":5,"fallback":122},"report":{
-  "fileSummary": {
-    "inspectionPriority": "MEDIUM",
-    "affectedContent": {
-      "leftRatio": 0.521739,
-      "rightRatio": 0.521739
-    },
-    "display": {
-      "left": {
-        "percent": 52,
-        "status": "LIGHT REVIEW",
-        "severityClass": "severity-low",
-        "description": "Matched or changed code regions."
-      },
-      "right": {
-        "percent": 52,
-        "status": "LIGHT REVIEW",
-        "severityClass": "severity-low",
-        "description": "Matched or changed code regions."
-      }
-    },
-    "evidenceBreakdown": [
-      {
-        "type": "T1",
-        "typeLabel": "No code changes (T1)",
-        "typeButtonLabel": "No code changes (T1)",
-        "typeClass": "t1",
-        "regionCount": 1,
-        "affectedLeftRatio": 0.521739,
-        "affectedRightRatio": 0.521739,
-        "exclusiveAffectedLeftRatio": 0.521739,
-        "exclusiveAffectedRightRatio": 0.521739
-      }
-    ],
-    "matchedCoverageLeft": 0.521739,
-    "matchedCoverageRight": 0.521739,
-    "unrelatedCodeRatio": 0.478261,
-    "regionTypeCounts": {
-      "NON_CLONE": 0,
-      "POSSIBLE_T4_CANDIDATE": 0,
-      "T1": 1,
-      "T2": 0,
-      "T3": 0,
-      "T4_CONFIRMED": 0,
-      "T4_DYNAMIC_EVIDENCE": 0
-    },
-    "regionTypeCoverage": {
-      "NON_CLONE": 0.000000,
-      "POSSIBLE_T4_CANDIDATE": 0.000000,
-      "T1": 0.521739,
-      "T2": 0.000000,
-      "T3": 0.000000,
-      "T4_CONFIRMED": 0.000000,
-      "T4_DYNAMIC_EVIDENCE": 0.000000
-    },
-    "fileTags": ["EXACT_COPY"],
-    "legacy": {
-      "overallRelationship": "PARTIAL_T2",
-      "relationshipShape": "PARTIAL_OVERLAP",
-      "dominantRegionType": "T1"
-    }
-  },
-  "acceptedRegionCount": 76,
-  "selectedRegionCount": 2,
-  "suppressedRegionCount": 74,
-  "emittedRegionCount": 1,
-  "regions": [
-    {
-      "candidateId": "C2",
-      "type": "T1",
-      "typeLabel": "No code changes (T1)",
-      "typeButtonLabel": "No code changes (T1)",
-      "typeClass": "t1",
-      "strength": "NONE",
-      "syntacticSimilarity": 1.000000,
-      "structuralSimilarity": null,
-      "left": {
-        "regionId": "left:method:LeftInput.copyFile(File,File)#1",
-        "kind": "METHOD",
-        "displayName": "LeftInput.copyFile(File,File)",
-        "beginLine": 11,
-        "endLine": 22
-      },
-      "right": {
-        "regionId": "right:method:RightInput.copyFile(File,File)#1",
-        "kind": "METHOD",
-        "displayName": "RightInput.copyFile(File,File)",
-        "beginLine": 11,
-        "endLine": 22
-      },
-      "display": {
-        "regionLabel": "T1-1",
-        "title": "LeftInput.copyFile(File,File) -> RightInput.copyFile(File,File)",
-        "summary": "exact copy",
-        "affectedLabel": "Left 12 lines / Right 12 lines",
-        "leftRangeLabel": "lines 11-22",
-        "rightRangeLabel": "lines 11-22",
+        "leftRangeLabel": "lines 14-96",
+        "rightRangeLabel": "lines 14-96",
         "changeSummaries": ["T1 passed: T1 comparable token sequences are 100% identical."]
       },
       "sources": [
