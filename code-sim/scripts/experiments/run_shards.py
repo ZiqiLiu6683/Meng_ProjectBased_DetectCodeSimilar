@@ -103,12 +103,14 @@ def main() -> None:
         print(f"[shards] {name} exited rc={rc}")
         failed += 1 if rc != 0 else 0
 
+    import shutil
     merged = args.out / "merged.jsonl"
     with open(merged, "w", encoding="utf-8") as m:
         for p in shard_inputs:
             j = p.with_suffix(".jsonl")
             if j.is_file():
-                m.write(j.read_text(encoding="utf-8"))
+                with open(j, encoding="utf-8") as f:
+                    shutil.copyfileobj(f, m, 1 << 20)
     print(f"[shards] merged -> {merged}")
     if failed:
         sys.exit(f"[shards] {failed} shard(s) failed - check the .log files, then re-run "

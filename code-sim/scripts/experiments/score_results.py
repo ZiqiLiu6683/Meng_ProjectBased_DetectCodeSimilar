@@ -32,16 +32,40 @@ COVERAGE = 0.70
 
 
 def stream_rows(path: Path):
+    """Constant-memory streaming parse of concatenated (pretty-printed) JSON rows.
+    Resyncs at the next row marker after a truncated row (a worker killed mid-write)."""
+    import sys
     dec = json.JSONDecoder()
-    s = path.read_text(encoding="utf-8")
-    i = 0
-    while i < len(s):
-        while i < len(s) and s[i] in " \n\r\t":
-            i += 1
-        if i >= len(s):
-            break
-        obj, i = dec.raw_decode(s, i)
-        yield obj
+    marker = '\n{"pairId"'
+    buf = ""
+    skipped = 0
+    with open(path, encoding="utf-8", errors="replace") as f:
+        while True:
+            chunk = f.read(1 << 20)
+            buf += chunk
+            while True:
+                s = buf.lstrip()
+                if not s:
+                    buf = ""
+                    break
+                try:
+                    obj, idx = dec.raw_decode(s)
+                    yield obj
+                    buf = s[idx:]
+                except json.JSONDecodeError:
+                    cut = s.find(marker, 1)
+                    if cut != -1:          # truncated row mid-file: drop it, resync
+                        skipped += 1
+                        buf = s[cut + 1:]
+                        continue
+                    buf = s                 # need more data (or trailing residue)
+                    break
+            if not chunk:
+                if buf.strip():
+                    skipped += 1            # truncated final row
+                break
+    if skipped:
+        print(f"[score] warning: {skipped} truncated row(s) skipped", file=sys.stderr)
 
 
 def fragment_range(java_file: Path) -> tuple[int, int] | None:
@@ -89,22 +113,23 @@ def main() -> None:
     labels = {r["pair_id"]: r for r in csv.DictReader(open(args.labels, encoding="utf-8"))}
     paths = {r["pair_id"]: (Path(r["left_path"]), Path(r["right_path"]))
              for r in csv.DictReader(open(args.manifest, encoding="utf-8"))}
-    rows = {r["pairId"]: r for r in stream_rows(args.results)}
 
     groups = defaultdict(lambda: {"n": 0, "det": 0, "typ": 0, "err": 0,
                                   "sub": 0, "misses": [], "wall": []})
-    inconclusive, missing = [], []
+    inconclusive = []
+    seen = set()
 
     with open(args.out / "scored_pairs.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["pair_id", "expected", "band", "status", "detected",
                     "type_hit", "found_types", "best_coverage", "wall_ms"])
-        for pair_id, lab in labels.items():
-            expected, band = lab["expected_type"], lab.get("band", "")
-            row = rows.get(pair_id)
-            if row is None:
-                missing.append(pair_id)
+        for row in stream_rows(args.results):
+            pair_id = row.get("pairId", "")
+            lab = labels.get(pair_id)
+            if lab is None or pair_id in seen:
                 continue
+            seen.add(pair_id)
+            expected, band = lab["expected_type"], lab.get("band", "")
             key = band if band else expected
             g = groups[key]
             if expected == "INCONCLUSIVE":
@@ -170,8 +195,9 @@ def main() -> None:
             lines.append("")
     if inconclusive:
         lines.append(f"INCONCLUSIVE (excluded): {len(inconclusive)}")
+    missing = len(labels) - len(seen)
     if missing:
-        lines.append(f"Pairs in labels but missing from results: {len(missing)}")
+        lines.append(f"Pairs in labels but missing from results: {missing}")
     (args.out / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 
