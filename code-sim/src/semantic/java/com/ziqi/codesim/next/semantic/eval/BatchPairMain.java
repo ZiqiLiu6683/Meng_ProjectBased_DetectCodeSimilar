@@ -1,7 +1,7 @@
 package com.ziqi.codesim.next.semantic.eval;
 
 import com.ziqi.codesim.next.NextJsonReportFormatter;
-import com.ziqi.codesim.next.NextPipelineResult;
+import com.ziqi.codesim.next.semantic.PipelineExecution;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
 import java.io.BufferedReader;
@@ -10,8 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,6 +34,11 @@ import java.util.Set;
  * <p>Usage: {@code BatchPairMain <manifest.csv> <out.jsonl> [--limit N]}
  */
 public final class BatchPairMain {
+    private static final String SCHEMA_VERSION = "2.0-dev";
+    private static final String CONFIG_ID = System.getProperty("codesim.configId", "v3-development-default");
+    private static final String DATASET_ID = System.getProperty("codesim.datasetId", "unknown");
+    private static final String CODE_COMMIT = System.getProperty("codesim.codeCommit", "unknown");
+    private static final String DIRTY_WORKTREE = System.getProperty("codesim.dirtyWorktree", "unknown");
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
@@ -95,38 +100,62 @@ public final class BatchPairMain {
 
     private static String runOne(WalaNextPipelineRunner runner, NextJsonReportFormatter formatter,
                                  String pairId, String leftPath, String rightPath) {
-        Map<String, Long> stageStamps = new LinkedHashMap<>();
         long start = System.currentTimeMillis();
+        String leftSha = "";
+        String rightSha = "";
         try {
             String left = Files.readString(Path.of(leftPath), StandardCharsets.UTF_8);
             String right = Files.readString(Path.of(rightPath), StandardCharsets.UTF_8);
-            NextPipelineResult result = runner.run(left, right,
-                    stage -> stageStamps.put(stage, System.currentTimeMillis() - start));
+            leftSha = sha256(left);
+            rightSha = sha256(right);
+            PipelineExecution execution = runner.runDetailed(left, right);
             long wall = System.currentTimeMillis() - start;
-            return row(pairId, "ok", wall, stageStamps, formatter.format(result), null);
+            return row(pairId, "ok", wall, leftSha, rightSha, execution,
+                    formatter.format(execution.result()), null);
         } catch (Exception | AssertionError ex) {
             long wall = System.currentTimeMillis() - start;
-            return row(pairId, "error", wall, stageStamps, null, String.valueOf(ex));
+            return row(pairId, "error", wall, leftSha, rightSha, null, null, String.valueOf(ex));
         }
     }
 
     /** Minimal JSON assembly; the report payload is already JSON, everything else is escaped. */
     private static String row(String pairId, String status, long wallMs,
-                              Map<String, Long> stages, String reportJson, String error) {
+                              String leftSha, String rightSha,
+                              PipelineExecution execution, String reportJson, String error) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"pairId\":\"").append(esc(pairId)).append('"');
+        sb.append("{\"schemaVersion\":\"").append(SCHEMA_VERSION).append('"');
+        sb.append(",\"pairId\":\"").append(esc(pairId)).append('"');
         sb.append(",\"status\":\"").append(status).append('"');
         sb.append(",\"wallMs\":").append(wallMs);
+        sb.append(",\"attempt\":1");
+        sb.append(",\"configId\":\"").append(esc(CONFIG_ID)).append('"');
+        sb.append(",\"datasetId\":\"").append(esc(DATASET_ID)).append('"');
+        sb.append(",\"codeCommit\":\"").append(esc(CODE_COMMIT)).append('"');
+        sb.append(",\"dirtyWorktree\":\"").append(esc(DIRTY_WORKTREE)).append('"');
+        sb.append(",\"leftSha256\":\"").append(leftSha).append('"');
+        sb.append(",\"rightSha256\":\"").append(rightSha).append('"');
+        sb.append(",\"analysisMode\":\"")
+                .append(execution == null ? "ERROR" : execution.analysisMode().name()).append('"');
         sb.append(",\"stages\":{");
         boolean first = true;
-        for (Map.Entry<String, Long> e : stages.entrySet()) {
-            if (!first) {
-                sb.append(',');
+        if (execution != null) {
+            for (Map.Entry<String, PipelineExecution.StageOutcome> e : execution.stages().entrySet()) {
+                if (!first) {
+                    sb.append(',');
+                }
+                PipelineExecution.StageOutcome outcome = e.getValue();
+                sb.append('"').append(esc(e.getKey())).append("\":{");
+                sb.append("\"status\":\"").append(outcome.status().name()).append('"');
+                sb.append(",\"durationMs\":").append(outcome.durationMs());
+                sb.append(",\"detail\":\"").append(esc(outcome.detail())).append("\"}");
+                first = false;
             }
-            sb.append('"').append(esc(e.getKey())).append("\":").append(e.getValue());
-            first = false;
         }
         sb.append('}');
+        if (execution != null) {
+            sb.append(",\"fallbackStage\":\"").append(esc(execution.fallbackStage())).append('"');
+            sb.append(",\"fallbackReason\":\"").append(esc(execution.fallbackReason())).append('"');
+        }
         if (reportJson != null) {
             sb.append(",\"report\":").append(reportJson);
         }
@@ -135,6 +164,20 @@ public final class BatchPairMain {
         }
         sb.append('}');
         return sb.toString();
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(String.format("%02x", b & 0xff));
+            }
+            return hex.toString();
+        } catch (Exception ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
 
     private static String esc(String s) {

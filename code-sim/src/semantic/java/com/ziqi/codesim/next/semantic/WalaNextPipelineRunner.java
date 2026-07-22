@@ -46,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -81,7 +82,11 @@ public class WalaNextPipelineRunner {
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) throws AnalysisException {
-        return run(leftSource, rightSource, stage -> { });
+        return runDetailed(leftSource, rightSource, stage -> { }).result();
+    }
+
+    public PipelineExecution runDetailed(String leftSource, String rightSource) throws AnalysisException {
+        return runDetailed(leftSource, rightSource, stage -> { });
     }
 
     /**
@@ -92,14 +97,31 @@ public class WalaNextPipelineRunner {
      */
     public NextPipelineResult run(String leftSource, String rightSource, java.util.function.Consumer<String> progress)
             throws AnalysisException {
-        Path workDir = null;
-        try {
-            progress.accept("compile");
-            workDir = Files.createTempDirectory("code-sim-next-wala-");
-            Path leftClasses = compileSource(workDir.resolve("left"), "LeftInput.java", leftSource);
-            Path rightClasses = compileSource(workDir.resolve("right"), "RightInput.java", rightSource);
+        return runDetailed(leftSource, rightSource, progress).result();
+    }
 
-            progress.accept("graph");
+    /**
+     * Runs the detector and preserves the execution path, per-stage duration, and normalized
+     * fallback provenance. Existing {@link #run(String, String)} callers retain the detector-only
+     * API; benchmark and observability callers should use this method.
+     */
+    public PipelineExecution runDetailed(String leftSource, String rightSource,
+                                         java.util.function.Consumer<String> progress)
+            throws AnalysisException {
+        Path workDir = null;
+        ExecutionTrace trace = new ExecutionTrace(progress);
+        try {
+            workDir = Files.createTempDirectory("code-sim-next-wala-");
+
+            trace.start("compile_left", "compile");
+            Path leftClasses = compileSource(workDir.resolve("left"), "LeftInput.java", leftSource);
+            trace.success();
+
+            trace.start("compile_right", null);
+            Path rightClasses = compileSource(workDir.resolve("right"), "RightInput.java", rightSource);
+            trace.success();
+
+            trace.start("graph", "graph");
             // Build each side's WALA class hierarchy and IR cache once, then share them between the
             // raw-snapshot extractor (kNN candidates) and the structural backend (CFG/MCS), so the
             // same classes are not analyzed twice.
@@ -126,8 +148,9 @@ public class WalaNextPipelineRunner {
                     backend.analyze(leftHierarchy, leftCache, leftLabel).methods(),
                     backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
             );
+            trace.success();
 
-            progress.accept("smt");
+            trace.start("smt", "smt");
             // Phase B (semantic): prove which cross-file method pairs compute the same value for all
             // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
             // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
@@ -136,19 +159,27 @@ public class WalaNextPipelineRunner {
             SemanticEquivalenceOracle semanticOracle =
                     MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
             CandidateSignalProvider semanticProvider = new SemanticMethodCandidateProvider(equivalentPairs);
+            trace.success();
 
             // Dynamic layer: for the pairs SMT could NOT decide (loops/nonlinear -> UNKNOWN), run both
             // methods on the same random inputs. Agreement on every input is EVIDENCE (not proof) of a
             // Type-4 clone, surfaced by the recognizer as T4_DYNAMIC_EVIDENCE. Pairs SMT proved
             // DIFFERENT are excluded up front (no point sampling a known counterexample).
-            progress.accept("dynamic");
+            boolean dynamicDisabled = Boolean.getBoolean("codesim.skipDynamic");
             // -Dcodesim.skipDynamic=true disables the dynamic tier. Required for benchmark sweeps
             // over UNTRUSTED corpus code (e.g. BigCloneBench): the dynamic checker EXECUTES both
             // methods, and arbitrary corpus fragments may spawn processes, touch files, or call
             // System.exit (killing a batch JVM). The syntactic categories never need this tier.
-            List<String[]> dynamicPairs = Boolean.getBoolean("codesim.skipDynamic")
-                    ? List.of()
-                    : dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
+            List<String[]> dynamicPairs;
+            if (dynamicDisabled) {
+                progress.accept("dynamic");
+                trace.skipped("dynamic", "disabled_by_codesim.skipDynamic");
+                dynamicPairs = List.of();
+            } else {
+                trace.start("dynamic", "dynamic");
+                dynamicPairs = dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
+                trace.success();
+            }
             DynamicEquivalenceOracle dynamicOracle =
                     MethodPairDynamicOracle.fromRawSignaturePairs(dynamicPairs);
             CandidateSignalProvider dynamicProvider =
@@ -159,31 +190,132 @@ public class WalaNextPipelineRunner {
             // classifies it). Unlike the old flat line-set projection, this keeps the alignment so a
             // helper-extracted / reorganized near-copy reads as a syntactic T1/T2/T3 clone; a truly
             // divergent cross-method region carries a marker so it is surfaced, never silently dropped.
-            progress.accept("regions");
+            trace.start("regions", "regions");
             List<RegionCandidate> reconstructedRegions =
                     reconstructedRegionCandidates(leftClasses, rightClasses, leftSource, rightSource);
+            trace.success();
 
             // Region-only syntactic: T1/T2/T3 come only from the reconstructed Phase A regions;
             // the source-only whole-method/window scans are disabled (includeSourceScans=false). The
             // method-level providers stay for behavioural T4 only. The source-only scans remain the
             // fallback below, used only when WALA is unavailable.
-            progress.accept("classify");
-            return new NextPipelineRunner(
+            trace.start("classify", "classify");
+            NextPipelineResult result = new NextPipelineRunner(
                     List.of(provider, semanticProvider, dynamicProvider),
                     structuralOracle, semanticOracle, dynamicOracle, false)
                     .run(leftSource, rightSource, reconstructedRegions);
+            trace.success();
+            return new PipelineExecution(
+                    result,
+                    dynamicDisabled
+                            ? PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT
+                            : PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC,
+                    trace.outcomes(),
+                    "",
+                    ""
+            );
         } catch (IOException | AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
             // fall back to the source-only pipeline so the user still gets the syntactic result
             // (just without cfg-sim). This reports real data, never fabricated CFG output.
             System.err.println("[WalaNextPipelineRunner] CFG analysis unavailable, "
                     + "falling back to source-only result: " + ex.getMessage());
-            progress.accept("fallback");
-            return new NextPipelineRunner().run(leftSource, rightSource);
+            String failedStage = trace.failCurrent(ex);
+            trace.start("fallback", "fallback");
+            NextPipelineResult fallback = new NextPipelineRunner().run(leftSource, rightSource);
+            trace.success();
+            return new PipelineExecution(
+                    fallback,
+                    PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK,
+                    trace.outcomes(),
+                    failedStage,
+                    normalizedFailureReason(failedStage, ex)
+            );
         } finally {
             if (workDir != null) {
                 deleteQuietly(workDir);
             }
+        }
+    }
+
+    private static String normalizedFailureReason(String stage, Exception ex) {
+        if (stage.startsWith("compile_")) {
+            return "COMPILATION_FAILED";
+        }
+        if (ex instanceof IOException) {
+            return "IO_ERROR";
+        }
+        if (ex instanceof AnalysisException) {
+            return "ANALYSIS_FAILED";
+        }
+        return "RUNTIME_ERROR";
+    }
+
+    /** Mutable only for the lifetime of one call; the published map is an immutable snapshot. */
+    private static final class ExecutionTrace {
+        private static final List<String> STAGE_ORDER = List.of(
+                "compile_left", "compile_right", "graph", "smt", "dynamic", "regions",
+                "classify", "fallback");
+
+        private final java.util.function.Consumer<String> progress;
+        private final Map<String, PipelineExecution.StageOutcome> outcomes = new LinkedHashMap<>();
+        private String currentStage = "";
+        private long currentStartNanos;
+
+        ExecutionTrace(java.util.function.Consumer<String> progress) {
+            this.progress = progress;
+        }
+
+        void start(String stage, String progressKey) {
+            currentStage = stage;
+            currentStartNanos = System.nanoTime();
+            if (progressKey != null) {
+                progress.accept(progressKey);
+            }
+        }
+
+        void success() {
+            if (currentStage.isEmpty()) {
+                return;
+            }
+            outcomes.put(currentStage, new PipelineExecution.StageOutcome(
+                    PipelineExecution.StageStatus.SUCCESS, elapsedMs(), ""));
+            currentStage = "";
+        }
+
+        void skipped(String stage, String detail) {
+            outcomes.put(stage, new PipelineExecution.StageOutcome(
+                    PipelineExecution.StageStatus.SKIPPED_CONFIG, 0L, detail));
+            currentStage = "";
+        }
+
+        String failCurrent(Exception ex) {
+            String failed = currentStage.isEmpty() ? "unknown" : currentStage;
+            if (!currentStage.isEmpty()) {
+                outcomes.put(currentStage, new PipelineExecution.StageOutcome(
+                        PipelineExecution.StageStatus.FAILED, elapsedMs(), failureDetail(ex)));
+            }
+            currentStage = "";
+            return failed;
+        }
+
+        Map<String, PipelineExecution.StageOutcome> outcomes() {
+            Map<String, PipelineExecution.StageOutcome> complete = new LinkedHashMap<>();
+            for (String stage : STAGE_ORDER) {
+                complete.put(stage, outcomes.getOrDefault(stage, new PipelineExecution.StageOutcome(
+                        PipelineExecution.StageStatus.NOT_REACHED, 0L, "")));
+            }
+            return complete;
+        }
+
+        private long elapsedMs() {
+            return Math.max(0L, (System.nanoTime() - currentStartNanos) / 1_000_000L);
+        }
+
+        private static String failureDetail(Exception ex) {
+            String message = ex.getMessage();
+            String detail = ex.getClass().getSimpleName() + (message == null ? "" : ": " + message);
+            return detail.length() <= 500 ? detail : detail.substring(0, 500);
         }
     }
 

@@ -36,7 +36,9 @@ def stream_rows(path: Path):
     Resyncs at the next row marker after a truncated row (a worker killed mid-write)."""
     import sys
     dec = json.JSONDecoder()
-    marker = '\n{"pairId"'
+    # v1 records began with pairId; schema-versioned v2 records begin with schemaVersion.
+    # Keep both markers so old pilot artifacts and new preregistered runs remain readable.
+    markers = ('\n{"schemaVersion"', '\n{"pairId"')
     buf = ""
     skipped = 0
     with open(path, encoding="utf-8", errors="replace") as f:
@@ -53,7 +55,9 @@ def stream_rows(path: Path):
                     yield obj
                     buf = s[idx:]
                 except json.JSONDecodeError:
-                    cut = s.find(marker, 1)
+                    cuts = [s.find(marker, 1) for marker in markers]
+                    cuts = [cut for cut in cuts if cut != -1]
+                    cut = min(cuts) if cuts else -1
                     if cut != -1:          # truncated row mid-file: drop it, resync
                         skipped += 1
                         buf = s[cut + 1:]
