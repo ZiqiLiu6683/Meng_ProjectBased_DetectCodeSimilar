@@ -302,6 +302,9 @@ def extract(args: argparse.Namespace) -> None:
     dataset_material = json.dumps({
         "bcb_release": args.bcb_release,
         "ijadataset_release": args.ijadataset_release,
+        "bcb_archive_sha256": execution_manifest.sha256_file(args.bcb_archive.resolve()),
+        "ijadataset_archive_sha256": execution_manifest.sha256_file(
+            args.ijadataset_archive.resolve()),
         "db_sha256": execution_manifest.sha256_file(database_file(args.db)),
         "selection_seed": args.seed,
         "per_stratum": args.per_stratum,
@@ -344,6 +347,11 @@ def extract(args: argparse.Namespace) -> None:
         "dataset_id": dataset_id,
         "bcb_release": args.bcb_release,
         "ijadataset_release": args.ijadataset_release,
+        "bcb_archive_file": str(args.bcb_archive.resolve()),
+        "bcb_archive_sha256": execution_manifest.sha256_file(args.bcb_archive.resolve()),
+        "ijadataset_archive_file": str(args.ijadataset_archive.resolve()),
+        "ijadataset_archive_sha256": execution_manifest.sha256_file(
+            args.ijadataset_archive.resolve()),
         "h2_database_file": str(database_file(args.db)),
         "h2_database_sha256": execution_manifest.sha256_file(database_file(args.db)),
         "h2_jar_sha256": execution_manifest.sha256_file(args.h2.resolve()),
@@ -385,6 +393,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--h2", required=True, type=Path)
     parser.add_argument("--bcb", required=True, type=Path,
                         help="official IJaDataset bcb_reduced directory")
+    parser.add_argument("--bcb-archive", required=True, type=Path,
+                        help="unaltered official BigCloneBench_BCEvalVersion archive")
+    parser.add_argument("--ijadataset-archive", required=True, type=Path,
+                        help="unaltered official IJaDataset_BCEvalVersion archive")
     parser.add_argument("--out", required=True, type=Path,
                         help="must be a new or empty directory")
     parser.add_argument("--bcb-release", required=True)

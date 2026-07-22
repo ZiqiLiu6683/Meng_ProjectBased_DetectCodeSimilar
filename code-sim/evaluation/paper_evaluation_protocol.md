@@ -189,9 +189,9 @@ The clean-room dataset has two immutable tables. `executions.csv` contains only
 unique file pairs, source hashes, and dataset identity, with no ground-truth
 labels or ranges. `references.csv` maps one or more official BCB function-pair
 references to each execution. This prevents answer leakage and executes a
-repeated original file pair only once. A dataset lock hashes the official H2
-database, compatible H2 jar, both tables, deterministic query exports, and all
-referenced source files.
+repeated original file pair only once. A dataset lock hashes the two untouched
+official distribution archives, extracted H2 database, compatible H2 jar, both
+tables, deterministic query exports, and all referenced source files.
 
 Because many BCB pairs share functions and functionalities, confidence intervals
 must not assume that every pair is independent. Use a cluster bootstrap over

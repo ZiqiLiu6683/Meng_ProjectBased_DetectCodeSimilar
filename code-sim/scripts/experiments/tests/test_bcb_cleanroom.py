@@ -78,8 +78,12 @@ class BcbCleanroomTest(unittest.TestCase):
     def test_extract_writes_only_manifests_and_points_to_complete_official_files(self):
         db = self.root / "official.h2.db"
         h2 = self.root / "h2.jar"
+        bcb_archive = self.root / "BigCloneBench_BCEvalVersion.tar.gz"
+        ijadataset_archive = self.root / "IJaDataset_BCEvalVersion.tar.gz"
         db.write_bytes(b"official-db")
         h2.write_bytes(b"official-h2")
+        bcb_archive.write_bytes(b"official-bcb-archive")
+        ijadataset_archive.write_bytes(b"official-ijadataset-archive")
         out = self.root / "cleanroom"
 
         def fake_export(_db, _h2, _sql, target):
@@ -91,7 +95,8 @@ class BcbCleanroomTest(unittest.TestCase):
                 writer.writerow(row)
 
         args = Namespace(
-            db=db, h2=h2, bcb=self.bcb, out=out,
+            db=db, h2=h2, bcb=self.bcb, bcb_archive=bcb_archive,
+            ijadataset_archive=ijadataset_archive, out=out,
             bcb_release="BCB-v2", ijadataset_release="IJaDataset-BCEvalVersion",
             per_stratum=0, seed=20260721,
         )

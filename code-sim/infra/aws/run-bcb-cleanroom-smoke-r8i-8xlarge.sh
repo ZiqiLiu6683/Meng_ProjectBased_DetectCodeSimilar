@@ -7,6 +7,8 @@ project_dir="${repo_root}/code-sim"
 : "${BCB_DB_BASE:?Set BCB_DB_BASE to the official BigCloneEval H2 database base path}"
 : "${H2_JAR:?Set H2_JAR to the official database-compatible H2 jar}"
 : "${BCB_REDUCED_ROOT:?Set BCB_REDUCED_ROOT to the official IJaDataset bcb_reduced directory}"
+: "${BCB_ARCHIVE:?Set BCB_ARCHIVE to the unmodified official BigCloneBench_BCEvalVersion archive}"
+: "${IJADATASET_ARCHIVE:?Set IJADATASET_ARCHIVE to the unmodified official IJaDataset_BCEvalVersion archive}"
 : "${BCB_RELEASE:?Set BCB_RELEASE to the exact official release identifier}"
 : "${IJADATASET_RELEASE:?Set IJADATASET_RELEASE to the exact official release identifier}"
 
@@ -42,6 +44,8 @@ python3 -u "${project_dir}/scripts/experiments/bcb_cleanroom.py" \
   --db "${BCB_DB_BASE}" \
   --h2 "${H2_JAR}" \
   --bcb "${BCB_REDUCED_ROOT}" \
+  --bcb-archive "${BCB_ARCHIVE}" \
+  --ijadataset-archive "${IJADATASET_ARCHIVE}" \
   --out "${dataset_dir}" \
   --bcb-release "${BCB_RELEASE}" \
   --ijadataset-release "${IJADATASET_RELEASE}" \

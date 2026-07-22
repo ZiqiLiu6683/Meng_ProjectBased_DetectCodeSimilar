@@ -132,6 +132,8 @@ exact release identifiers and paths:
 export BCB_DB_BASE=/opt/codesim/datasets/bcb/<database-base>
 export H2_JAR=/opt/codesim/datasets/bcb/<compatible-h2.jar>
 export BCB_REDUCED_ROOT=/opt/codesim/datasets/ijadataset/bcb_reduced
+export BCB_ARCHIVE=/opt/codesim/datasets/archives/BigCloneBench_BCEvalVersion.tar.gz
+export IJADATASET_ARCHIVE=/opt/codesim/datasets/archives/IJaDataset_BCEvalVersion.tar.gz
 export BCB_RELEASE='<exact release identifier>'
 export IJADATASET_RELEASE='<exact release identifier>'
 bash code-sim/infra/aws/run-bcb-cleanroom-smoke-r8i-8xlarge.sh
