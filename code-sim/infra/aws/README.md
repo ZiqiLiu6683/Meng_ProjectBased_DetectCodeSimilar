@@ -165,6 +165,17 @@ This command refuses smaller hosts and runs eight 3 GiB JVM workers over eight
 deterministic shards. Its output directory is separate from the 8 GiB trial, so
 hardware environments are never mixed in one result set.
 
+For the performance-first final candidate (`r8i.8xlarge`, 32 vCPU and 256 GiB),
+use:
+
+```bash
+bash code-sim/infra/aws/run-bcb-smoke-r8i-8xlarge.sh
+```
+
+This command refuses smaller hosts and runs 32 deterministic shards with 32
+workers and a 6 GiB heap per JVM. The total configured Java heap is 192 GiB,
+leaving headroom for native memory, the operating system, and the harness.
+
 ## 7. Shutdown discipline
 
 At the end of every session:
