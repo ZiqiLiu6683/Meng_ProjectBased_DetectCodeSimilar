@@ -116,6 +116,45 @@ Expected outputs:
 - strict scorer tests succeed;
 - no benchmark dataset or dynamic execution of external code is involved.
 
+### Portable BCB plumbing smoke
+
+After the preflight passes on a clean commit, build the runtime classpath once:
+
+```bash
+bash code-sim/infra/aws/run-bcb-smoke.sh
+```
+
+The script performs the validation, classpath build, and frozen run below. The
+expanded commands are retained as an auditable reference.
+
+```bash
+mvn -f code-sim/pom.xml -Psemantic-analysis \
+  dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+```
+
+Run four deterministic shards through one JVM worker on the 8 GiB trial host.
+This is a 140-pair infrastructure smoke test, not a paper result. Dynamic T4 is
+disabled because BigCloneBench is the T1--T3 evidence source; T4 has separate
+datasets and runs in the paper protocol.
+
+```bash
+python3 code-sim/scripts/experiments/run_shards.py \
+  --manifest code-sim/results/bcb_smoke/manifest_v2.csv \
+  --out code-sim/results/cloud-trial-bcb-smoke \
+  --shards 4 \
+  --workers 1 \
+  --xmx 4g \
+  --max-attempts 1 \
+  --config-id bcb-smoke-t1t3-dynamic-off-v1 \
+  --environment-id aws-us-east-2-m7i-flex-large-ubuntu-24.04-trial \
+  --skip-dynamic
+```
+
+The runner validates every path, checksum, label, and reference range before
+launching. It records the commit, dirty-worktree state, dataset/config IDs,
+manifest hash, host metadata, shard logs, and one-line JSON attempt records.
+Reusing an output directory with a different frozen configuration is rejected.
+
 ## 7. Shutdown discipline
 
 At the end of every session:

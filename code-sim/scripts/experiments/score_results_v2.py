@@ -356,12 +356,15 @@ def build_summary(records: list[dict], bootstrap_iterations: int, seed: int) -> 
         rows = groups[group]
         negative = all(row["expected"] == "NON_CLONE" for row in rows)
         if negative:
-            successes = sum(not row["reference_range_fp"] for row in rows)
+            successes = sum(row["status"] == "ok" and not row["reference_range_fp"]
+                            for row in rows)
             typed = successes
-            cond_den = len(rows)
+            cond_den = sum(row["status"] == "ok" for row in rows)
             cond = successes / cond_den if cond_den else 0.0
             lo, hi = cluster_bootstrap(
-                rows, lambda row: not row["reference_range_fp"], lambda row: True,
+                rows,
+                lambda row: row["status"] == "ok" and not row["reference_range_fp"],
+                lambda row: True,
                 bootstrap_iterations, seed)
         else:
             successes = sum(row["detected"] for row in rows)
@@ -413,17 +416,36 @@ def write_per_mode(path: Path, records: list[dict]) -> None:
 
 def run(args) -> list[dict]:
     args.out.mkdir(parents=True, exist_ok=True)
-    labels = {row["pair_id"]: row for row in csv.DictReader(
-        args.labels.open(encoding="utf-8"))}
-    manifest = {row["pair_id"]: row for row in csv.DictReader(
-        args.manifest.open(encoding="utf-8"))}
+    with args.manifest.open(newline="", encoding="utf-8-sig") as source:
+        manifest = {row["pair_id"]: row for row in csv.DictReader(source)}
+    for row in manifest.values():
+        for field in ("left_path", "right_path"):
+            path = Path(row[field])
+            if not path.is_absolute():
+                row[field] = str((args.manifest.parent / path).resolve())
+
+    if args.labels is None:
+        labels = manifest
+        missing_embedded = [pair_id for pair_id, row in manifest.items()
+                            if not row.get("expected_type")]
+        if missing_embedded:
+            raise SystemExit("--labels is required because the manifest has no embedded label; "
+                             f"first missing pair: {missing_embedded[0]}")
+    else:
+        with args.labels.open(newline="", encoding="utf-8-sig") as source:
+            all_labels = {row["pair_id"]: row for row in csv.DictReader(source)}
+        missing_labels = sorted(set(manifest) - set(all_labels))
+        if missing_labels:
+            raise SystemExit(f"manifest contains {len(missing_labels)} unlabeled pair(s); "
+                             f"first: {missing_labels[0]}")
+        labels = {pair_id: all_labels[pair_id] for pair_id in manifest}
+        for pair_id, label in labels.items():
+            embedded = manifest[pair_id].get("expected_type", "")
+            if embedded and embedded != label.get("expected_type", ""):
+                raise SystemExit(f"label mismatch for {pair_id}: manifest={embedded}, "
+                                 f"labels={label.get('expected_type', '')}")
     result_rows, duplicates = select_result_rows(args.results, args.attempt_policy)
     operational = args.detection_policy == "operational"
-
-    unknown_manifest = sorted(set(labels) - set(manifest))
-    if unknown_manifest:
-        raise SystemExit(f"labels contain {len(unknown_manifest)} pair(s) absent from manifest; "
-                         f"first: {unknown_manifest[0]}")
 
     scores = [score_pair(label, manifest[pair_id], result_rows.get(pair_id),
                          operational, args.min_region_lines)
@@ -443,7 +465,8 @@ def run(args) -> list[dict]:
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", required=True, type=Path)
-    parser.add_argument("--labels", required=True, type=Path)
+    parser.add_argument("--labels", type=Path,
+                        help="optional legacy sidecar; v2 manifests embed their labels")
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--detection-policy", choices=("strict", "operational"), default="strict")

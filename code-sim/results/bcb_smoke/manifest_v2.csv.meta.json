@@ -1,0 +1,19 @@
+{
+  "dataset_id": "bcb-smoke-20260721",
+  "fraction": 1.0,
+  "manifest_sha256": "33b04ad8401067a4299d23b0381bccd83046f919f8e23b64dd1a59b4a851902e",
+  "minimum_per_stratum": 1,
+  "row_count": 140,
+  "schema_version": "2.0",
+  "seed": 20260721,
+  "source_labels": "labels.csv",
+  "source_labels_sha256": "368eea5f42a3fbdbd183694ac3c53e3eff7b47993664655599b3f1a14ee2c1eb",
+  "strata": {
+    "MT3": 20,
+    "NEG": 40,
+    "ST3": 20,
+    "T1": 20,
+    "T2": 20,
+    "VST3": 20
+  }
+}

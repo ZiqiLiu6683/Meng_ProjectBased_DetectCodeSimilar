@@ -8,6 +8,10 @@
 /results/bcb_full/
 /results/bcb_smoke/
 code-sim/results/bcb_full/
-code-sim/results/bcb_smoke/
+!code-sim/results/bcb_smoke/
+code-sim/results/bcb_smoke/*
+!code-sim/results/bcb_smoke/manifest_v2.csv
+!code-sim/results/bcb_smoke/manifest_v2.csv.meta.json
 code-sim/results/experiments/
+code-sim/results/cloud-*/
 code-sim/errors.log

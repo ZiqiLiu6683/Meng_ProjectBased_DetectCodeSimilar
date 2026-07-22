@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
 from pathlib import Path
 
 
@@ -84,6 +85,50 @@ class StrictScorerTest(unittest.TestCase):
         self.assertEqual("missing_result", scored["status"])
         self.assertFalse(scored["detected"])
         self.assertEqual("ERROR_OR_MISSING", scored["primary_type"])
+
+    def test_missing_negative_is_not_counted_as_correct_rejection(self):
+        scored = SCORER.score_pair(self.label("NON_CLONE"), self.manifest(), None, False, 6)
+
+        summary = SCORER.build_summary([scored], 20, 42)
+
+        self.assertIn("| NON_CLONE | 1 | 0.00%", summary)
+        self.assertIn("| 1 | 0 |", summary)
+
+    def test_v2_manifest_can_supply_labels_and_relative_paths(self):
+        manifest = self.root / "manifest-v2.csv"
+        results = self.root / "results.jsonl"
+        out = self.root / "scored"
+        with manifest.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.writer(stream, lineterminator="\n")
+            writer.writerow([
+                "pair_id", "left_path", "right_path", "expected_type", "band",
+                "cluster_id", "left_begin", "left_end", "right_begin", "right_end",
+            ])
+            writer.writerow([
+                "p1", "Left.java", "Right.java", "NON_CLONE", "", "c1",
+                "1", "30", "1", "30",
+            ])
+        results.write_text(json.dumps({
+            "pairId": "p1", "status": "ok", "attempt": 1,
+            "analysisMode": "SOURCE_PLUS_WALA_SMT", "wallMs": 1,
+            "report": {"regions": []},
+        }) + "\n", encoding="utf-8")
+
+        scores = SCORER.run(Namespace(
+            out=out,
+            labels=None,
+            manifest=manifest,
+            results=results,
+            attempt_policy="first",
+            detection_policy="strict",
+            min_region_lines=6,
+            bootstrap_iterations=20,
+            seed=42,
+        ))
+
+        self.assertEqual(1, len(scores))
+        self.assertEqual("ok", scores[0]["status"])
+        self.assertFalse(scores[0]["reference_range_fp"])
 
 
 if __name__ == "__main__":

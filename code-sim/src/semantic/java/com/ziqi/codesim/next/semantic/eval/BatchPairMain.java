@@ -11,9 +11,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Headless batch runner for the final (WALA region) pipeline over a manifest of file pairs.
@@ -28,8 +31,9 @@ import java.util.Set;
  *       as a row, never a crash of the sweep.</li>
  * </ul>
  *
- * Manifest format (CSV, header required): {@code pair_id,left_path,right_path}. Paths must not
- * contain commas (the extraction scripts guarantee this).
+ * Manifest format is RFC-4180-style CSV with the required columns
+ * {@code pair_id,left_path,right_path}. Portable v2 manifests may also provide
+ * {@code dataset_id,left_sha256,right_sha256}; relative paths are resolved from the manifest.
  *
  * <p>Usage: {@code BatchPairMain <manifest.csv> <out.jsonl> [--limit N]}
  */
@@ -39,6 +43,12 @@ public final class BatchPairMain {
     private static final String DATASET_ID = System.getProperty("codesim.datasetId", "unknown");
     private static final String CODE_COMMIT = System.getProperty("codesim.codeCommit", "unknown");
     private static final String DIRTY_WORKTREE = System.getProperty("codesim.dirtyWorktree", "unknown");
+    private static final String FROZEN_MANIFEST_SHA256 =
+            System.getProperty("codesim.manifestSha256", "");
+    private static final Pattern SAFE_PAIR_ID = Pattern.compile("[A-Za-z0-9_.:-]+");
+    private static final Pattern OUTPUT_PAIR_ID = Pattern.compile("\\\"pairId\\\":\\\"([A-Za-z0-9_.:-]+)\\\"");
+    private static final Pattern OUTPUT_STATUS = Pattern.compile("\\\"status\\\":\\\"(ok|error)\\\"");
+    private static final Pattern OUTPUT_ATTEMPT = Pattern.compile("\\\"attempt\\\":([0-9]+)");
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
@@ -48,43 +58,56 @@ public final class BatchPairMain {
         Path manifest = Path.of(args[0]);
         Path out = Path.of(args[1]);
         int limit = Integer.MAX_VALUE;
+        int maxAttempts = 1;
         for (int i = 2; i < args.length; i++) {
             if ("--limit".equals(args[i]) && i + 1 < args.length) {
                 limit = Integer.parseInt(args[++i]);
+            } else if ("--max-attempts".equals(args[i]) && i + 1 < args.length) {
+                maxAttempts = Integer.parseInt(args[++i]);
             }
         }
+        if (maxAttempts < 1) {
+            throw new IllegalArgumentException("--max-attempts must be >= 1");
+        }
 
-        Set<String> done = alreadyDone(out);
+        Map<String, AttemptState> attempts = previousAttempts(out);
         NextJsonReportFormatter formatter = new NextJsonReportFormatter();
         WalaNextPipelineRunner runner = new WalaNextPipelineRunner();
 
         int ran = 0;
         int skipped = 0;
+        int exhausted = 0;
         long sweepStart = System.currentTimeMillis();
+        String manifestSha256 = FROZEN_MANIFEST_SHA256.isBlank()
+                ? sha256(Files.readString(manifest, StandardCharsets.UTF_8))
+                : FROZEN_MANIFEST_SHA256;
         try (BufferedReader in = Files.newBufferedReader(manifest, StandardCharsets.UTF_8);
              BufferedWriter w = Files.newBufferedWriter(out, StandardCharsets.UTF_8,
                      StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            String header = in.readLine(); // skip header
+            String header = in.readLine();
             if (header == null) {
                 System.err.println("Empty manifest: " + manifest);
                 System.exit(2);
             }
+            ManifestLayout layout = ManifestLayout.fromHeader(parseCsvLine(header));
             String line;
             while ((line = in.readLine()) != null && ran < limit) {
                 if (line.isBlank()) {
                     continue;
                 }
-                String[] cols = line.split(",", 3);
-                if (cols.length < 3) {
-                    System.err.println("[batch] bad manifest row skipped: " + line);
-                    continue;
-                }
-                String pairId = cols[0].trim();
-                if (done.contains(pairId)) {
+                ManifestRow row = layout.read(parseCsvLine(line), manifest.toAbsolutePath().getParent());
+                validateDatasetId(row);
+                AttemptState previous = attempts.getOrDefault(row.pairId(), AttemptState.NONE);
+                if (previous.succeeded()) {
                     skipped++;
                     continue;
                 }
-                w.write(runOne(runner, formatter, pairId, cols[1].trim(), cols[2].trim()));
+                int attempt = previous.maxAttempt() + 1;
+                if (attempt > maxAttempts) {
+                    exhausted++;
+                    continue;
+                }
+                w.write(runOne(runner, formatter, row, attempt, manifestSha256, sha256(line)));
                 w.newLine();
                 w.flush(); // each row durable: resume-safe
                 ran++;
@@ -95,43 +118,52 @@ public final class BatchPairMain {
                 }
             }
         }
-        System.err.printf("[batch] finished: %d run, %d skipped (already done)%n", ran, skipped);
+        System.err.printf("[batch] finished: %d run, %d skipped (successful), "
+                + "%d skipped (attempt limit)%n", ran, skipped, exhausted);
     }
 
     private static String runOne(WalaNextPipelineRunner runner, NextJsonReportFormatter formatter,
-                                 String pairId, String leftPath, String rightPath) {
+                                 ManifestRow row, int attempt, String manifestSha256,
+                                 String manifestRowSha256) {
         long start = System.currentTimeMillis();
         String leftSha = "";
         String rightSha = "";
         try {
-            String left = Files.readString(Path.of(leftPath), StandardCharsets.UTF_8);
-            String right = Files.readString(Path.of(rightPath), StandardCharsets.UTF_8);
+            String left = Files.readString(row.leftPath(), StandardCharsets.UTF_8);
+            String right = Files.readString(row.rightPath(), StandardCharsets.UTF_8);
             leftSha = sha256(left);
             rightSha = sha256(right);
+            verifyExpectedHash(row.pairId(), "left", row.leftSha256(), leftSha);
+            verifyExpectedHash(row.pairId(), "right", row.rightSha256(), rightSha);
             PipelineExecution execution = runner.runDetailed(left, right);
             long wall = System.currentTimeMillis() - start;
-            return row(pairId, "ok", wall, leftSha, rightSha, execution,
-                    formatter.format(execution.result()), null);
+            return outputRow(row, "ok", wall, attempt, manifestSha256, manifestRowSha256,
+                    leftSha, rightSha, execution,
+                    compactJson(formatter.format(execution.result())), null);
         } catch (Exception | AssertionError ex) {
             long wall = System.currentTimeMillis() - start;
-            return row(pairId, "error", wall, leftSha, rightSha, null, null, String.valueOf(ex));
+            return outputRow(row, "error", wall, attempt, manifestSha256, manifestRowSha256,
+                    leftSha, rightSha, null, null, String.valueOf(ex));
         }
     }
 
     /** Minimal JSON assembly; the report payload is already JSON, everything else is escaped. */
-    private static String row(String pairId, String status, long wallMs,
-                              String leftSha, String rightSha,
-                              PipelineExecution execution, String reportJson, String error) {
+    private static String outputRow(ManifestRow manifestRow, String status, long wallMs,
+                                    int attempt, String manifestSha256,
+                                    String manifestRowSha256, String leftSha, String rightSha,
+                                    PipelineExecution execution, String reportJson, String error) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"schemaVersion\":\"").append(SCHEMA_VERSION).append('"');
-        sb.append(",\"pairId\":\"").append(esc(pairId)).append('"');
+        sb.append(",\"pairId\":\"").append(esc(manifestRow.pairId())).append('"');
         sb.append(",\"status\":\"").append(status).append('"');
         sb.append(",\"wallMs\":").append(wallMs);
-        sb.append(",\"attempt\":1");
+        sb.append(",\"attempt\":").append(attempt);
         sb.append(",\"configId\":\"").append(esc(CONFIG_ID)).append('"');
-        sb.append(",\"datasetId\":\"").append(esc(DATASET_ID)).append('"');
+        sb.append(",\"datasetId\":\"").append(esc(datasetId(manifestRow))).append('"');
         sb.append(",\"codeCommit\":\"").append(esc(CODE_COMMIT)).append('"');
         sb.append(",\"dirtyWorktree\":\"").append(esc(DIRTY_WORKTREE)).append('"');
+        sb.append(",\"manifestSha256\":\"").append(manifestSha256).append('"');
+        sb.append(",\"manifestRowSha256\":\"").append(manifestRowSha256).append('"');
         sb.append(",\"leftSha256\":\"").append(leftSha).append('"');
         sb.append(",\"rightSha256\":\"").append(rightSha).append('"');
         sb.append(",\"analysisMode\":\"")
@@ -180,6 +212,29 @@ public final class BatchPairMain {
         }
     }
 
+    private static void verifyExpectedHash(String pairId, String side,
+                                           String expected, String actual) {
+        if (!expected.isBlank() && !expected.equalsIgnoreCase(actual)) {
+            throw new IllegalStateException(pairId + ": " + side + " SHA-256 mismatch; expected "
+                    + expected + " but read " + actual);
+        }
+    }
+
+    private static String datasetId(ManifestRow row) {
+        if (!DATASET_ID.equals("unknown")) {
+            return DATASET_ID;
+        }
+        return row.datasetId().isBlank() ? "unknown" : row.datasetId();
+    }
+
+    private static void validateDatasetId(ManifestRow row) {
+        if (!DATASET_ID.equals("unknown") && !row.datasetId().isBlank()
+                && !DATASET_ID.equals(row.datasetId())) {
+            throw new IllegalStateException("dataset ID mismatch: runner=" + DATASET_ID
+                    + ", manifest=" + row.datasetId());
+        }
+    }
+
     private static String esc(String s) {
         StringBuilder sb = new StringBuilder(s.length());
         for (char c : s.toCharArray()) {
@@ -201,26 +256,158 @@ public final class BatchPairMain {
         return sb.toString();
     }
 
-    private static Set<String> alreadyDone(Path out) {
-        Set<String> done = new HashSet<>();
-        if (!Files.exists(out)) {
-            return done;
+    private static String compactJson(String json) {
+        StringBuilder compact = new StringBuilder(json.length());
+        boolean quoted = false;
+        boolean escaped = false;
+        for (char current : json.toCharArray()) {
+            if (quoted) {
+                compact.append(current);
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == '"') {
+                    quoted = false;
+                }
+            } else if (current == '"') {
+                compact.append(current);
+                quoted = true;
+            } else if (!Character.isWhitespace(current)) {
+                compact.append(current);
+            }
         }
+        if (quoted) {
+            throw new IllegalArgumentException("report formatter produced unterminated JSON string");
+        }
+        return compact.toString();
+    }
+
+    private static Map<String, AttemptState> previousAttempts(Path out) throws Exception {
+        Map<String, AttemptState> attempts = new HashMap<>();
+        if (!Files.exists(out)) {
+            return attempts;
+        }
+        Map<String, Boolean> seenAttempts = new HashMap<>();
         try (BufferedReader r = Files.newBufferedReader(out, StandardCharsets.UTF_8)) {
             String line;
+            int lineNumber = 0;
             while ((line = r.readLine()) != null) {
-                int i = line.indexOf("\"pairId\":\"");
-                if (i >= 0) {
-                    int s = i + "\"pairId\":\"".length();
-                    int e = line.indexOf('"', s);
-                    if (e > s) {
-                        done.add(line.substring(s, e));
+                lineNumber++;
+                if (line.isBlank()) {
+                    continue;
+                }
+                Matcher pairMatcher = OUTPUT_PAIR_ID.matcher(line);
+                Matcher statusMatcher = OUTPUT_STATUS.matcher(line);
+                Matcher attemptMatcher = OUTPUT_ATTEMPT.matcher(line);
+                if (!pairMatcher.find() || !statusMatcher.find() || !attemptMatcher.find()) {
+                    throw new IllegalStateException("malformed existing JSONL at " + out
+                            + ":" + lineNumber);
+                }
+                String pairId = pairMatcher.group(1);
+                int attempt = Integer.parseInt(attemptMatcher.group(1));
+                String attemptKey = pairId + "\n" + attempt;
+                if (seenAttempts.put(attemptKey, Boolean.TRUE) != null) {
+                    throw new IllegalStateException("duplicate attempt " + attempt
+                            + " for " + pairId + " in " + out);
+                }
+                AttemptState old = attempts.getOrDefault(pairId, AttemptState.NONE);
+                attempts.put(pairId, new AttemptState(Math.max(old.maxAttempt(), attempt),
+                        old.succeeded() || "ok".equals(statusMatcher.group(1))));
+            }
+        }
+        return attempts;
+    }
+
+    private static List<String> parseCsvLine(String line) {
+        List<String> values = new ArrayList<>();
+        StringBuilder value = new StringBuilder();
+        boolean quoted = false;
+        for (int index = 0; index < line.length(); index++) {
+            char current = line.charAt(index);
+            if (quoted) {
+                if (current == '"') {
+                    if (index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                        value.append('"');
+                        index++;
+                    } else {
+                        quoted = false;
                     }
+                } else {
+                    value.append(current);
+                }
+            } else if (current == ',' ) {
+                values.add(value.toString());
+                value.setLength(0);
+            } else if (current == '"' && value.length() == 0) {
+                quoted = true;
+            } else {
+                value.append(current);
+            }
+        }
+        if (quoted) {
+            throw new IllegalArgumentException("unterminated quoted CSV field");
+        }
+        values.add(value.toString());
+        return values;
+    }
+
+    private record ManifestRow(String pairId, Path leftPath, Path rightPath,
+                               String datasetId, String leftSha256, String rightSha256) {
+    }
+
+    private record ManifestLayout(Map<String, Integer> indexes) {
+        static ManifestLayout fromHeader(List<String> fields) {
+            Map<String, Integer> indexes = new HashMap<>();
+            for (int index = 0; index < fields.size(); index++) {
+                String field = fields.get(index).strip();
+                if (index == 0 && field.startsWith("\uFEFF")) {
+                    field = field.substring(1);
+                }
+                if (indexes.put(field, index) != null) {
+                    throw new IllegalArgumentException("duplicate manifest column: " + field);
                 }
             }
-        } catch (Exception ex) {
-            System.err.println("[batch] could not read existing output, running all: " + ex);
+            for (String required : List.of("pair_id", "left_path", "right_path")) {
+                if (!indexes.containsKey(required)) {
+                    throw new IllegalArgumentException("manifest missing column: " + required);
+                }
+            }
+            return new ManifestLayout(Map.copyOf(indexes));
         }
-        return done;
+
+        ManifestRow read(List<String> values, Path manifestDirectory) {
+            String pairId = required(values, "pair_id").strip();
+            if (!SAFE_PAIR_ID.matcher(pairId).matches()) {
+                throw new IllegalArgumentException("unsafe or empty pair_id: " + pairId);
+            }
+            Path left = resolvePath(required(values, "left_path"), manifestDirectory);
+            Path right = resolvePath(required(values, "right_path"), manifestDirectory);
+            return new ManifestRow(pairId, left, right, optional(values, "dataset_id"),
+                    optional(values, "left_sha256"), optional(values, "right_sha256"));
+        }
+
+        private String required(List<String> values, String name) {
+            String value = optional(values, name);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException("manifest row has empty " + name);
+            }
+            return value;
+        }
+
+        private String optional(List<String> values, String name) {
+            Integer index = indexes.get(name);
+            return index == null || index >= values.size() ? "" : values.get(index).strip();
+        }
+
+        private static Path resolvePath(String value, Path manifestDirectory) {
+            Path path = Path.of(value);
+            return path.isAbsolute() ? path.normalize()
+                    : manifestDirectory.resolve(path).normalize().toAbsolutePath();
+        }
+    }
+
+    private record AttemptState(int maxAttempt, boolean succeeded) {
+        private static final AttemptState NONE = new AttemptState(0, false);
     }
 }

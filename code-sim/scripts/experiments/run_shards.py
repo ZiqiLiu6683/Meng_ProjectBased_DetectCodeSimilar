@@ -1,41 +1,66 @@
 #!/usr/bin/env python3
+"""Validated, provenance-locked shard runner for BatchPairMain.
+
+The runner validates portable v2 manifests, splits them with Python's CSV
+parser, limits concurrent JVMs independently from shard count, records the
+exact run configuration, and preserves every per-pair JSONL attempt.
 """
-Parallel shard runner for BatchPairMain.
 
-Splits a manifest CSV into N shards and runs one BatchPairMain JVM per shard,
-then merges the per-shard JSON-lines outputs. Resume-safe: re-running skips
-pairs already present in shard outputs (BatchPairMain handles this per shard,
-and shard assignment is deterministic).
-
-Prerequisites (run once, from code-sim/):
-    mvn -Psemantic-analysis -DskipTests compile
-    mvn -Psemantic-analysis dependency:build-classpath -Dmdep.outputFile=target/cp.txt
-
-Usage:
-    python3 scripts/experiments/run_shards.py \
-        --manifest results/bcb/manifest.csv \
-        --out      results/bcb/run \
-        --shards   8 \
-        [--java java] [--xmx 1g] [--limit N]
-
-Output:
-    <out>/shard_00.csv ... shard inputs (deterministic split)
-    <out>/shard_00.jsonl ... per-shard results
-    <out>/merged.jsonl   ... concatenation of all shards (written at the end)
-"""
+from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
+import json
 import os
+import platform
+import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+import manifest_v2
+
 
 MAIN_CLASS = "com.ziqi.codesim.next.semantic.eval.BatchPairMain"
 
 
 def code_sim_root() -> Path:
-    # scripts/experiments/run_shards.py -> code-sim/
     return Path(__file__).resolve().parent.parent.parent
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def command_output(command: list[str], cwd: Path) -> str:
+    completed = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise RuntimeError(f"command failed ({' '.join(command)}): {detail}")
+    return completed.stdout.strip()
+
+
+def java_version(java: str, cwd: Path) -> tuple[int, str]:
+    completed = subprocess.run([java, "-version"], cwd=cwd, capture_output=True, text=True)
+    output = (completed.stderr or completed.stdout).strip()
+    if completed.returncode != 0:
+        raise RuntimeError(f"cannot run Java: {output}")
+    match = re.search(r'version "([0-9]+)(?:\.([0-9]+))?', output)
+    if not match:
+        raise RuntimeError(f"cannot parse Java version: {output.splitlines()[0] if output else ''}")
+    first = int(match.group(1))
+    major = int(match.group(2)) if first == 1 and match.group(2) else first
+    return major, output.splitlines()[0]
 
 
 def build_classpath(root: Path) -> str:
@@ -48,74 +73,214 @@ def build_classpath(root: Path) -> str:
                  "dependency:build-classpath -Dmdep.outputFile=target/cp.txt")
     raw = cp_file.read_bytes()
     if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
-        deps = raw.decode("utf-16").strip()          # PowerShell-written files
+        deps = raw.decode("utf-16").strip()
     else:
-        deps = raw.decode("utf-8-sig").strip()        # tolerates a UTF-8 BOM
+        deps = raw.decode("utf-8-sig").strip()
     deps = deps.replace("\x00", "")
-    sep = ";" if os.name == "nt" else ":"
-    return f"{classes}{sep}{deps}"
+    separator = ";" if os.name == "nt" else ":"
+    return f"{classes}{separator}{deps}"
 
 
 def split_manifest(manifest: Path, out_dir: Path, shards: int) -> list[Path]:
-    lines = manifest.read_text(encoding="utf-8").splitlines()
-    header, rows = lines[0], [l for l in lines[1:] if l.strip()]
-    shard_paths = []
-    for s in range(shards):
-        shard_rows = rows[s::shards]  # deterministic round-robin
-        p = out_dir / f"shard_{s:02d}.csv"
-        p.write_text("\n".join([header] + shard_rows) + "\n", encoding="utf-8")
-        shard_paths.append(p)
-        print(f"[shards] {p.name}: {len(shard_rows)} pairs")
+    manifest = manifest.resolve()
+    out_dir = out_dir.resolve()
+    with manifest.open(newline="", encoding="utf-8-sig") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames is None:
+            raise ValueError("manifest has no header")
+        fields = reader.fieldnames
+        rows = list(reader)
+    for row in rows:
+        for field in ("left_path", "right_path"):
+            source = Path(row[field])
+            absolute = source if source.is_absolute() else (manifest.parent / source).resolve()
+            row[field] = Path(os.path.relpath(absolute, out_dir)).as_posix()
+    shard_paths: list[Path] = []
+    for shard_index in range(shards):
+        shard_rows = rows[shard_index::shards]
+        path = out_dir / f"shard_{shard_index:03d}.csv"
+        with path.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(shard_rows)
+        shard_paths.append(path)
+        print(f"[shards] {path.name}: {len(shard_rows)} pairs")
     return shard_paths
 
 
+def read_dataset_id(manifest: Path) -> str:
+    rows = manifest_v2.read_csv(manifest)
+    dataset_ids = {row["dataset_id"] for row in rows}
+    if len(dataset_ids) != 1 or not next(iter(dataset_ids)):
+        raise ValueError(f"manifest must contain exactly one non-empty dataset_id: {dataset_ids}")
+    return next(iter(dataset_ids))
+
+
+def machine_metadata() -> dict[str, object]:
+    memory_kib = None
+    meminfo = Path("/proc/meminfo")
+    if meminfo.is_file():
+        for line in meminfo.read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemTotal:"):
+                memory_kib = int(line.split()[1])
+                break
+    return {
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "logical_cpu_count": os.cpu_count(),
+        "memory_kib": memory_kib,
+    }
+
+
+def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict[str, object]:
+    commit = command_output(["git", "rev-parse", "HEAD"], root)
+    dirty = "true" if command_output(["git", "status", "--porcelain"], root) else "false"
+    major, version_text = java_version(args.java, root)
+    if major < 17:
+        raise ValueError(f"Java 17+ is required; {args.java} reports: {version_text}")
+    return {
+        "schema_version": "1.0",
+        "manifest_sha256": sha256_file(args.manifest),
+        "dataset_id": dataset_id,
+        "config_id": args.config_id,
+        "environment_id": args.environment_id,
+        "code_commit": commit,
+        "dirty_worktree": dirty,
+        "shards": args.shards,
+        "workers": args.workers,
+        "xmx": args.xmx,
+        "java": args.java,
+        "java_version": version_text,
+        "java_options": args.java_opt,
+        "max_attempts": args.max_attempts,
+        "limit_per_shard": args.limit,
+        "skip_dynamic": args.skip_dynamic,
+    }
+
+
+def lock_config(path: Path, config: dict[str, object]) -> None:
+    if path.is_file():
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        if previous != config:
+            raise ValueError(
+                f"run configuration differs from existing {path}; choose a new output directory")
+        return
+    path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def append_history(path: Path, event: str, details: dict[str, object]) -> None:
+    row = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "event": event,
+        **details,
+    }
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def run_shard(path: Path, args: argparse.Namespace, root: Path, classpath: str,
+              config: dict[str, object]) -> tuple[str, int]:
+    out_jsonl = path.with_suffix(".jsonl")
+    command = [
+        args.java,
+        f"-Xmx{args.xmx}",
+        f"-Dcodesim.configId={config['config_id']}",
+        f"-Dcodesim.datasetId={config['dataset_id']}",
+        f"-Dcodesim.codeCommit={config['code_commit']}",
+        f"-Dcodesim.dirtyWorktree={config['dirty_worktree']}",
+        f"-Dcodesim.manifestSha256={config['manifest_sha256']}",
+    ]
+    if args.skip_dynamic:
+        command.append("-Dcodesim.skipDynamic=true")
+    command.extend(args.java_opt)
+    command.extend([
+        "-cp", classpath, MAIN_CLASS, str(path), str(out_jsonl),
+        "--max-attempts", str(args.max_attempts),
+    ])
+    if args.limit > 0:
+        command.extend(["--limit", str(args.limit)])
+    log_path = path.with_suffix(".log")
+    with log_path.open("a", encoding="utf-8") as log:
+        completed = subprocess.run(command, stdout=log, stderr=log, cwd=root)
+    return path.name, completed.returncode
+
+
+def merge_outputs(shard_paths: list[Path], merged: Path) -> int:
+    rows = 0
+    with merged.open("w", encoding="utf-8") as output:
+        for shard in shard_paths:
+            result = shard.with_suffix(".jsonl")
+            if not result.is_file():
+                continue
+            with result.open(encoding="utf-8") as stream:
+                for line in stream:
+                    if line.strip():
+                        output.write(line)
+                        rows += 1
+    return rows
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--manifest", required=True, type=Path)
-    ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--shards", type=int, default=8)
-    ap.add_argument("--java", default="java")
-    ap.add_argument("--xmx", default="1g")
-    ap.add_argument("--limit", type=int, default=0, help="per-shard pair limit (smoke tests)")
-    ap.add_argument("--java-opt", action="append", default=[],
-                    help="extra JVM option, repeatable (e.g. --java-opt -Dcodesim.skipDynamic=true)")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--shards", type=int, default=1)
+    parser.add_argument("--workers", type=int, default=1,
+                        help="maximum concurrent JVMs; independent from shard count")
+    parser.add_argument("--java", default="java")
+    parser.add_argument("--xmx", default="4g")
+    parser.add_argument("--limit", type=int, default=0, help="per-shard pair limit")
+    parser.add_argument("--max-attempts", type=int, default=1)
+    parser.add_argument("--config-id", required=True)
+    parser.add_argument("--environment-id", required=True,
+                        help="frozen hardware/image identifier used in the paper records")
+    parser.add_argument("--skip-dynamic", action="store_true",
+                        help="disable T4 dynamic execution for a separately labeled run")
+    parser.add_argument("--java-opt", action="append", default=[])
+    args = parser.parse_args()
+
+    if args.shards < 1 or args.workers < 1 or args.workers > args.shards:
+        parser.error("require 1 <= workers <= shards")
+    if args.max_attempts < 1:
+        parser.error("--max-attempts must be >= 1")
 
     root = code_sim_root()
-    cp = build_classpath(root)
+    args.manifest = args.manifest.resolve()
+    args.out = args.out.resolve()
+    manifest_v2.validate_manifest(args.manifest)
+    dataset_id = read_dataset_id(args.manifest)
+    classpath = build_classpath(root)
     args.out.mkdir(parents=True, exist_ok=True)
-    shard_inputs = split_manifest(args.manifest, args.out, args.shards)
+    config = frozen_config(args, root, dataset_id)
+    lock_config(args.out / "run_config.json", config)
+    machine_path = args.out / "machine.json"
+    if not machine_path.exists():
+        machine_path.write_text(json.dumps(machine_metadata(), indent=2, sort_keys=True) + "\n",
+                                encoding="utf-8")
+    history = args.out / "run_history.jsonl"
+    append_history(history, "start", {"workers": args.workers})
 
-    procs = []
-    for p in shard_inputs:
-        out_jsonl = p.with_suffix(".jsonl")
-        cmd = [args.java, f"-Xmx{args.xmx}", *args.java_opt, "-cp", cp, MAIN_CLASS, str(p), str(out_jsonl)]
-        if args.limit > 0:
-            cmd += ["--limit", str(args.limit)]
-        log = open(p.with_suffix(".log"), "a", encoding="utf-8")
-        procs.append((p.name, subprocess.Popen(cmd, stdout=log, stderr=log, cwd=root), log))
-        print(f"[shards] launched {p.name} (pid {procs[-1][1].pid})")
+    shards = split_manifest(args.manifest, args.out, args.shards)
+    failures = 0
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {executor.submit(run_shard, path, args, root, classpath, config): path
+                   for path in shards}
+        for future in as_completed(futures):
+            name, return_code = future.result()
+            print(f"[shards] {name} exited rc={return_code}")
+            if return_code != 0:
+                failures += 1
 
-    failed = 0
-    for name, proc, log in procs:
-        rc = proc.wait()
-        log.close()
-        print(f"[shards] {name} exited rc={rc}")
-        failed += 1 if rc != 0 else 0
-
-    import shutil
     merged = args.out / "merged.jsonl"
-    with open(merged, "w", encoding="utf-8") as m:
-        for p in shard_inputs:
-            j = p.with_suffix(".jsonl")
-            if j.is_file():
-                with open(j, encoding="utf-8") as f:
-                    shutil.copyfileobj(f, m, 1 << 20)
-    print(f"[shards] merged -> {merged}")
-    if failed:
-        sys.exit(f"[shards] {failed} shard(s) failed - check the .log files, then re-run "
-                 "(resume will skip completed pairs)")
+    result_rows = merge_outputs(shards, merged)
+    append_history(history, "finish", {"failed_shards": failures, "result_rows": result_rows})
+    print(f"[shards] merged {result_rows} attempt rows -> {merged}")
+    if failures:
+        sys.exit(f"[shards] {failures} shard(s) failed; inspect .log files and rerun unchanged")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError) as error:
+        sys.exit(f"[shards] ERROR: {error}")
