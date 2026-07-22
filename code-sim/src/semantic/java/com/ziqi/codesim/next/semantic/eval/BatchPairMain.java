@@ -32,13 +32,14 @@ import java.util.regex.Pattern;
  * </ul>
  *
  * Manifest format is RFC-4180-style CSV with the required columns
- * {@code pair_id,left_path,right_path}. Portable v2 manifests may also provide
- * {@code dataset_id,left_sha256,right_sha256}; relative paths are resolved from the manifest.
+ * {@code pair_id,left_path,right_path}. Clean-room execution manifests also provide
+ * {@code dataset_id,left_sha256,right_sha256}; labels and reference ranges are deliberately
+ * absent from product input. Relative paths are resolved from the manifest.
  *
  * <p>Usage: {@code BatchPairMain <manifest.csv> <out.jsonl> [--limit N]}
  */
 public final class BatchPairMain {
-    private static final String SCHEMA_VERSION = "2.0-dev";
+    private static final String SCHEMA_VERSION = "3.0";
     private static final String CONFIG_ID = System.getProperty("codesim.configId", "v3-development-default");
     private static final String DATASET_ID = System.getProperty("codesim.datasetId", "unknown");
     private static final String CODE_COMMIT = System.getProperty("codesim.codeCommit", "unknown");

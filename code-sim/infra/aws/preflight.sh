@@ -21,9 +21,11 @@ python3 -m unittest discover \
   -s "${project_dir}/scripts/experiments/tests" \
   -p 'test_*.py'
 
-echo "== portable BCB smoke manifest =="
-python3 "${project_dir}/scripts/experiments/manifest_v2.py" validate \
-  --manifest "${project_dir}/results/bcb_smoke/manifest_v2.csv" \
-  --dataset-id bcb-smoke-20260721
+echo "== clean-room scripts compile =="
+python3 -m py_compile \
+  "${project_dir}/scripts/experiments/execution_manifest.py" \
+  "${project_dir}/scripts/experiments/bcb_cleanroom.py" \
+  "${project_dir}/scripts/experiments/run_shards.py" \
+  "${project_dir}/scripts/experiments/score_bcb_cleanroom.py"
 
-echo "AWS trial preflight passed. No benchmark dataset was executed."
+echo "AWS preflight passed. Legacy bcb_smoke artifacts were not read. No benchmark dataset was executed."

@@ -116,9 +116,34 @@ Expected outputs:
 - strict scorer tests succeed;
 - no benchmark dataset or dynamic execution of external code is involved.
 
-### Portable BCB plumbing smoke
+### Quarantined legacy plumbing smoke
 
-After the preflight passes on a clean commit, build the runtime classpath once:
+The old `results/bcb_smoke` input contains extracted/wrapped method fragments.
+It is retained only for historical engineering diagnosis and must not be run or
+reported as paper evidence.
+
+### Clean-room original-file BCB smoke
+
+Stage the official BigCloneEval H2 database, its compatible H2 jar, and the
+official IJaDataset `bcb_reduced` tree outside the repository. Then export their
+exact release identifiers and paths:
+
+```bash
+export BCB_DB_BASE=/opt/codesim/datasets/bcb/<database-base>
+export H2_JAR=/opt/codesim/datasets/bcb/<compatible-h2.jar>
+export BCB_REDUCED_ROOT=/opt/codesim/datasets/ijadataset/bcb_reduced
+export BCB_RELEASE='<exact release identifier>'
+export IJADATASET_RELEASE='<exact release identifier>'
+bash code-sim/infra/aws/run-bcb-cleanroom-smoke-r8i-8xlarge.sh
+```
+
+The script creates a new timestamped artifact directory outside the repository,
+queries official H2 data deterministically, passes complete original Java files
+to the product, deduplicates repeated file pairs, and refuses dirty code or an
+undersized host. Scoring rejects mixed schema, dataset, manifest, commit,
+configuration, or source hashes and always reports WALA versus fallback counts.
+
+The remainder of this section documents the obsolete plumbing path only:
 
 ```bash
 bash code-sim/infra/aws/run-bcb-smoke.sh
@@ -150,7 +175,7 @@ python3 code-sim/scripts/experiments/run_shards.py \
   --skip-dynamic
 ```
 
-The runner validates every path, checksum, label, and reference range before
+The legacy runner validated every path, checksum, label, and reference range before
 launching. It records the commit, dirty-worktree state, dataset/config IDs,
 manifest hash, host metadata, shard logs, and one-line JSON attempt records.
 Reusing an output directory with a different frozen configuration is rejected.

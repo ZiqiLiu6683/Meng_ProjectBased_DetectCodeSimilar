@@ -36,11 +36,11 @@ repository.
 | E6 | Ablations and pairwise baselines | Contribution analysis | Which pipeline components cause each gain or cost |
 | E7 | Performance and reliability sweeps | Operational behavior | Latency, throughput, memory, fallback, and determinism |
 
-The July 2026 BigCloneBench run has already been inspected at aggregate level.
-It is an exploratory/pilot result, not an untouched confirmatory test. It may be
-reported as preliminary evidence and used to diagnose the evaluation system,
-but every final headline result must come from a frozen code revision, manifest,
-configuration, and scoring implementation.
+The July 2026 wrapper-fragment BigCloneBench run is quarantined as an engineering
+pilot. It must not be used as paper evidence or mixed with the clean-room run.
+Every final headline result comes from a frozen code revision, official-input
+lock, label-free execution manifest, separate reference table, configuration,
+and scoring implementation.
 
 ## 3. Research questions
 
@@ -179,9 +179,19 @@ The same raw run is then stratified into:
 - source-only fallback cases.
 
 No case-specific source repair is permitted in the primary experiment. The
-wrapper policy, imports, line-offset mapping, and source checksum must be fixed
-before the run. Any dependency reconstruction or generated-stub experiment is a
-separate secondary study.
+product receives the complete original IJaDataset Java files byte-for-byte;
+BCB method intervals are scoring references only. Cutting methods, adding
+imports, wrapping fragments in generated classes, or copying them into renamed
+inputs is prohibited. Any dependency reconstruction or generated-stub
+experiment is a separately named secondary study.
+
+The clean-room dataset has two immutable tables. `executions.csv` contains only
+unique file pairs, source hashes, and dataset identity, with no ground-truth
+labels or ranges. `references.csv` maps one or more official BCB function-pair
+references to each execution. This prevents answer leakage and executes a
+repeated original file pair only once. A dataset lock hashes the official H2
+database, compatible H2 jar, both tables, deterministic query exports, and all
+referenced source files.
 
 Because many BCB pairs share functions and functionalities, confidence intervals
 must not assume that every pair is independent. Use a cluster bootstrap over

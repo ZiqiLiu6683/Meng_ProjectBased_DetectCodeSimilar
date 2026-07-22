@@ -38,7 +38,7 @@ class BatchPairMainSchemaTest {
             BatchPairMain.main(new String[]{manifest.toString(), output.toString()});
 
             String json = Files.readString(output, StandardCharsets.UTF_8);
-            assertTrue(json.contains("\"schemaVersion\":\"2.0-dev\""));
+            assertTrue(json.contains("\"schemaVersion\":\"3.0\""));
             assertTrue(json.contains("\"analysisMode\":\"SOURCE_PLUS_WALA_SMT\""));
             assertTrue(json.contains("\"compile_left\":{\"status\":\"SUCCESS\""));
             assertTrue(json.contains("\"durationMs\":"));
@@ -70,7 +70,7 @@ class BatchPairMainSchemaTest {
             Files.writeString(right, rightSource, StandardCharsets.UTF_8);
             Files.writeString(manifest,
                     "schema_version,dataset_id,pair_id,left_path,right_path,left_sha256,right_sha256\n"
-                            + "2.0,bcb-smoke,portable_1,\"pair,portable/Left.java\","
+                            + "execution-1.0,bcb-smoke,portable_1,\"pair,portable/Left.java\","
                             + "\"pair,portable/Right.java\"," + sha256(leftSource) + ","
                             + sha256(rightSource) + "\n",
                     StandardCharsets.UTF_8);

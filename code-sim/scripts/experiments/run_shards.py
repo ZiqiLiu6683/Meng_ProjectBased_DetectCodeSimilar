@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Validated, provenance-locked shard runner for BatchPairMain.
-
-The runner validates portable v2 manifests, splits them with Python's CSV
-parser, limits concurrent JVMs independently from shard count, records the
-exact run configuration, and preserves every per-pair JSONL attempt.
-"""
+"""Validated, provenance-locked, label-free shard runner for BatchPairMain."""
 
 from __future__ import annotations
 
@@ -24,7 +19,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
-import manifest_v2
+import execution_manifest
 
 
 MAIN_CLASS = "com.ziqi.codesim.next.semantic.eval.BatchPairMain"
@@ -109,7 +104,7 @@ def split_manifest(manifest: Path, out_dir: Path, shards: int) -> list[Path]:
 
 
 def read_dataset_id(manifest: Path) -> str:
-    rows = manifest_v2.read_csv(manifest)
+    rows = execution_manifest.read_csv(manifest)
     dataset_ids = {row["dataset_id"] for row in rows}
     if len(dataset_ids) != 1 or not next(iter(dataset_ids)):
         raise ValueError(f"manifest must contain exactly one non-empty dataset_id: {dataset_ids}")
@@ -118,17 +113,36 @@ def read_dataset_id(manifest: Path) -> str:
 
 def machine_metadata() -> dict[str, object]:
     memory_kib = None
+    cpu_model = None
     meminfo = Path("/proc/meminfo")
     if meminfo.is_file():
         for line in meminfo.read_text(encoding="utf-8").splitlines():
             if line.startswith("MemTotal:"):
                 memory_kib = int(line.split()[1])
                 break
+    cpuinfo = Path("/proc/cpuinfo")
+    if cpuinfo.is_file():
+        for line in cpuinfo.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("model name") and ":" in line:
+                cpu_model = line.split(":", 1)[1].strip()
+                break
+    os_release = {}
+    release_path = Path("/etc/os-release")
+    if release_path.is_file():
+        for line in release_path.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.startswith("#"):
+                key, value = line.split("=", 1)
+                os_release[key] = value.strip().strip('"')
+    product_name_path = Path("/sys/devices/virtual/dmi/id/product_name")
     return {
         "platform": platform.platform(),
         "machine": platform.machine(),
         "logical_cpu_count": os.cpu_count(),
+        "cpu_model": cpu_model,
         "memory_kib": memory_kib,
+        "os_release": os_release,
+        "dmi_product_name": product_name_path.read_text(encoding="utf-8").strip()
+        if product_name_path.is_file() else None,
     }
 
 
@@ -140,6 +154,7 @@ def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict
         raise ValueError(f"Java 17+ is required; {args.java} reports: {version_text}")
     return {
         "schema_version": "1.0",
+        "execution_manifest_schema": execution_manifest.SCHEMA_VERSION,
         "manifest_sha256": sha256_file(args.manifest),
         "dataset_id": dataset_id,
         "config_id": args.config_id,
@@ -247,7 +262,7 @@ def main() -> None:
     root = code_sim_root()
     args.manifest = args.manifest.resolve()
     args.out = args.out.resolve()
-    manifest_v2.validate_manifest(args.manifest)
+    execution_manifest.validate_manifest(args.manifest)
     dataset_id = read_dataset_id(args.manifest)
     classpath = build_classpath(root)
     args.out.mkdir(parents=True, exist_ok=True)
