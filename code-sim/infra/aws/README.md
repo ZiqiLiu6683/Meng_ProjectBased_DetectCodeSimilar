@@ -155,6 +155,16 @@ launching. It records the commit, dirty-worktree state, dataset/config IDs,
 manifest hash, host metadata, shard logs, and one-line JSON attempt records.
 Reusing an output directory with a different frozen configuration is rejected.
 
+For the 32 GiB final-environment smoke (`m7i-flex.2xlarge`, 8 vCPU), use:
+
+```bash
+bash code-sim/infra/aws/run-bcb-smoke-32g.sh
+```
+
+This command refuses smaller hosts and runs eight 3 GiB JVM workers over eight
+deterministic shards. Its output directory is separate from the 8 GiB trial, so
+hardware environments are never mixed in one result set.
+
 ## 7. Shutdown discipline
 
 At the end of every session:
