@@ -383,6 +383,42 @@ def build_summary(records: list[dict], bootstrap_iterations: int, seed: int) -> 
             f"[{lo:.2%}, {hi:.2%}] | {typed / len(rows):.2%} | {cond:.2%} | "
             f"{statistics.median(min_ious) if min_ious else 0.0:.3f} | {errors} | {strict_fp} |"
         )
+    lines.extend([
+        "",
+        "## Execution provenance",
+        "",
+        "| Analysis mode | N | Share | Successful | Errors/missing | Median wall ms |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ])
+    modes = defaultdict(list)
+    for record in records:
+        modes[record["analysis_mode"] or "MISSING"].append(record)
+    for mode in sorted(modes):
+        rows = modes[mode]
+        successful = sum(row["status"] == "ok" for row in rows)
+        wall_times = [float(row["wall_ms"]) for row in rows if row["status"] == "ok"]
+        lines.append(
+            f"| {mode} | {len(rows)} | {len(rows) / len(records):.2%} | "
+            f"{successful} | {len(rows) - successful} | "
+            f"{statistics.median(wall_times) if wall_times else 0.0:.0f} |"
+        )
+
+    fallback_causes = Counter(
+        (record["fallback_stage"] or "UNSPECIFIED",
+         record["fallback_reason"] or "UNSPECIFIED")
+        for record in records
+        if record["analysis_mode"] == "SOURCE_ONLY_FALLBACK"
+    )
+    if fallback_causes:
+        lines.extend([
+            "",
+            "### Source-only fallback causes",
+            "",
+            "| Stage | Reason | N |",
+            "| --- | --- | ---: |",
+        ])
+        for (stage, reason), count in sorted(fallback_causes.items()):
+            lines.append(f"| {stage} | {reason} | {count} |")
     return "\n".join(lines) + "\n"
 
 

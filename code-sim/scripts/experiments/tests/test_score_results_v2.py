@@ -94,6 +94,26 @@ class StrictScorerTest(unittest.TestCase):
         self.assertIn("| NON_CLONE | 1 | 0.00%", summary)
         self.assertIn("| 1 | 0 |", summary)
 
+    def test_summary_reports_analysis_modes_and_fallback_causes(self):
+        semantic = SCORER.score_pair(
+            self.label(), self.manifest(), self.result([]), False, 6)
+        fallback_result = self.result([])
+        fallback_result.update({
+            "analysisMode": "SOURCE_ONLY_FALLBACK",
+            "fallbackStage": "WALA_BUILD",
+            "fallbackReason": "scope construction failed",
+        })
+        fallback = SCORER.score_pair(
+            {**self.label(), "pair_id": "p2"},
+            {**self.manifest(), "pair_id": "p2"}, fallback_result, False, 6)
+
+        summary = SCORER.build_summary([semantic, fallback], 20, 42)
+
+        self.assertIn("## Execution provenance", summary)
+        self.assertIn("| SOURCE_PLUS_WALA_SMT | 1 | 50.00%", summary)
+        self.assertIn("| SOURCE_ONLY_FALLBACK | 1 | 50.00%", summary)
+        self.assertIn("| WALA_BUILD | scope construction failed | 1 |", summary)
+
     def test_v2_manifest_can_supply_labels_and_relative_paths(self):
         manifest = self.root / "manifest-v2.csv"
         results = self.root / "results.jsonl"
