@@ -56,6 +56,10 @@ stage durations, and fallback reason for both inputs.
 Successful bytecode, generated dependency context, and deterministic compiler
 failures are reused; they are rebuilt only when source, classpath fingerprints,
 Java release, or generator version changes.
+Stub generator version 3 additionally models missing wildcard-import packages,
+type-qualified static fields, and directly observed members inherited from a
+missing superclass or interface. Unsupported Java syntax and unresolved type
+semantics still fail closed to the source fallback.
 
 ## Result Labels
 

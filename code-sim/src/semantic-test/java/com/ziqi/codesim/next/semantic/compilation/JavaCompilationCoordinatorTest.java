@@ -112,6 +112,50 @@ class JavaCompilationCoordinatorTest {
         assertFalse(artifact.diagnosticSummary().isBlank());
     }
 
+    @Test
+    void createsPackageMarkersAndUnambiguousLocalTypesForMultipleWildcardImports()
+            throws Exception {
+        SourceAnalysisInput input = SourceAnalysisInput.standalone(
+                "import missing.one.*;\nimport missing.two.*;\n"
+                        + "class Input { External f(External value) { return value; } }",
+                "Input.java");
+
+        CompilationArtifact artifact = new JavaCompilationCoordinator(temp.resolve("cache-wildcard"))
+                .compile(input);
+
+        assertEquals(CompilationArtifact.CompilationMode.STUBBED, artifact.mode());
+        assertTrue(containsClass(artifact.classesDirectory(), "Input.class"));
+        assertTrue(artifact.generatedStubCount() >= 3);
+    }
+
+    @Test
+    void rendersObservedDependencyFieldsAsStaticForTypeQualifiedAccess() throws Exception {
+        SourceAnalysisInput input = SourceAnalysisInput.standalone(
+                "import missing.Config; class Input { Object f() { return Config.VALUE; } }",
+                "Input.java");
+
+        CompilationArtifact artifact = new JavaCompilationCoordinator(temp.resolve("cache-field"))
+                .compile(input);
+
+        assertEquals(CompilationArtifact.CompilationMode.STUBBED, artifact.mode());
+        assertTrue(containsClass(artifact.classesDirectory(), "Input.class"));
+    }
+
+    @Test
+    void attachesUnresolvedInheritedMembersToMissingSuperclass() throws Exception {
+        SourceAnalysisInput input = SourceAnalysisInput.standalone(
+                "class Input extends MissingBase { "
+                        + "Object f() { return inheritedMethod(); } "
+                        + "Object g() { return inheritedField; } }",
+                "Input.java");
+
+        CompilationArtifact artifact = new JavaCompilationCoordinator(temp.resolve("cache-inherited"))
+                .compile(input);
+
+        assertEquals(CompilationArtifact.CompilationMode.STUBBED, artifact.mode());
+        assertTrue(containsClass(artifact.classesDirectory(), "Input.class"));
+    }
+
     private static boolean containsClass(Path root, String fileName) throws Exception {
         try (var stream = Files.walk(root)) {
             return stream.anyMatch(path -> path.getFileName().toString().equals(fileName));

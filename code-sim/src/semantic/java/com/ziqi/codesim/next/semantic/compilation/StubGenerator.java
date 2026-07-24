@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * source and never invents executable semantics for Type-4 proof.
  */
 final class StubGenerator {
-    static final String VERSION = "2";
+    static final String VERSION = "3";
 
     private static final Pattern PACKAGE = Pattern.compile(
             "(?m)^\\s*package\\s+([A-Za-z_$][A-Za-z0-9_$.]*)\\s*;");
@@ -36,6 +36,8 @@ final class StubGenerator {
             "(?m)symbol:\\s+(?:class|interface|enum|record)\\s+([A-Za-z_$][A-Za-z0-9_$]*)");
     private static final Pattern SYMBOL_METHOD = Pattern.compile(
             "(?m)symbol:\\s+method\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(");
+    private static final Pattern SYMBOL_VARIABLE = Pattern.compile(
+            "(?m)symbol:\\s+variable\\s+([A-Za-z_$][A-Za-z0-9_$]*)");
     private static final Pattern LOCATION_TYPE = Pattern.compile(
             "(?m)location:\\s+(?:variable\\s+\\w+\\s+of\\s+type|class|interface)\\s+([A-Za-z_$][A-Za-z0-9_$.]*)");
     private static final Pattern VARIABLE_DECL = Pattern.compile(
@@ -44,6 +46,10 @@ final class StubGenerator {
             "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(");
     private static final Pattern FIELD_ACCESS = Pattern.compile(
             "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\b(?!\\s*\\()");
+    private static final Pattern EXTENDS_TYPE = Pattern.compile(
+            "\\bextends\\s+([A-Za-z_$][A-Za-z0-9_$.]*(?:\\s*<[^>{}]+>)?)");
+    private static final Pattern IMPLEMENTS_TYPES = Pattern.compile(
+            "\\bimplements\\s+([^\\{]+)");
 
     private final Map<String, StubType> types = new LinkedHashMap<>();
 
@@ -56,9 +62,15 @@ final class StubGenerator {
             }
             String sourceLine = line(source, diagnostic.line());
             Matcher importLine = IMPORT.matcher(sourceLine);
-            if (importLine.find()) {
+            while (importLine.find()) {
                 String importedType = importLine.group(2);
-                if (importLine.group(1) != null && importLine.group(3) == null) {
+                if (importLine.group(3) != null) {
+                    if (importLine.group(1) != null) {
+                        addType(importedType, names, source);
+                    } else if (!importedType.startsWith("java.")) {
+                        addPackageMarker(importedType);
+                    }
+                } else if (importLine.group(1) != null) {
                     String member = simpleName(importedType);
                     int memberSeparator = importedType.lastIndexOf('.');
                     importedType = memberSeparator < 0
@@ -72,7 +84,7 @@ final class StubGenerator {
                         owner.methods.add(member);
                     }
                 }
-                if (!importedType.startsWith("java.")) {
+                if (importLine.group(3) == null && !importedType.startsWith("java.")) {
                     addType(importedType, names, source);
                 }
             }
@@ -80,12 +92,26 @@ final class StubGenerator {
             while (symbol.find()) {
                 addType(names.resolve(symbol.group(1)), names, source);
             }
+        }
+
+        // Resolve members after all missing types have been collected. javac may report a missing
+        // inherited member before or after the diagnostic for its absent superclass.
+        for (CompilerDiagnostic diagnostic : diagnostics) {
+            if (diagnostic.kind() != javax.tools.Diagnostic.Kind.ERROR) {
+                continue;
+            }
             Matcher method = SYMBOL_METHOD.matcher(diagnostic.message());
             Matcher location = LOCATION_TYPE.matcher(diagnostic.message());
             if (method.find() && location.find()) {
-                StubType owner = findType(names.resolve(location.group(1)));
-                if (owner != null) {
+                for (StubType owner : ownersForLocation(location.group(1), names)) {
                     owner.methods.add(method.group(1));
+                }
+            }
+            Matcher variable = SYMBOL_VARIABLE.matcher(diagnostic.message());
+            location = LOCATION_TYPE.matcher(diagnostic.message());
+            if (variable.find() && location.find()) {
+                for (StubType owner : ownersForLocation(location.group(1), names)) {
+                    owner.fields.add(variable.group(1));
                 }
             }
         }
@@ -150,6 +176,27 @@ final class StubGenerator {
         String resolved = cleaned.contains(".") ? cleaned : names.resolve(cleaned);
         StubKind kind = kindOf(simple, source);
         types.computeIfAbsent(resolved, ignored -> StubType.of(resolved, kind));
+    }
+
+    private void addPackageMarker(String packageName) {
+        String qualifiedName = packageName + ".__CodeSimPackageMarker";
+        types.computeIfAbsent(qualifiedName,
+                ignored -> StubType.of(qualifiedName, StubKind.CLASS));
+    }
+
+    private List<StubType> ownersForLocation(String locationName, SourceNames names) {
+        StubType exact = findType(names.resolve(locationName));
+        if (exact != null) {
+            return List.of(exact);
+        }
+        if (!names.declaredTypes.contains(simpleName(locationName))) {
+            return List.of();
+        }
+        return names.parentTypes.stream()
+                .map(this::findType)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     private StubType findType(String name) {
@@ -270,7 +317,9 @@ final class StubGenerator {
             out.append(" {\n");
             out.append("  public ").append(simpleName).append("(Object... args) {}\n");
             for (String field : fields) {
-                out.append("  public Object ").append(field).append(";\n");
+                // A static field is legal through either Type.FIELD or an instance expression.
+                // The inverse is not true and caused non-static-reference failures in BCB files.
+                out.append("  public static Object ").append(field).append(";\n");
             }
             for (String method : methods) {
                 out.append("  public static <T> T ").append(method)
@@ -281,7 +330,8 @@ final class StubGenerator {
     }
 
     private record SourceNames(String packageName, Map<String, String> explicitImports,
-                               List<String> wildcardImports, Set<String> declaredTypes) {
+                               List<String> wildcardImports, Set<String> declaredTypes,
+                               List<String> parentTypes) {
         static SourceNames parse(String source) {
             Matcher packageMatcher = PACKAGE.matcher(source);
             String packageName = packageMatcher.find() ? packageMatcher.group(1) : "";
@@ -305,7 +355,26 @@ final class StubGenerator {
             while (declarations.find()) {
                 declared.add(declarations.group(1));
             }
-            return new SourceNames(packageName, Map.copyOf(explicit), List.copyOf(wildcard), Set.copyOf(declared));
+            SourceNames preliminary = new SourceNames(
+                    packageName, Map.copyOf(explicit), List.copyOf(wildcard),
+                    Set.copyOf(declared), List.of());
+            List<String> parents = new ArrayList<>();
+            Matcher extended = EXTENDS_TYPE.matcher(source);
+            while (extended.find()) {
+                parents.add(preliminary.resolve(extended.group(1)));
+            }
+            Matcher implemented = IMPLEMENTS_TYPES.matcher(source);
+            while (implemented.find()) {
+                for (String value : implemented.group(1).split(",")) {
+                    String cleaned = erase(value);
+                    if (!cleaned.isBlank()) {
+                        parents.add(preliminary.resolve(cleaned));
+                    }
+                }
+            }
+            return new SourceNames(
+                    packageName, Map.copyOf(explicit), List.copyOf(wildcard),
+                    Set.copyOf(declared), List.copyOf(parents));
         }
 
         String resolve(String name) {
