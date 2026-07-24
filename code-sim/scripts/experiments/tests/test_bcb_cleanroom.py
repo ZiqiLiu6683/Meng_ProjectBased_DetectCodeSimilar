@@ -75,6 +75,18 @@ class BcbCleanroomTest(unittest.TestCase):
             MODULE.jdbc_database_base(self.root / "official.h2.db"),
         )
 
+    def test_h2_queries_open_official_database_read_only(self):
+        completed = type("Completed", (), {
+            "returncode": 0, "stdout": "ok", "stderr": "",
+        })()
+        with patch.object(MODULE.subprocess, "run", return_value=completed) as run:
+            self.assertEqual("ok", MODULE.run_h2(
+                self.root / "official.h2.db", self.root / "h2.jar", "SELECT 1"))
+
+        command = run.call_args.args[0]
+        url = command[command.index("-url") + 1]
+        self.assertIn(";IFEXISTS=TRUE;ACCESS_MODE_DATA=r", url)
+
     def test_extract_writes_only_manifests_and_points_to_complete_official_files(self):
         db = self.root / "official.h2.db"
         h2 = self.root / "h2.jar"
@@ -112,6 +124,10 @@ class BcbCleanroomTest(unittest.TestCase):
         self.assertEqual((self.bcb / "4/default/A.java").resolve(), left)
         with (out / "references.csv").open(newline="", encoding="utf-8") as stream:
             self.assertEqual(6, sum(1 for _ in csv.DictReader(stream)))
+        lock = MODULE.json.loads((out / "dataset_lock.json").read_text(encoding="utf-8"))
+        self.assertTrue(lock["h2_database_immutable_during_export"])
+        self.assertEqual(
+            lock["h2_database_sha256"], lock["h2_database_sha256_after_queries"])
 
 
 if __name__ == "__main__":

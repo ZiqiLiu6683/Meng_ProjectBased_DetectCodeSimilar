@@ -70,7 +70,15 @@ def jdbc_database_base(db: Path) -> Path:
 
 
 def run_h2(db: Path, h2_jar: Path, sql: str) -> str:
-    db_url = f"jdbc:h2:{str(jdbc_database_base(db)).replace(chr(92), '/')};IFEXISTS=TRUE"
+    # BigCloneEval ships an H2 database as benchmark input.  Opening it in the
+    # default read-write mode can change database metadata even when every SQL
+    # statement is a SELECT/CSVWRITE.  That made otherwise identical frozen
+    # samples acquire different dataset IDs across runs.  Treat the database as
+    # immutable input and verify that contract again at the end of extraction.
+    db_url = (
+        f"jdbc:h2:{str(jdbc_database_base(db)).replace(chr(92), '/')}"
+        ";IFEXISTS=TRUE;ACCESS_MODE_DATA=r"
+    )
     command = [
         "java", "-Xmx4g", "-cp", str(h2_jar.resolve()), "org.h2.tools.Shell",
         "-url", db_url, "-user", "sa", "-password", "", "-sql", sql,
@@ -265,6 +273,8 @@ def extract(args: argparse.Namespace) -> None:
         raise ValueError("clean-room generation requires a known commit and clean worktree")
     out = args.out.resolve()
     ensure_new_output(out)
+    official_database = database_file(args.db)
+    official_database_sha256 = execution_manifest.sha256_file(official_database)
     query_dir = out / "query_exports"
     query_dir.mkdir()
     raw_population: Counter[str] = Counter()
@@ -305,7 +315,7 @@ def extract(args: argparse.Namespace) -> None:
         "bcb_archive_sha256": execution_manifest.sha256_file(args.bcb_archive.resolve()),
         "ijadataset_archive_sha256": execution_manifest.sha256_file(
             args.ijadataset_archive.resolve()),
-        "db_sha256": execution_manifest.sha256_file(database_file(args.db)),
+        "db_sha256": official_database_sha256,
         "selection_seed": args.seed,
         "per_stratum": args.per_stratum,
         "reference_ids": sorted(row["reference_id"] for row in references),
@@ -352,8 +362,8 @@ def extract(args: argparse.Namespace) -> None:
         "ijadataset_archive_file": str(args.ijadataset_archive.resolve()),
         "ijadataset_archive_sha256": execution_manifest.sha256_file(
             args.ijadataset_archive.resolve()),
-        "h2_database_file": str(database_file(args.db)),
-        "h2_database_sha256": execution_manifest.sha256_file(database_file(args.db)),
+        "h2_database_file": str(official_database),
+        "h2_database_sha256": official_database_sha256,
         "h2_jar_sha256": execution_manifest.sha256_file(args.h2.resolve()),
         "bcb_root": str(args.bcb.resolve()),
         "generator_commit": commit,
@@ -379,6 +389,13 @@ def extract(args: argparse.Namespace) -> None:
         "source_policy": "complete_original_ijadataset_files_no_copy_no_rewrite",
         "reference_policy": "BCB method ranges are scoring-only and never product inputs",
     }
+    database_sha256_after = execution_manifest.sha256_file(official_database)
+    if database_sha256_after != official_database_sha256:
+        raise ValueError(
+            "official H2 database changed while exporting read-only benchmark queries: "
+            f"before={official_database_sha256} after={database_sha256_after}")
+    lock["h2_database_sha256_after_queries"] = database_sha256_after
+    lock["h2_database_immutable_during_export"] = True
     (out / "dataset_lock.json").write_text(
         json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"[bcb-cleanroom] dataset={dataset_id}")
