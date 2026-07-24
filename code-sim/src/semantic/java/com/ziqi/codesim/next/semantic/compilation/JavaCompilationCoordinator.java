@@ -9,6 +9,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
@@ -45,7 +46,8 @@ import java.util.regex.Pattern;
 public final class JavaCompilationCoordinator {
     public static final int JAVA_RELEASE = 17;
     private static final int MAX_STUB_ROUNDS = 5;
-    private static final String CACHE_VERSION = "3";
+    private static final String CACHE_VERSION = "4";
+    private static final String IMPLEMENTATION_SHA256 = implementationFingerprint();
     private static final Pattern PUBLIC_TYPE = Pattern.compile(
             "public\\s+(?:final\\s+|abstract\\s+|sealed\\s+|non-sealed\\s+|strictfp\\s+)*"
                     + "(?:class|interface|enum|record)\\s+([A-Za-z_$][A-Za-z0-9_$]*)");
@@ -201,6 +203,10 @@ public final class JavaCompilationCoordinator {
         if (!CACHE_VERSION.equals(properties.getProperty("cacheVersion"))) {
             return null;
         }
+        if (!IMPLEMENTATION_SHA256.equals(
+                properties.getProperty("compilerImplementationSha256"))) {
+            return null;
+        }
         if ("failed".equals(properties.getProperty("status"))) {
             throw new AnalysisException("Cached Java 17 compilation failure ["
                     + properties.getProperty("diagnosticSummary", "") + "]");
@@ -292,6 +298,7 @@ public final class JavaCompilationCoordinator {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             update(digest, "cache=" + CACHE_VERSION);
             update(digest, "stubGenerator=" + StubGenerator.VERSION);
+            update(digest, "compilerImplementation=" + IMPLEMENTATION_SHA256);
             update(digest, "release=" + JAVA_RELEASE);
             update(digest, "runtime=" + Runtime.version());
             update(digest, "file=" + input.fileName());
@@ -338,6 +345,7 @@ public final class JavaCompilationCoordinator {
                                       int stubCount, String diagnostics) throws IOException {
         Properties properties = new Properties();
         properties.setProperty("cacheVersion", CACHE_VERSION);
+        properties.setProperty("compilerImplementationSha256", IMPLEMENTATION_SHA256);
         properties.setProperty("status", "success");
         properties.setProperty("stubGeneratorVersion", StubGenerator.VERSION);
         properties.setProperty("javaRelease", String.valueOf(JAVA_RELEASE));
@@ -354,6 +362,7 @@ public final class JavaCompilationCoordinator {
     private static void writeFailureManifest(Path work, String diagnostics) throws IOException {
         Properties properties = new Properties();
         properties.setProperty("cacheVersion", CACHE_VERSION);
+        properties.setProperty("compilerImplementationSha256", IMPLEMENTATION_SHA256);
         properties.setProperty("status", "failed");
         properties.setProperty("stubGeneratorVersion", StubGenerator.VERSION);
         properties.setProperty("javaRelease", String.valueOf(JAVA_RELEASE));
@@ -399,8 +408,36 @@ public final class JavaCompilationCoordinator {
     private static Path defaultCacheRoot() {
         String configured = System.getProperty("codesim.compileCache", "").strip();
         return configured.isEmpty()
-                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v3")
+                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v4")
                 : Path.of(configured);
+    }
+
+    /**
+     * Hash the actual compiler/stub bytecode rather than trusting a manually maintained version.
+     * This prevents a changed implementation from accepting immutable positive or negative cache
+     * entries produced by older class files.
+     */
+    static String implementationFingerprint() {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (Class<?> type : List.of(JavaCompilationCoordinator.class, StubGenerator.class)) {
+                String resource = "/" + type.getName().replace('.', '/') + ".class";
+                update(digest, resource);
+                try (InputStream stream = type.getResourceAsStream(resource)) {
+                    if (stream == null) {
+                        throw new IOException("Missing runtime class resource: " + resource);
+                    }
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = stream.read(buffer)) >= 0) {
+                        digest.update(buffer, 0, read);
+                    }
+                }
+            }
+            return hex(digest.digest());
+        } catch (Exception ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
     }
 
     private static boolean containsClassFile(Path directory) throws IOException {

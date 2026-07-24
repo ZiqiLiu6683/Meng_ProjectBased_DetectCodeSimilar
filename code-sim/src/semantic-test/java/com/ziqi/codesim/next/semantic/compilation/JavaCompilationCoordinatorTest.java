@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,6 +44,14 @@ class JavaCompilationCoordinatorTest {
         assertTrue(containsClass(first.classesDirectory(), "Input.class"));
         assertTrue(second.supportClasspath().stream()
                 .anyMatch(path -> path.endsWith("stub-classes")));
+        Properties manifest = new Properties();
+        try (var reader = Files.newBufferedReader(
+                first.classesDirectory().getParent().resolve("compilation.properties"),
+                StandardCharsets.UTF_8)) {
+            manifest.load(reader);
+        }
+        assertEquals(JavaCompilationCoordinator.implementationFingerprint(),
+                manifest.getProperty("compilerImplementationSha256"));
     }
 
     @Test

@@ -40,13 +40,15 @@ import java.util.regex.Pattern;
  * <p>Usage: {@code BatchPairMain <manifest.csv> <out.jsonl> [--limit N]}
  */
 public final class BatchPairMain {
-    private static final String SCHEMA_VERSION = "4.0";
+    private static final String SCHEMA_VERSION = "4.1";
     private static final String CONFIG_ID = System.getProperty("codesim.configId", "v4-development-default");
     private static final String DATASET_ID = System.getProperty("codesim.datasetId", "unknown");
     private static final String CODE_COMMIT = System.getProperty("codesim.codeCommit", "unknown");
     private static final String DIRTY_WORKTREE = System.getProperty("codesim.dirtyWorktree", "unknown");
     private static final String FROZEN_MANIFEST_SHA256 =
             System.getProperty("codesim.manifestSha256", "");
+    private static final String RUNTIME_CLASSPATH_SHA256 =
+            System.getProperty("codesim.runtimeClasspathSha256", "unfrozen");
     private static final Pattern SAFE_PAIR_ID = Pattern.compile("[A-Za-z0-9_.:-]+");
     private static final Pattern OUTPUT_PAIR_ID = Pattern.compile("\\\"pairId\\\":\\\"([A-Za-z0-9_.:-]+)\\\"");
     private static final Pattern OUTPUT_STATUS = Pattern.compile("\\\"status\\\":\\\"(ok|error)\\\"");
@@ -171,6 +173,8 @@ public final class BatchPairMain {
         sb.append(",\"codeCommit\":\"").append(esc(CODE_COMMIT)).append('"');
         sb.append(",\"dirtyWorktree\":\"").append(esc(DIRTY_WORKTREE)).append('"');
         sb.append(",\"manifestSha256\":\"").append(manifestSha256).append('"');
+        sb.append(",\"runtimeClasspathSha256\":\"")
+                .append(esc(RUNTIME_CLASSPATH_SHA256)).append('"');
         sb.append(",\"manifestRowSha256\":\"").append(manifestRowSha256).append('"');
         sb.append(",\"leftSha256\":\"").append(leftSha).append('"');
         sb.append(",\"rightSha256\":\"").append(rightSha).append('"');

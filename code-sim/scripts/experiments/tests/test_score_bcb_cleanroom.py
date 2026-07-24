@@ -97,6 +97,10 @@ class CleanroomScorerTest(unittest.TestCase):
             "code_commit": self.commit,
             "skip_dynamic": True,
             "disable_stubs": True,
+            "runtime_classpath_sha256": "a" * 64,
+            "runtime_classpath_entries": [
+                {"path": "/frozen/classes", "kind": "directory", "sha256": "b" * 64}
+            ],
         }), encoding="utf-8")
         self.result = {
             "schemaVersion": MODULE.RESULT_SCHEMA_VERSION,
@@ -104,6 +108,7 @@ class CleanroomScorerTest(unittest.TestCase):
             "datasetId": self.dataset_id, "configId": "strict-bcb",
             "codeCommit": self.commit, "dirtyWorktree": "false",
             "manifestSha256": execution_hash,
+            "runtimeClasspathSha256": "a" * 64,
             "leftSha256": execution["left_sha256"],
             "rightSha256": execution["right_sha256"],
             "analysisMode": "SOURCE_PLUS_WALA_SMT",

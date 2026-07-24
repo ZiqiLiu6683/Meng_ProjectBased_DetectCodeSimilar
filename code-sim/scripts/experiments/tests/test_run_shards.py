@@ -70,6 +70,23 @@ class RunShardsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "configuration differs"):
             RUNNER.lock_config(path, {"manifest_sha256": "two", "shards": 2})
 
+    def test_runtime_classpath_hash_changes_with_compiled_bytecode(self):
+        classes = self.root / "target" / "classes"
+        dependency = self.root / "deps" / "api.jar"
+        classes.mkdir(parents=True)
+        dependency.parent.mkdir()
+        bytecode = classes / "Example.class"
+        bytecode.write_bytes(b"first")
+        dependency.write_bytes(b"dependency")
+        classpath = os.pathsep.join([str(classes), str(dependency)])
+
+        entries, first = RUNNER.runtime_classpath_lock(classpath)
+        bytecode.write_bytes(b"second")
+        _, second = RUNNER.runtime_classpath_lock(classpath)
+
+        self.assertEqual(2, len(entries))
+        self.assertNotEqual(first, second)
+
     def test_split_rebases_optional_project_and_classpath_context(self):
         context_manifest = self.manifest.parent / "context.csv"
         project = self.root / "projects" / "left"
@@ -114,6 +131,7 @@ class RunShardsTest(unittest.TestCase):
             "config_id": "primary", "dataset_id": "dataset",
             "code_commit": "abc", "dirty_worktree": "false",
             "manifest_sha256": "123",
+            "runtime_classpath_sha256": "a" * 64,
         }
         with patch.object(RUNNER.subprocess, "run",
                           return_value=SimpleNamespace(returncode=0)) as run:
@@ -122,6 +140,7 @@ class RunShardsTest(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertIn("-Dcodesim.skipDynamic=true", command)
         self.assertIn("-Dcodesim.disableStubs=true", command)
+        self.assertIn(f"-Dcodesim.runtimeClasspathSha256={'a' * 64}", command)
 
 
 if __name__ == "__main__":

@@ -37,6 +37,44 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_directory(path: Path) -> str:
+    """Hash directory contents and relative paths in deterministic order."""
+    digest = hashlib.sha256()
+    for file in sorted(candidate for candidate in path.rglob("*") if candidate.is_file()):
+        relative = file.relative_to(path).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        with file.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1 << 20), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
+def runtime_classpath_lock(classpath: str) -> tuple[list[dict[str, str]], str]:
+    """Freeze the actual class files and dependency jars supplied to every JVM."""
+    entries: list[dict[str, str]] = []
+    aggregate = hashlib.sha256()
+    for value in classpath.split(os.pathsep):
+        path = Path(value).resolve()
+        if path.is_file():
+            kind = "file"
+            fingerprint = sha256_file(path)
+        elif path.is_dir():
+            kind = "directory"
+            fingerprint = sha256_directory(path)
+        else:
+            raise FileNotFoundError(f"runtime classpath entry is missing: {path}")
+        entry = {"path": str(path), "kind": kind, "sha256": fingerprint}
+        entries.append(entry)
+        # Paths remain in the audit inventory, but the aggregate identity is portable across
+        # machines: ordered entry kind + bytes, not an installation-specific absolute path.
+        portable = {"index": len(entries) - 1, "kind": kind, "sha256": fingerprint}
+        encoded = json.dumps(portable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        aggregate.update(len(encoded).to_bytes(8, "big"))
+        aggregate.update(encoded)
+    return entries, aggregate.hexdigest()
+
+
 def command_output(command: list[str], cwd: Path) -> str:
     completed = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
     if completed.returncode != 0:
@@ -62,7 +100,7 @@ def build_classpath(root: Path) -> str:
     classes = root / "target" / "classes"
     cp_file = root / "target" / "cp.txt"
     if not classes.is_dir():
-        sys.exit("target/classes missing - run: mvn -Psemantic-analysis -DskipTests compile")
+        sys.exit("target/classes missing - run: mvn -Psemantic-analysis -DskipTests clean compile")
     if not cp_file.is_file():
         sys.exit("target/cp.txt missing - run: mvn -Psemantic-analysis "
                  "dependency:build-classpath -Dmdep.outputFile=target/cp.txt")
@@ -159,12 +197,14 @@ def machine_metadata() -> dict[str, object]:
     }
 
 
-def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict[str, object]:
+def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str,
+                  classpath: str) -> dict[str, object]:
     commit = command_output(["git", "rev-parse", "HEAD"], root)
     dirty = "true" if command_output(["git", "status", "--porcelain"], root) else "false"
     major, version_text = java_version(args.java, root)
     if major != 17:
         raise ValueError(f"exactly Java 17 is required; {args.java} reports: {version_text}")
+    classpath_entries, classpath_sha256 = runtime_classpath_lock(classpath)
     return {
         "schema_version": "1.0",
         "execution_manifest_schema": execution_manifest.SCHEMA_VERSION,
@@ -180,6 +220,8 @@ def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict
         "java": args.java,
         "java_version": version_text,
         "java_options": args.java_opt,
+        "runtime_classpath_entries": classpath_entries,
+        "runtime_classpath_sha256": classpath_sha256,
         "max_attempts": args.max_attempts,
         "limit_per_shard": args.limit,
         "skip_dynamic": args.skip_dynamic,
@@ -218,6 +260,7 @@ def run_shard(path: Path, args: argparse.Namespace, root: Path, classpath: str,
         f"-Dcodesim.codeCommit={config['code_commit']}",
         f"-Dcodesim.dirtyWorktree={config['dirty_worktree']}",
         f"-Dcodesim.manifestSha256={config['manifest_sha256']}",
+        f"-Dcodesim.runtimeClasspathSha256={config['runtime_classpath_sha256']}",
     ]
     if args.skip_dynamic:
         command.append("-Dcodesim.skipDynamic=true")
@@ -284,7 +327,7 @@ def main() -> None:
     dataset_id = read_dataset_id(args.manifest)
     classpath = build_classpath(root)
     args.out.mkdir(parents=True, exist_ok=True)
-    config = frozen_config(args, root, dataset_id)
+    config = frozen_config(args, root, dataset_id, classpath)
     lock_config(args.out / "run_config.json", config)
     machine_path = args.out / "machine.json"
     if not machine_path.exists():

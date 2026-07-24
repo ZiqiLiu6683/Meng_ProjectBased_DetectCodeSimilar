@@ -19,7 +19,7 @@ python3 "${project_dir}/scripts/experiments/manifest_v2.py" validate \
   --dataset-id bcb-smoke-20260721
 
 echo "== runtime classpath =="
-mvn -f "${project_dir}/pom.xml" -q -Psemantic-analysis -DskipTests compile \
+mvn -f "${project_dir}/pom.xml" -q -Psemantic-analysis -DskipTests clean compile \
   dependency:build-classpath -Dmdep.outputFile=target/cp.txt
 
 echo "== 140-pair BCB plumbing smoke =="

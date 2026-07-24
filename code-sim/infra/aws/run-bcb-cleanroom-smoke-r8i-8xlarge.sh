@@ -70,7 +70,7 @@ python3 -u "${project_dir}/scripts/experiments/bcb_cleanroom.py" \
   --seed 20260721
 
 echo "== compile frozen runtime =="
-mvn -f "${project_dir}/pom.xml" -q -Psemantic-analysis -DskipTests compile \
+mvn -f "${project_dir}/pom.xml" -q -Psemantic-analysis -DskipTests clean compile \
   dependency:build-classpath -Dmdep.outputFile=target/cp.txt
 
 dataset_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["dataset_id"])' "${dataset_dir}/dataset_lock.json")"
@@ -87,7 +87,7 @@ python3 -u "${project_dir}/scripts/experiments/run_shards.py" \
   --environment-id aws-us-east-2-r8i-8xlarge-ubuntu-24.04 \
   --skip-dynamic \
   "${stub_args[@]}" \
-  --java-opt="-Dcodesim.compileCache=${CODESIM_COMPILE_CACHE:-/opt/codesim/cache/compilation-v3}"
+  --java-opt="-Dcodesim.compileCache=${CODESIM_COMPILE_CACHE:-/opt/codesim/cache/compilation-v4}"
 
 echo "== strict reference scoring with mandatory backend audit =="
 python3 -u "${project_dir}/scripts/experiments/score_bcb_cleanroom.py" \

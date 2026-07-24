@@ -156,8 +156,12 @@ bash code-sim/infra/aws/run-bcb-cleanroom-ablation-no-stubs-r8i-8xlarge.sh
 The strict scorer rejects any mismatch between the declared Stub policy and the
 actual run configuration.
 Successful compilation artifacts and deterministic compilation failures share
-the content-addressed cache at `/opt/codesim/cache/compilation-v3`, so a source
+the content-addressed cache at `/opt/codesim/cache/compilation-v4`, so a source
 reused by many BCB pairs is not recompiled by every worker.
+The runner performs a clean build and records a SHA-256 lock for the actual
+application classes and every dependency classpath entry. Each result row carries
+the aggregate runtime hash, so a Git commit cannot silently stand in for stale
+compiled bytecode.
 
 The remainder of this section documents the obsolete plumbing path only:
 
@@ -169,7 +173,7 @@ The script performs the validation, classpath build, and frozen run below. The
 expanded commands are retained as an auditable reference.
 
 ```bash
-mvn -f code-sim/pom.xml -Psemantic-analysis \
+mvn -f code-sim/pom.xml -Psemantic-analysis clean compile \
   dependency:build-classpath -Dmdep.outputFile=target/cp.txt
 ```
 

@@ -22,7 +22,7 @@ import bcb_cleanroom
 import execution_manifest
 
 
-RESULT_SCHEMA_VERSION = "4.0"
+RESULT_SCHEMA_VERSION = "4.1"
 OK_MODES = {
     "SOURCE_PLUS_WALA_SMT",
     "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT",
@@ -385,6 +385,7 @@ def validate_result(row: dict, execution: dict[str, str], run_config: dict,
         "codeCommit": run_config["code_commit"],
         "dirtyWorktree": "false",
         "manifestSha256": manifest_sha256,
+        "runtimeClasspathSha256": run_config["runtime_classpath_sha256"],
     }
     for field, expected in exact.items():
         if str(row.get(field, "")) != str(expected):
@@ -476,6 +477,12 @@ def validate_provenance(executions_path: Path, lock_path: Path, references_path:
                 f"run_config {field}={run_config.get(field)!r}, expected {expected!r}")
     if run_config.get("code_commit") in {"", "unknown", None}:
         raise ValueError("run_config has no code commit")
+    runtime_sha256 = str(run_config.get("runtime_classpath_sha256", ""))
+    if len(runtime_sha256) != 64:
+        raise ValueError("run_config has no frozen runtime classpath SHA-256")
+    runtime_entries = run_config.get("runtime_classpath_entries")
+    if not isinstance(runtime_entries, list) or not runtime_entries:
+        raise ValueError("run_config has no frozen runtime classpath entries")
     if run_config.get("skip_dynamic") is not True:
         raise ValueError("BCB T1-T3 run must freeze skip_dynamic=true; T4 is a separate benchmark")
     expected_disable_stubs = stub_policy == "forbid"

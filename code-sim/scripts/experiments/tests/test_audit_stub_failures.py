@@ -50,6 +50,12 @@ class AuditStubFailuresTest(unittest.TestCase):
             source, "Failed to compile [/tmp/source [L2 compiler.err.doesnt.exist: missing]]")
         self.assertIn("Missing value", excerpt)
 
+    def test_preserves_hyphenated_javac_diagnostic_code(self):
+        match = MODULE.DIAGNOSTIC_CODE.search(
+            "L2 compiler.err.non-static.cant.be.ref: non-static variable")
+        self.assertIsNotNone(match)
+        self.assertEqual("compiler.err.non-static.cant.be.ref", match.group(0))
+
     def test_bundle_contains_private_failure_artifacts(self):
         failures = MODULE.collect(self.root, "3")
         report = self.root / "report.md"
