@@ -13,11 +13,15 @@ import csv
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterator
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -69,15 +73,40 @@ def jdbc_database_base(db: Path) -> Path:
     return db.resolve()
 
 
+@contextmanager
+def writable_database_copy(
+        official_database: Path, expected_sha256: str | None = None) -> Iterator[Path]:
+    """Yield an ephemeral H2 database copy that may perform crash recovery.
+
+    BigCloneEval's H2 1.3 PageStore can require recovery writes merely to open
+    the database.  ACCESS_MODE_DATA=r therefore is not reliable for this
+    release.  Querying a private copy permits recovery while keeping the
+    official benchmark input byte-for-byte immutable.
+    """
+    official_database = official_database.resolve()
+    suffix = next(
+        (candidate for candidate in (".h2.db", ".mv.db")
+         if official_database.name.endswith(candidate)),
+        official_database.suffix,
+    )
+    with tempfile.TemporaryDirectory(prefix="codesim-bcb-h2-") as temp_dir:
+        working_database = Path(temp_dir) / f"query{suffix}"
+        shutil.copyfile(official_database, working_database)
+        working_database.chmod(0o600)
+        source_sha256 = expected_sha256 or execution_manifest.sha256_file(
+            official_database)
+        if execution_manifest.sha256_file(working_database) != source_sha256:
+            raise ValueError("ephemeral H2 database copy failed integrity verification")
+        yield working_database
+
+
 def run_h2(db: Path, h2_jar: Path, sql: str) -> str:
-    # BigCloneEval ships an H2 database as benchmark input.  Opening it in the
-    # default read-write mode can change database metadata even when every SQL
-    # statement is a SELECT/CSVWRITE.  That made otherwise identical frozen
-    # samples acquire different dataset IDs across runs.  Treat the database as
-    # immutable input and verify that contract again at the end of extraction.
+    # The caller supplies an ephemeral copy because H2 1.3 PageStore may need
+    # recovery writes during open.  IFEXISTS prevents an incorrect path from
+    # silently creating an empty database.
     db_url = (
         f"jdbc:h2:{str(jdbc_database_base(db)).replace(chr(92), '/')}"
-        ";IFEXISTS=TRUE;ACCESS_MODE_DATA=r"
+        ";IFEXISTS=TRUE"
     )
     command = [
         "java", "-Xmx4g", "-cp", str(h2_jar.resolve()), "org.h2.tools.Shell",
@@ -285,24 +314,32 @@ def extract(args: argparse.Namespace) -> None:
     references: list[dict[str, str]] = []
     execution_sources: dict[str, dict[str, Path]] = {}
 
-    for category, expected_type, where in category_queries():
-        table = "FALSE_POSITIVES" if category == "NEG" else "CLONES"
-        query_path = query_dir / f"{category}.csv"
-        print(f"[bcb-cleanroom] exporting deterministic {category} query")
-        csv_export(args.db, args.h2, select_sql(table, where), query_path)
-        population = read_query_rows(query_path)
-        raw_population[category] = len(population)
-        selected = balanced_sample(population, args.per_stratum, args.seed, category)
-        selected_population[category] = len(selected)
-        for row in selected:
-            reference, sources = normalize_reference(
-                row, category, expected_type, args.bcb.resolve(), source_line_count_cache)
-            references.append(reference)
-            source_keys_by_path[sources["left"]].add(reference["left_source_key"])
-            source_keys_by_path[sources["right"]].add(reference["right_source_key"])
-            previous = execution_sources.setdefault(reference["execution_id"], sources)
-            if previous != sources:
-                raise ValueError(f"execution ID collision: {reference['execution_id']}")
+    working_database_initial_sha256 = ""
+    working_database_after_queries_sha256 = ""
+    with writable_database_copy(
+            official_database, official_database_sha256) as query_database:
+        working_database_initial_sha256 = execution_manifest.sha256_file(query_database)
+        for category, expected_type, where in category_queries():
+            table = "FALSE_POSITIVES" if category == "NEG" else "CLONES"
+            query_path = query_dir / f"{category}.csv"
+            print(f"[bcb-cleanroom] exporting deterministic {category} query")
+            csv_export(query_database, args.h2, select_sql(table, where), query_path)
+            population = read_query_rows(query_path)
+            raw_population[category] = len(population)
+            selected = balanced_sample(population, args.per_stratum, args.seed, category)
+            selected_population[category] = len(selected)
+            for row in selected:
+                reference, sources = normalize_reference(
+                    row, category, expected_type, args.bcb.resolve(),
+                    source_line_count_cache)
+                references.append(reference)
+                source_keys_by_path[sources["left"]].add(reference["left_source_key"])
+                source_keys_by_path[sources["right"]].add(reference["right_source_key"])
+                previous = execution_sources.setdefault(reference["execution_id"], sources)
+                if previous != sources:
+                    raise ValueError(f"execution ID collision: {reference['execution_id']}")
+        working_database_after_queries_sha256 = execution_manifest.sha256_file(
+            query_database)
 
     if not references:
         raise ValueError("official queries produced no usable references")
@@ -364,6 +401,9 @@ def extract(args: argparse.Namespace) -> None:
             args.ijadataset_archive.resolve()),
         "h2_database_file": str(official_database),
         "h2_database_sha256": official_database_sha256,
+        "h2_query_database_policy": "ephemeral_writable_copy_for_pagestore_recovery",
+        "h2_query_database_initial_sha256": working_database_initial_sha256,
+        "h2_query_database_after_queries_sha256": working_database_after_queries_sha256,
         "h2_jar_sha256": execution_manifest.sha256_file(args.h2.resolve()),
         "bcb_root": str(args.bcb.resolve()),
         "generator_commit": commit,
@@ -392,7 +432,7 @@ def extract(args: argparse.Namespace) -> None:
     database_sha256_after = execution_manifest.sha256_file(official_database)
     if database_sha256_after != official_database_sha256:
         raise ValueError(
-            "official H2 database changed while exporting read-only benchmark queries: "
+            "official H2 database changed while querying its ephemeral working copy: "
             f"before={official_database_sha256} after={database_sha256_after}")
     lock["h2_database_sha256_after_queries"] = database_sha256_after
     lock["h2_database_immutable_during_export"] = True

@@ -75,7 +75,7 @@ class BcbCleanroomTest(unittest.TestCase):
             MODULE.jdbc_database_base(self.root / "official.h2.db"),
         )
 
-    def test_h2_queries_open_official_database_read_only(self):
+    def test_h2_queries_open_existing_writable_working_copy(self):
         completed = type("Completed", (), {
             "returncode": 0, "stdout": "ok", "stderr": "",
         })()
@@ -85,7 +85,20 @@ class BcbCleanroomTest(unittest.TestCase):
 
         command = run.call_args.args[0]
         url = command[command.index("-url") + 1]
-        self.assertIn(";IFEXISTS=TRUE;ACCESS_MODE_DATA=r", url)
+        self.assertIn(";IFEXISTS=TRUE", url)
+        self.assertNotIn("ACCESS_MODE_DATA", url)
+
+    def test_writable_database_copy_is_verified_and_does_not_modify_official_input(self):
+        official = self.root / "official.h2.db"
+        official.write_bytes(b"official-benchmark-database")
+
+        with MODULE.writable_database_copy(official) as working:
+            self.assertNotEqual(official.resolve(), working.resolve())
+            self.assertEqual(official.read_bytes(), working.read_bytes())
+            working.write_bytes(b"recovered-working-copy")
+
+        self.assertEqual(b"official-benchmark-database", official.read_bytes())
+        self.assertFalse(working.exists())
 
     def test_extract_writes_only_manifests_and_points_to_complete_official_files(self):
         db = self.root / "official.h2.db"
@@ -98,7 +111,10 @@ class BcbCleanroomTest(unittest.TestCase):
         ijadataset_archive.write_bytes(b"official-ijadataset-archive")
         out = self.root / "cleanroom"
 
-        def fake_export(_db, _h2, _sql, target):
+        query_databases = []
+
+        def fake_export(query_db, _h2, _sql, target):
+            query_databases.append(query_db.resolve())
             target.parent.mkdir(parents=True, exist_ok=True)
             row = self.query_row()
             with target.open("w", newline="", encoding="utf-8") as stream:
@@ -128,6 +144,12 @@ class BcbCleanroomTest(unittest.TestCase):
         self.assertTrue(lock["h2_database_immutable_during_export"])
         self.assertEqual(
             lock["h2_database_sha256"], lock["h2_database_sha256_after_queries"])
+        self.assertEqual(
+            "ephemeral_writable_copy_for_pagestore_recovery",
+            lock["h2_query_database_policy"])
+        self.assertEqual(6, len(query_databases))
+        self.assertEqual(1, len(set(query_databases)))
+        self.assertNotEqual(db.resolve(), query_databases[0])
 
 
 if __name__ == "__main__":
