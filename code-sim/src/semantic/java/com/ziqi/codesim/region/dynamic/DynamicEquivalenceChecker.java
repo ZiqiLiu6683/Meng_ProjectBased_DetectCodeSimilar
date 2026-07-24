@@ -5,6 +5,8 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -47,11 +49,23 @@ public final class DynamicEquivalenceChecker {
 
     public DynamicVerdict check(Path leftClasses, String leftClass, String leftMethod,
                                 Path rightClasses, String rightClass, String rightMethod) {
+        return check(leftClasses, List.of(), leftClass, leftMethod, null,
+                rightClasses, List.of(), rightClass, rightMethod, null);
+    }
+
+    /**
+     * Descriptor-exact variant used by the production pipeline. The raw WALA signatures preserve
+     * overload identity; support classpaths let project-context classes link at runtime.
+     */
+    public DynamicVerdict check(Path leftClasses, List<Path> leftSupportClasspath,
+                                String leftClass, String leftMethod, String leftRawSignature,
+                                Path rightClasses, List<Path> rightSupportClasspath,
+                                String rightClass, String rightMethod, String rightRawSignature) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        try (URLClassLoader leftLoader = loader(leftClasses);
-             URLClassLoader rightLoader = loader(rightClasses)) {
-            Method left = supportedMethod(leftLoader, leftClass, leftMethod);
-            Method right = supportedMethod(rightLoader, rightClass, rightMethod);
+        try (URLClassLoader leftLoader = loader(leftClasses, leftSupportClasspath);
+             URLClassLoader rightLoader = loader(rightClasses, rightSupportClasspath)) {
+            Method left = supportedMethod(leftLoader, leftClass, leftMethod, leftRawSignature);
+            Method right = supportedMethod(rightLoader, rightClass, rightMethod, rightRawSignature);
             if (left == null || right == null || !sameSignature(left, right)) {
                 return DynamicVerdict.UNSUPPORTED;
             }
@@ -92,17 +106,24 @@ public final class DynamicEquivalenceChecker {
         }
     }
 
-    private static URLClassLoader loader(Path classesDir) throws Exception {
-        URL url = classesDir.toUri().toURL();
-        return new URLClassLoader(new URL[]{url}, ClassLoader.getPlatformClassLoader());
+    private static URLClassLoader loader(Path classesDir, List<Path> supportClasspath) throws Exception {
+        List<URL> urls = new ArrayList<>();
+        urls.add(classesDir.toUri().toURL());
+        for (Path entry : supportClasspath) {
+            urls.add(entry.toUri().toURL());
+        }
+        return new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader());
     }
 
-    /** First method with the given name whose parameters and return are all sampleable types. */
-    private static Method supportedMethod(URLClassLoader loader, String className, String methodName) {
+    /** Exact overload when a raw signature is provided; legacy name-only callers retain first-match behavior. */
+    private static Method supportedMethod(URLClassLoader loader, String className, String methodName,
+                                          String rawSignature) {
         try {
             Class<?> clazz = loader.loadClass(className);
             for (Method method : clazz.getDeclaredMethods()) {
                 if (!method.getName().equals(methodName)
+                        || (rawSignature != null && !rawSignature.isBlank()
+                        && !rawMethodKey(method).equals(rawMethodKey(rawSignature)))
                         || !(method.getReturnType() == void.class || isSupported(method.getReturnType()))) {
                     continue;
                 }
@@ -122,6 +143,42 @@ public final class DynamicEquivalenceChecker {
             // Class not loadable / linkage error -> unsupported.
         }
         return null;
+    }
+
+    private static String rawMethodKey(Method method) {
+        StringBuilder key = new StringBuilder(method.getName()).append('(');
+        for (Class<?> parameter : method.getParameterTypes()) {
+            key.append(descriptor(parameter));
+        }
+        return key.append(')').append(descriptor(method.getReturnType())).toString();
+    }
+
+    private static String rawMethodKey(String rawSignature) {
+        int paren = rawSignature.indexOf('(');
+        if (paren < 0) {
+            return rawSignature;
+        }
+        int dot = rawSignature.lastIndexOf('.', paren);
+        return rawSignature.substring(dot < 0 ? 0 : dot + 1);
+    }
+
+    private static String descriptor(Class<?> type) {
+        if (type.isArray()) {
+            return type.getName().replace('.', '/');
+        }
+        if (!type.isPrimitive()) {
+            return "L" + type.getName().replace('.', '/') + ";";
+        }
+        if (type == void.class) return "V";
+        if (type == boolean.class) return "Z";
+        if (type == byte.class) return "B";
+        if (type == char.class) return "C";
+        if (type == short.class) return "S";
+        if (type == int.class) return "I";
+        if (type == long.class) return "J";
+        if (type == float.class) return "F";
+        if (type == double.class) return "D";
+        throw new IllegalArgumentException("Unknown primitive: " + type);
     }
 
     /** True when the method produces something we can compare: a non-void return, or an array we can inspect after the call. */

@@ -2,6 +2,7 @@ package com.ziqi.codesim.next.semantic.eval;
 
 import com.ziqi.codesim.next.NextJsonReportFormatter;
 import com.ziqi.codesim.next.semantic.PipelineExecution;
+import com.ziqi.codesim.next.semantic.SourceAnalysisInput;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
 import java.io.BufferedReader;
@@ -39,8 +40,8 @@ import java.util.regex.Pattern;
  * <p>Usage: {@code BatchPairMain <manifest.csv> <out.jsonl> [--limit N]}
  */
 public final class BatchPairMain {
-    private static final String SCHEMA_VERSION = "3.0";
-    private static final String CONFIG_ID = System.getProperty("codesim.configId", "v3-development-default");
+    private static final String SCHEMA_VERSION = "4.0";
+    private static final String CONFIG_ID = System.getProperty("codesim.configId", "v4-development-default");
     private static final String DATASET_ID = System.getProperty("codesim.datasetId", "unknown");
     private static final String CODE_COMMIT = System.getProperty("codesim.codeCommit", "unknown");
     private static final String DIRTY_WORKTREE = System.getProperty("codesim.dirtyWorktree", "unknown");
@@ -136,7 +137,13 @@ public final class BatchPairMain {
             rightSha = sha256(right);
             verifyExpectedHash(row.pairId(), "left", row.leftSha256(), leftSha);
             verifyExpectedHash(row.pairId(), "right", row.rightSha256(), rightSha);
-            PipelineExecution execution = runner.runDetailed(left, right);
+            SourceAnalysisInput leftInput = new SourceAnalysisInput(left,
+                    row.leftPath().getFileName().toString(), row.leftProjectRoot(),
+                    row.leftClasspath(), !Boolean.getBoolean("codesim.disableStubs"));
+            SourceAnalysisInput rightInput = new SourceAnalysisInput(right,
+                    row.rightPath().getFileName().toString(), row.rightProjectRoot(),
+                    row.rightClasspath(), !Boolean.getBoolean("codesim.disableStubs"));
+            PipelineExecution execution = runner.runDetailed(leftInput, rightInput);
             long wall = System.currentTimeMillis() - start;
             return outputRow(row, "ok", wall, attempt, manifestSha256, manifestRowSha256,
                     leftSha, rightSha, execution,
@@ -188,6 +195,27 @@ public final class BatchPairMain {
         if (execution != null) {
             sb.append(",\"fallbackStage\":\"").append(esc(execution.fallbackStage())).append('"');
             sb.append(",\"fallbackReason\":\"").append(esc(execution.fallbackReason())).append('"');
+            sb.append(",\"compilations\":{");
+            boolean firstCompilation = true;
+            for (Map.Entry<String, PipelineExecution.CompilationProvenance> entry
+                    : execution.compilations().entrySet()) {
+                if (!firstCompilation) {
+                    sb.append(',');
+                }
+                PipelineExecution.CompilationProvenance provenance = entry.getValue();
+                sb.append('"').append(esc(entry.getKey())).append("\":{");
+                sb.append("\"mode\":\"").append(esc(provenance.mode())).append('"');
+                sb.append(",\"cacheKey\":\"").append(esc(provenance.cacheKey())).append('"');
+                sb.append(",\"cacheHit\":").append(provenance.cacheHit());
+                sb.append(",\"generatedStubCount\":").append(provenance.generatedStubCount());
+                sb.append(",\"javaRelease\":").append(provenance.javaRelease());
+                sb.append(",\"supportClasspathEntries\":")
+                        .append(provenance.supportClasspathEntries());
+                sb.append(",\"diagnosticSummary\":\"")
+                        .append(esc(provenance.diagnosticSummary())).append("\"}");
+                firstCompilation = false;
+            }
+            sb.append('}');
         }
         if (reportJson != null) {
             sb.append(",\"report\":").append(reportJson);
@@ -354,7 +382,9 @@ public final class BatchPairMain {
     }
 
     private record ManifestRow(String pairId, Path leftPath, Path rightPath,
-                               String datasetId, String leftSha256, String rightSha256) {
+                               String datasetId, String leftSha256, String rightSha256,
+                               Path leftProjectRoot, Path rightProjectRoot,
+                               List<Path> leftClasspath, List<Path> rightClasspath) {
     }
 
     private record ManifestLayout(Map<String, Integer> indexes) {
@@ -385,7 +415,11 @@ public final class BatchPairMain {
             Path left = resolvePath(required(values, "left_path"), manifestDirectory);
             Path right = resolvePath(required(values, "right_path"), manifestDirectory);
             return new ManifestRow(pairId, left, right, optional(values, "dataset_id"),
-                    optional(values, "left_sha256"), optional(values, "right_sha256"));
+                    optional(values, "left_sha256"), optional(values, "right_sha256"),
+                    optionalPath(values, "left_project_root", manifestDirectory),
+                    optionalPath(values, "right_project_root", manifestDirectory),
+                    optionalClasspath(values, "left_classpath", manifestDirectory),
+                    optionalClasspath(values, "right_classpath", manifestDirectory));
         }
 
         private String required(List<String> values, String name) {
@@ -399,6 +433,24 @@ public final class BatchPairMain {
         private String optional(List<String> values, String name) {
             Integer index = indexes.get(name);
             return index == null || index >= values.size() ? "" : values.get(index).strip();
+        }
+
+        private Path optionalPath(List<String> values, String name, Path manifestDirectory) {
+            String value = optional(values, name);
+            return value.isBlank() ? null : resolvePath(value, manifestDirectory);
+        }
+
+        private List<Path> optionalClasspath(List<String> values, String name,
+                                             Path manifestDirectory) {
+            String value = optional(values, name);
+            if (value.isBlank()) {
+                return List.of();
+            }
+            return java.util.Arrays.stream(value.split(java.util.regex.Pattern.quote(
+                            java.io.File.pathSeparator)))
+                    .filter(part -> !part.isBlank())
+                    .map(part -> resolvePath(part, manifestDirectory))
+                    .toList();
         }
 
         private static Path resolvePath(String value, Path manifestDirectory) {

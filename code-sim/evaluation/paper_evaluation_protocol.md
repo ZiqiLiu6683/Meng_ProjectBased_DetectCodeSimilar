@@ -185,6 +185,13 @@ imports, wrapping fragments in generated classes, or copying them into renamed
 inputs is prohibited. Any dependency reconstruction or generated-stub
 experiment is a separately named secondary study.
 
+The primary runner must freeze both `skip_dynamic=true` and
+`disable_stubs=true`. The strict scorer rejects a run configuration without
+either flag and rejects any schema-4 result whose compilation provenance reports
+`mode=STUBBED`. A secondary stub-assisted run may use the identical frozen
+manifest, but it receives a different `config_id` and is never substituted into
+the primary denominator.
+
 The clean-room dataset has two immutable tables. `executions.csv` contains only
 unique file pairs, source hashes, and dataset identity, with no ground-truth
 labels or ranges. `references.csv` maps one or more official BCB function-pair
@@ -331,19 +338,22 @@ structure is used.
 
 ## 10. Required result provenance
 
-The current batch output is insufficient for the final experiment because a
-`fallback` stage stamp does not identify whether compilation, WALA hierarchy,
-graph extraction, SMT, or region construction failed. The final schema must add:
+Batch schema 4.0 now records the execution mode, side-specific compilation mode,
+immutable compilation key/cache hit, generated-stub count, Java release, first
+compiler diagnostics, per-stage duration, and normalized fallback stage/reason.
+The final paper runner must retain these fields and complete the remaining
+resource/graph measurements below:
 
 - `schema_version` and `config_id`;
 - `dataset_id`, `artifact_sha256`, and manifest-row identity;
 - `code_commit` and dirty-worktree status;
 - left and right source SHA-256;
-- `compile_left`, `compile_right`, and normalized compiler-error category;
-- `analysis_mode = WALA_FULL | SOURCE_FALLBACK | ERROR | TIMEOUT`;
-- `fallback_stage` and normalized `fallback_reason`;
-- final status for every pipeline stage;
-- stage durations rather than only cumulative stage timestamps;
+- `compile_left`, `compile_right`, and normalized compiler-error category
+  (implemented; preserve in every schema migration);
+- explicit analysis mode including standalone, project-context, stub-assisted,
+  source fallback, error, and timeout outcomes;
+- `fallback_stage` and normalized `fallback_reason` (implemented);
+- final status and duration for every pipeline stage (implemented);
 - input-size and graph-size fields;
 - process CPU, memory, worker, shard, and retry metadata;
 - full untruncated predictions and reference intervals.

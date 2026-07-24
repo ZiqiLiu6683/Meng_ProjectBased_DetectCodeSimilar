@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -95,6 +96,26 @@ class DynamicEquivalenceCheckerTest {
         assertEquals(DynamicVerdict.DIFFERENT,
                 checker.check(left, "L3", "reverse", right, "R3", "selection"),
                 "in-place reverse vs in-place sort leave different array states");
+    }
+
+    @Test
+    void productionApiSelectsOverloadsByFullJvmDescriptor() throws Exception {
+        Path left = compile("overload-left", "OL",
+                "public class OL {"
+                        + " public int f(int x){ return x*2; }"
+                        + " public long f(long x){ return x+1; } }");
+        Path right = compile("overload-right", "OR",
+                "public class OR {"
+                        + " public int g(int x){ return x+x; }"
+                        + " public long g(long x){ return x*2; } }");
+        DynamicEquivalenceChecker checker = new DynamicEquivalenceChecker();
+
+        assertEquals(DynamicVerdict.LIKELY_EQUIVALENT,
+                checker.check(left, List.of(), "OL", "f", "OL.f(I)I",
+                        right, List.of(), "OR", "g", "OR.g(I)I"));
+        assertEquals(DynamicVerdict.DIFFERENT,
+                checker.check(left, List.of(), "OL", "f", "OL.f(J)J",
+                        right, List.of(), "OR", "g", "OR.g(J)J"));
     }
 
     private Path compile(String pkg, String type, String source) throws Exception {

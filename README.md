@@ -18,6 +18,9 @@ pipeline is the current main path.
 - Name-independent node descriptors and Weisfeiler-Lehman-style semantic hashes.
 - SMT-backed `T4_CONFIRMED` results for supported integer method summaries.
 - Bounded dynamic input/output checks reported as evidence, not proof.
+- Optional project/classpath context plus conservative dependency stubs for files
+  that are valid only inside a larger build.
+- Content-addressed Java 17 compilation/stub cache for bulk pair evaluation.
 - Source-only fallback when compilation or WALA analysis is unavailable.
 - React/Vite web interface with streamed, real pipeline progress.
 - Evaluation tooling for the in-house dataset, long-code cases, robustness
@@ -28,7 +31,9 @@ pipeline is the current main path.
 The main semantic pipeline is implemented by
 [`WalaNextPipelineRunner`](code-sim/src/semantic/java/com/ziqi/codesim/next/semantic/WalaNextPipelineRunner.java).
 
-1. Compile both Java inputs in isolated temporary workspaces.
+1. Compile both Java inputs under an exact Java 17 contract. Resolution uses
+   real project/classpath artifacts first, then conservative generated dependency
+   context when enabled; immutable artifacts are reused by source hash.
 2. Build WALA class hierarchies, IR, CFGs, call graphs, and SDGs.
 3. Convert WALA statements and dependence edges into internal semantic graphs.
 4. Build structural descriptors and match high-confidence seed nodes.
@@ -41,6 +46,12 @@ The main semantic pipeline is implemented by
 If compilation or WALA fails, the runner falls back to the source-only evidence
 pipeline. Reports and the web API expose whether the semantic region backend or
 the fallback path produced the result.
+
+Generated stubs are compiled into a separate WALA `Extension` context. They are
+never clone candidates, never edit the input source, and never supply executable
+semantics for a strict T4 proof. Batch schema 4.0 records the analysis mode,
+cache key/hit, Java release, generated-stub count, first compiler diagnostics,
+stage durations, and fallback reason for both inputs.
 
 ## Result Labels
 
@@ -62,7 +73,7 @@ relationships.
 
 ## Requirements
 
-- JDK 17 or newer
+- JDK 17 exactly (the Maven build rejects other major versions)
 - Maven
 - Node.js and npm for the modern web interface
 - Python 3 for evaluation scripts
@@ -83,10 +94,9 @@ The `semantic-analysis` profile adds `src/semantic/java`,
 `src/semantic-test/java`, and their WALA/SMT dependencies. Running Maven without
 this profile only builds the source/AST portion of the project.
 
-The current local Surefire reports contain 81 passing tests with no failures,
-errors, or skipped tests. Generated reports under `code-sim/target` are build
-artifacts and may be older than later source edits, so rerun the command above
-before relying on them for a release.
+Generated reports under `code-sim/target` are build artifacts and may be older
+than later source edits, so rerun the command above before relying on them for a
+release.
 
 ## Run the Command-Line Detector
 
@@ -105,6 +115,44 @@ Available output options include:
 - `--report breakdown` for the evidence breakdown.
 - `--view method|block|both` to select breakdown views.
 - `--show-all` to include decisions normally hidden from the concise report.
+
+The two-file interface remains the default. A file that depends on an already
+built Maven/Gradle project can opt into context without changing the comparison
+unit:
+
+```bash
+mvn -Psemantic-analysis \
+  -Dexec.mainClass=com.ziqi.codesim.next.semantic.WalaNextPipelineMain \
+  -Dexec.args="Left.java Right.java \
+    --left-project-root /work/left-project \
+    --right-project-root /work/right-project \
+    --left-classpath /extra/left.jar \
+    --right-classpath /extra/right.jar" \
+  exec:java
+```
+
+Project roots are searched for common compiled-output and dependency directories
+(`target/classes`, Gradle `build/classes`, `lib`, `libs`, and related paths).
+CodeSim does not execute an arbitrary project's build scripts. Build the project
+first or pass an explicit platform-separated classpath. Use `--no-stubs` when an
+experiment must reject every file that lacks real context.
+
+For repository-to-repository discovery, the project scanner indexes normalized
+method structure, retrieves bounded Top-K file-pair candidates, and sends only
+those candidates through the same pairwise detector:
+
+```bash
+mvn -Psemantic-analysis \
+  -Dexec.mainClass=com.ziqi.codesim.next.semantic.project.ProjectScanMain \
+  -Dexec.args="/work/project-a /work/project-b /work/project-scan.jsonl \
+    --method-top-k 8 --file-pair-limit 100" \
+  exec:java
+```
+
+This scanner is a product mode, not yet a paper-level directory-recall claim.
+Its retrieval recall and independent precision must be evaluated separately.
+Dynamic execution is off by default for project scans and requires the explicit
+`--enable-dynamic` flag.
 
 ## Run the Web Interface
 
@@ -232,8 +280,14 @@ current detector.
 ## Current Limitations
 
 - The current end-to-end semantic pipeline targets Java.
-- Both inputs must compile for WALA-backed analysis; otherwise the system falls
-  back to source-only evidence.
+- WALA still requires bytecode, but the compiler coordinator can now use real
+  project/classpath context or conservative dependency stubs before falling back.
+- Project context must already be built; CodeSim does not run untrusted Maven or
+  Gradle build logic automatically.
+- Generated stubs improve WALA eligibility but cannot reproduce dependency
+  behaviour, so dependent calls remain unknown for strict semantic proof.
+- The repository scanner uses bounded approximate retrieval; exhaustive
+  directory-level recall is not implied.
 - SMT verification covers a restricted subset of integer arithmetic and returns
   unknown/unsupported for loops, nonlinear expressions, and other unsupported
   constructs.

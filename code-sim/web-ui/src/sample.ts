@@ -4,6 +4,25 @@ import type { AnalyzeResponse } from "./types";
 // helper-extraction case: a region T3 plus a method-level behavioural T4.
 export const SAMPLE: AnalyzeResponse = {
   regionBackend: true,
+  analysisMode: "SOURCE_PLUS_WALA_SMT_DYNAMIC",
+  fallbackStage: "",
+  fallbackReason: "",
+  compilations: {
+    left: {
+      mode: "STANDALONE",
+      cacheHit: false,
+      generatedStubCount: 0,
+      javaRelease: 17,
+      diagnosticSummary: "",
+    },
+    right: {
+      mode: "STANDALONE",
+      cacheHit: false,
+      generatedStubCount: 0,
+      javaRelease: 17,
+      diagnosticSummary: "",
+    },
+  },
   left: {
     name: "Left.java",
     source: `class Left {

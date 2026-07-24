@@ -90,6 +90,19 @@ def split_manifest(manifest: Path, out_dir: Path, shards: int) -> list[Path]:
             source = Path(row[field])
             absolute = source if source.is_absolute() else (manifest.parent / source).resolve()
             row[field] = Path(os.path.relpath(absolute, out_dir)).as_posix()
+        for field in ("left_project_root", "right_project_root"):
+            if row.get(field):
+                project = Path(row[field])
+                absolute = project if project.is_absolute() else (manifest.parent / project).resolve()
+                row[field] = Path(os.path.relpath(absolute, out_dir)).as_posix()
+        for field in ("left_classpath", "right_classpath"):
+            if row.get(field):
+                rebased = []
+                for value in row[field].split(os.pathsep):
+                    entry = Path(value)
+                    absolute = entry if entry.is_absolute() else (manifest.parent / entry).resolve()
+                    rebased.append(Path(os.path.relpath(absolute, out_dir)).as_posix())
+                row[field] = os.pathsep.join(rebased)
     shard_paths: list[Path] = []
     for shard_index in range(shards):
         shard_rows = rows[shard_index::shards]
@@ -150,8 +163,8 @@ def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict
     commit = command_output(["git", "rev-parse", "HEAD"], root)
     dirty = "true" if command_output(["git", "status", "--porcelain"], root) else "false"
     major, version_text = java_version(args.java, root)
-    if major < 17:
-        raise ValueError(f"Java 17+ is required; {args.java} reports: {version_text}")
+    if major != 17:
+        raise ValueError(f"exactly Java 17 is required; {args.java} reports: {version_text}")
     return {
         "schema_version": "1.0",
         "execution_manifest_schema": execution_manifest.SCHEMA_VERSION,
@@ -170,6 +183,7 @@ def frozen_config(args: argparse.Namespace, root: Path, dataset_id: str) -> dict
         "max_attempts": args.max_attempts,
         "limit_per_shard": args.limit,
         "skip_dynamic": args.skip_dynamic,
+        "disable_stubs": args.disable_stubs,
     }
 
 
@@ -207,6 +221,8 @@ def run_shard(path: Path, args: argparse.Namespace, root: Path, classpath: str,
     ]
     if args.skip_dynamic:
         command.append("-Dcodesim.skipDynamic=true")
+    if args.disable_stubs:
+        command.append("-Dcodesim.disableStubs=true")
     command.extend(args.java_opt)
     command.extend([
         "-cp", classpath, MAIN_CLASS, str(path), str(out_jsonl),
@@ -251,6 +267,8 @@ def main() -> None:
                         help="frozen hardware/image identifier used in the paper records")
     parser.add_argument("--skip-dynamic", action="store_true",
                         help="disable T4 dynamic execution for a separately labeled run")
+    parser.add_argument("--disable-stubs", action="store_true",
+                        help="forbid generated dependency context (required for primary BCB)")
     parser.add_argument("--java-opt", action="append", default=[])
     args = parser.parse_args()
 

@@ -38,12 +38,14 @@ class BatchPairMainSchemaTest {
             BatchPairMain.main(new String[]{manifest.toString(), output.toString()});
 
             String json = Files.readString(output, StandardCharsets.UTF_8);
-            assertTrue(json.contains("\"schemaVersion\":\"3.0\""));
+            assertTrue(json.contains("\"schemaVersion\":\"4.0\""));
             assertTrue(json.contains("\"analysisMode\":\"SOURCE_PLUS_WALA_SMT\""));
             assertTrue(json.contains("\"compile_left\":{\"status\":\"SUCCESS\""));
             assertTrue(json.contains("\"durationMs\":"));
             assertTrue(json.contains("\"leftSha256\":"));
             assertTrue(json.contains("\"rightSha256\":"));
+            assertTrue(json.contains("\"compilations\":{"));
+            assertTrue(json.contains("\"javaRelease\":17"));
         } finally {
             if (previous == null) {
                 System.clearProperty("codesim.skipDynamic");

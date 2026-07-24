@@ -131,6 +131,7 @@ export default function App() {
         onHome={() => setView("input")}
         showNew={view === "result"}
         backend={view === "result" ? data?.regionBackend : undefined}
+        analysisMode={view === "result" ? data?.analysisMode : undefined}
       />
       {view === "input" && (
         <InputView
@@ -153,7 +154,12 @@ export default function App() {
   );
 }
 
-function Header(props: { onHome: () => void; showNew?: boolean; backend?: boolean }) {
+function Header(props: {
+  onHome: () => void;
+  showNew?: boolean;
+  backend?: boolean;
+  analysisMode?: AnalyzeResponse["analysisMode"];
+}) {
   return (
     <header className="sticky top-0 z-10 bg-panel/70 backdrop-blur border-b border-line relative">
       <div
@@ -187,7 +193,13 @@ function Header(props: { onHome: () => void; showNew?: boolean; backend?: boolea
                 props.backend ? "text-t1 bg-t1-soft" : "text-t3 bg-t3-soft"
               }`}
             >
-              {props.backend ? "WALA region backend" : "source-only fallback"}
+              {props.analysisMode?.includes("STUBBED")
+                ? "WALA + generated context"
+                : props.analysisMode?.includes("PROJECT_CONTEXT")
+                  ? "WALA + project context"
+                  : props.backend
+                    ? "WALA standalone"
+                    : "source-only fallback"}
             </span>
           )}
           {props.showNew && (

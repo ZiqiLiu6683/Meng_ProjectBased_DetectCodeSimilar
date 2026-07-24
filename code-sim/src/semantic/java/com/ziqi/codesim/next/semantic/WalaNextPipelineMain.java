@@ -8,18 +8,25 @@ import com.ziqi.codesim.next.RegionDecision;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WalaNextPipelineMain {
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.err.println(
-                    "Usage: WalaNextPipelineMain <left-java-file> <right-java-file> [--json] [--report json|breakdown] [--view method|block|both] [--show-all]");
+                    "Usage: WalaNextPipelineMain <left-java-file> <right-java-file> [--left-project-root PATH] [--right-project-root PATH] [--left-classpath PATHS] [--right-classpath PATHS] [--no-stubs] [--json] [--report json|breakdown] [--view method|block|both] [--show-all]");
             System.exit(2);
         }
         boolean emitJson = false;
         String reportMode = "text";
         String view = "both";
         boolean showAll = false;
+        boolean allowStubs = true;
+        Path leftProjectRoot = null;
+        Path rightProjectRoot = null;
+        List<Path> leftClasspath = new ArrayList<>();
+        List<Path> rightClasspath = new ArrayList<>();
         for (int i = 2; i < args.length; i++) {
             String arg = args[i];
             if ("--json".equals(arg)) {
@@ -34,13 +41,39 @@ public class WalaNextPipelineMain {
                 view = arg.substring("--view=".length());
             } else if ("--show-all".equals(arg)) {
                 showAll = true;
+            } else if ("--no-stubs".equals(arg)) {
+                allowStubs = false;
+            } else if ("--left-project-root".equals(arg) && i + 1 < args.length) {
+                leftProjectRoot = Path.of(args[++i]);
+            } else if ("--right-project-root".equals(arg) && i + 1 < args.length) {
+                rightProjectRoot = Path.of(args[++i]);
+            } else if ("--left-classpath".equals(arg) && i + 1 < args.length) {
+                leftClasspath.addAll(classpath(args[++i]));
+            } else if ("--right-classpath".equals(arg) && i + 1 < args.length) {
+                rightClasspath.addAll(classpath(args[++i]));
             }
         }
         Path leftPath = Path.of(args[0]);
         Path rightPath = Path.of(args[1]);
         String left = Files.readString(leftPath, StandardCharsets.UTF_8);
         String right = Files.readString(rightPath, StandardCharsets.UTF_8);
-        NextPipelineResult result = new WalaNextPipelineRunner().run(left, right);
+        SourceAnalysisInput leftInput = new SourceAnalysisInput(left,
+                leftPath.getFileName().toString(), leftProjectRoot, leftClasspath, allowStubs);
+        SourceAnalysisInput rightInput = new SourceAnalysisInput(right,
+                rightPath.getFileName().toString(), rightProjectRoot, rightClasspath, allowStubs);
+        PipelineExecution execution = new WalaNextPipelineRunner()
+                .runDetailed(leftInput, rightInput);
+        NextPipelineResult result = execution.result();
+        System.err.println("[execution] analysisMode=" + execution.analysisMode());
+        execution.compilations().forEach((side, provenance) -> System.err.println(
+                "[execution] " + side + " compilation=" + provenance.mode()
+                        + " cache=" + (provenance.cacheHit() ? "hit" : "miss")
+                        + " stubs=" + provenance.generatedStubCount()
+                        + " javaRelease=" + provenance.javaRelease()));
+        if (!execution.fallbackStage().isBlank()) {
+            System.err.println("[execution] fallbackStage=" + execution.fallbackStage()
+                    + " fallbackReason=" + execution.fallbackReason());
+        }
         if (emitJson || "json".equalsIgnoreCase(reportMode)) {
             // Same JSON shape as NextPipelineMain so batch evaluation tooling can
             // parse the WALA (CFG-on) engine exactly like the source-only engine.
@@ -75,5 +108,16 @@ public class WalaNextPipelineMain {
                     decision.candidate().sources()
             );
         }
+    }
+
+    private static List<Path> classpath(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(value.split(java.util.regex.Pattern.quote(
+                        java.io.File.pathSeparator)))
+                .filter(part -> !part.isBlank())
+                .map(Path::of)
+                .toList();
     }
 }

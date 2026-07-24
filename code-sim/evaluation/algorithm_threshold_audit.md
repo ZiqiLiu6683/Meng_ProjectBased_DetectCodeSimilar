@@ -78,23 +78,31 @@ CFG analysis, SMT preparation, SDG construction, and region reconstruction. All
 of these become the same source-only fallback mode. The current JSON result does
 not preserve the exception or stage that caused the fallback.
 
-### 3.3 WALA eligibility conflicts with a two-file-only product
+### 3.3 WALA eligibility and optional context
 
 Real project files often depend on sibling classes or third-party libraries.
 Compiling each file alone without a project classpath will fail even when the
 source is valid in its original project. This is expected for BCB fragments and
 is not caused by the earlier manual sample selection.
 
-The product must therefore treat source analysis as a first-class path and WALA
-as an explicitly reported enrichment capability unless the product definition is
-expanded to accept a project classpath or build context.
+The two-file contract now remains the default while each side may optionally
+provide a project root or explicit classpath. A Java-17 compilation coordinator
+tries real context before diagnostic-driven stubs and stores dependency stubs as
+WALA Extension classes rather than clone candidates. Schema 4.0 reports
+standalone, project-context, stub-assisted, and fallback execution separately.
+
+This improves eligibility but does not turn generated dependency behaviour into
+semantic truth. The primary BCB experiment disables stubs; stub-assisted
+eligibility is a separately named secondary study.
 
 ### 3.4 Expensive single-file work is repeated for every pair
 
-Compilation, parsing, WALA hierarchy construction, raw extraction, CFG analysis,
-method-summary extraction, and SDG construction are repeated each time a source
-appears in a pair. BigCloneBench reuses functions in many pairs, so this design
-performs large amounts of avoidable work.
+Java compilation and generated dependency context are now content-addressed and
+reused across pairs and workers. Parsing, WALA hierarchy construction, raw
+extraction, CFG analysis, method-summary extraction, and SDG construction are
+still repeated each time a source appears in a pair. BigCloneBench reuses
+functions in many pairs, so a future immutable `SourceArtifact` cache remains a
+material performance requirement.
 
 ### 3.5 Method-pair work contains Cartesian products
 

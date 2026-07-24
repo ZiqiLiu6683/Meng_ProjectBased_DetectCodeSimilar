@@ -144,6 +144,8 @@ queries official H2 data deterministically, passes complete original Java files
 to the product, deduplicates repeated file pairs, and refuses dirty code or an
 undersized host. Scoring rejects mixed schema, dataset, manifest, commit,
 configuration, or source hashes and always reports WALA versus fallback counts.
+The primary clean-room command freezes both dynamic execution and generated
+stubs off; the strict scorer rejects either form of configuration drift.
 
 The remainder of this section documents the obsolete plumbing path only:
 

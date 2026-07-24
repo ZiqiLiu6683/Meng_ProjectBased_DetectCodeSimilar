@@ -30,6 +30,8 @@ import com.ziqi.codesim.region.semantic.EquivalenceVerdict;
 import com.ziqi.codesim.region.semantic.MethodSummaryExtractor;
 import com.ziqi.codesim.region.semantic.SmtEquivalenceChecker;
 import com.ziqi.codesim.region.semantic.SymbolicExpression;
+import com.ziqi.codesim.next.semantic.compilation.CompilationArtifact;
+import com.ziqi.codesim.next.semantic.compilation.JavaCompilationCoordinator;
 import com.ziqi.codesim.semantic.backend.AnalysisException;
 import com.ziqi.codesim.semantic.backend.wala.WalaAnalysisBackend;
 import com.ziqi.codesim.semantic.backend.wala.WalaClassHierarchies;
@@ -39,11 +41,6 @@ import com.ziqi.codesim.semantic.raw.RawToolClass;
 import com.ziqi.codesim.semantic.raw.RawToolMethod;
 import com.ziqi.codesim.semantic.raw.RawToolProgram;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -68,17 +65,27 @@ public class WalaNextPipelineRunner {
     private final WalaRawSnapshotExtractor extractor;
     private final KnnFeatureView view;
     private final int topK;
+    private final JavaCompilationCoordinator compilationCoordinator;
 
     public WalaNextPipelineRunner() {
-        this(new WalaRawSnapshotExtractor(), KnnFeatureView.HYBRID_NUMERIC_HASH, 8);
+        this(new WalaRawSnapshotExtractor(), KnnFeatureView.HYBRID_NUMERIC_HASH, 8,
+                new JavaCompilationCoordinator());
     }
 
     public WalaNextPipelineRunner(WalaRawSnapshotExtractor extractor,
                                   KnnFeatureView view,
                                   int topK) {
+        this(extractor, view, topK, new JavaCompilationCoordinator());
+    }
+
+    public WalaNextPipelineRunner(WalaRawSnapshotExtractor extractor,
+                                  KnnFeatureView view,
+                                  int topK,
+                                  JavaCompilationCoordinator compilationCoordinator) {
         this.extractor = extractor;
         this.view = view;
         this.topK = topK;
+        this.compilationCoordinator = compilationCoordinator;
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) throws AnalysisException {
@@ -108,25 +115,46 @@ public class WalaNextPipelineRunner {
     public PipelineExecution runDetailed(String leftSource, String rightSource,
                                          java.util.function.Consumer<String> progress)
             throws AnalysisException {
-        Path workDir = null;
-        ExecutionTrace trace = new ExecutionTrace(progress);
-        try {
-            workDir = Files.createTempDirectory("code-sim-next-wala-");
+        return runDetailed(
+                SourceAnalysisInput.standalone(leftSource, "LeftInput.java"),
+                SourceAnalysisInput.standalone(rightSource, "RightInput.java"),
+                progress);
+    }
 
+    public PipelineExecution runDetailed(SourceAnalysisInput leftInput,
+                                         SourceAnalysisInput rightInput) throws AnalysisException {
+        return runDetailed(leftInput, rightInput, stage -> { });
+    }
+
+    /** Pairwise execution with optional, side-specific project/classpath compilation context. */
+    public PipelineExecution runDetailed(SourceAnalysisInput leftInput,
+                                         SourceAnalysisInput rightInput,
+                                         java.util.function.Consumer<String> progress)
+            throws AnalysisException {
+        ExecutionTrace trace = new ExecutionTrace(progress);
+        Map<String, PipelineExecution.CompilationProvenance> compilations = new LinkedHashMap<>();
+        try {
             trace.start("compile_left", "compile");
-            Path leftClasses = compileSource(workDir.resolve("left"), "LeftInput.java", leftSource);
-            trace.success();
+            CompilationArtifact leftCompilation = compilationCoordinator.compile(leftInput);
+            compilations.put("left", provenance(leftCompilation));
+            trace.success(compilationDetail(leftCompilation));
 
             trace.start("compile_right", null);
-            Path rightClasses = compileSource(workDir.resolve("right"), "RightInput.java", rightSource);
-            trace.success();
+            CompilationArtifact rightCompilation = compilationCoordinator.compile(rightInput);
+            compilations.put("right", provenance(rightCompilation));
+            trace.success(compilationDetail(rightCompilation));
+
+            Path leftClasses = leftCompilation.classesDirectory();
+            Path rightClasses = rightCompilation.classesDirectory();
 
             trace.start("graph", "graph");
             // Build each side's WALA class hierarchy and IR cache once, then share them between the
             // raw-snapshot extractor (kNN candidates) and the structural backend (CFG/MCS), so the
             // same classes are not analyzed twice.
-            ClassHierarchy leftHierarchy = WalaClassHierarchies.build(leftClasses);
-            ClassHierarchy rightHierarchy = WalaClassHierarchies.build(rightClasses);
+            ClassHierarchy leftHierarchy = WalaClassHierarchies.build(
+                    leftClasses, leftCompilation.supportClasspath());
+            ClassHierarchy rightHierarchy = WalaClassHierarchies.build(
+                    rightClasses, rightCompilation.supportClasspath());
             AnalysisCacheImpl leftCache = new AnalysisCacheImpl();
             AnalysisCacheImpl rightCache = new AnalysisCacheImpl();
             String leftLabel = leftClasses.toAbsolutePath().toString();
@@ -154,7 +182,7 @@ public class WalaNextPipelineRunner {
             // Phase B (semantic): prove which cross-file method pairs compute the same value for all
             // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
             // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
-            SemanticVerdicts verdicts = semanticVerdicts(leftClasses, rightClasses);
+            SemanticVerdicts verdicts = semanticVerdicts(leftCompilation, rightCompilation);
             List<String[]> equivalentPairs = verdicts.equivalent();
             SemanticEquivalenceOracle semanticOracle =
                     MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
@@ -177,7 +205,8 @@ public class WalaNextPipelineRunner {
                 dynamicPairs = List.of();
             } else {
                 trace.start("dynamic", "dynamic");
-                dynamicPairs = dynamicEquivalentPairs(leftClasses, rightClasses, verdicts.undecided());
+                dynamicPairs = dynamicEquivalentPairs(
+                        leftCompilation, rightCompilation, verdicts.undecided());
                 trace.success();
             }
             DynamicEquivalenceOracle dynamicOracle =
@@ -192,7 +221,8 @@ public class WalaNextPipelineRunner {
             // divergent cross-method region carries a marker so it is surfaced, never silently dropped.
             trace.start("regions", "regions");
             List<RegionCandidate> reconstructedRegions =
-                    reconstructedRegionCandidates(leftClasses, rightClasses, leftSource, rightSource);
+                    reconstructedRegionCandidates(leftCompilation, rightCompilation,
+                            leftInput.source(), rightInput.source());
             trace.success();
 
             // Region-only syntactic: T1/T2/T3 come only from the reconstructed Phase A regions;
@@ -203,18 +233,17 @@ public class WalaNextPipelineRunner {
             NextPipelineResult result = new NextPipelineRunner(
                     List.of(provider, semanticProvider, dynamicProvider),
                     structuralOracle, semanticOracle, dynamicOracle, false)
-                    .run(leftSource, rightSource, reconstructedRegions);
+                    .run(leftInput.source(), rightInput.source(), reconstructedRegions);
             trace.success();
             return new PipelineExecution(
                     result,
-                    dynamicDisabled
-                            ? PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT
-                            : PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC,
+                    analysisMode(leftCompilation, rightCompilation, dynamicDisabled),
                     trace.outcomes(),
                     "",
-                    ""
+                    "",
+                    compilations
             );
-        } catch (IOException | AnalysisException | RuntimeException ex) {
+        } catch (AnalysisException | RuntimeException ex) {
             // CFG analysis unavailable (e.g. the input does not compile standalone, or WALA fails):
             // fall back to the source-only pipeline so the user still gets the syntactic result
             // (just without cfg-sim). This reports real data, never fabricated CFG output.
@@ -222,28 +251,57 @@ public class WalaNextPipelineRunner {
                     + "falling back to source-only result: " + ex.getMessage());
             String failedStage = trace.failCurrent(ex);
             trace.start("fallback", "fallback");
-            NextPipelineResult fallback = new NextPipelineRunner().run(leftSource, rightSource);
+            NextPipelineResult fallback = new NextPipelineRunner().run(
+                    leftInput.source(), rightInput.source());
             trace.success();
             return new PipelineExecution(
                     fallback,
                     PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK,
                     trace.outcomes(),
                     failedStage,
-                    normalizedFailureReason(failedStage, ex)
+                    normalizedFailureReason(failedStage, ex),
+                    compilations
             );
-        } finally {
-            if (workDir != null) {
-                deleteQuietly(workDir);
-            }
         }
+    }
+
+    private static PipelineExecution.AnalysisMode analysisMode(
+            CompilationArtifact left, CompilationArtifact right, boolean dynamicDisabled) {
+        boolean stubbed = left.usesStubs() || right.usesStubs();
+        boolean projectContext = left.mode() == CompilationArtifact.CompilationMode.PROJECT_CONTEXT
+                || right.mode() == CompilationArtifact.CompilationMode.PROJECT_CONTEXT;
+        if (stubbed) {
+            return dynamicDisabled
+                    ? PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT
+                    : PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT_DYNAMIC;
+        }
+        if (projectContext) {
+            return dynamicDisabled
+                    ? PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT
+                    : PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC;
+        }
+        return dynamicDisabled
+                ? PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT
+                : PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC;
+    }
+
+    private static PipelineExecution.CompilationProvenance provenance(CompilationArtifact artifact) {
+        return new PipelineExecution.CompilationProvenance(
+                artifact.mode().name(), artifact.cacheKey(), artifact.cacheHit(),
+                artifact.generatedStubCount(), JavaCompilationCoordinator.JAVA_RELEASE,
+                artifact.supportClasspath().size(), artifact.diagnosticSummary());
+    }
+
+    private static String compilationDetail(CompilationArtifact artifact) {
+        return "mode=" + artifact.mode().name()
+                + ",cache=" + (artifact.cacheHit() ? "hit" : "miss")
+                + ",stubs=" + artifact.generatedStubCount()
+                + ",release=" + JavaCompilationCoordinator.JAVA_RELEASE;
     }
 
     private static String normalizedFailureReason(String stage, Exception ex) {
         if (stage.startsWith("compile_")) {
             return "COMPILATION_FAILED";
-        }
-        if (ex instanceof IOException) {
-            return "IO_ERROR";
         }
         if (ex instanceof AnalysisException) {
             return "ANALYSIS_FAILED";
@@ -275,11 +333,15 @@ public class WalaNextPipelineRunner {
         }
 
         void success() {
+            success("");
+        }
+
+        void success(String detail) {
             if (currentStage.isEmpty()) {
                 return;
             }
             outcomes.put(currentStage, new PipelineExecution.StageOutcome(
-                    PipelineExecution.StageStatus.SUCCESS, elapsedMs(), ""));
+                    PipelineExecution.StageStatus.SUCCESS, elapsedMs(), detail));
             currentStage = "";
         }
 
@@ -319,50 +381,6 @@ public class WalaNextPipelineRunner {
         }
     }
 
-    private static Path compileSource(Path sourceRoot, String fileName, String source) throws AnalysisException {
-        try {
-            Path sourceDir = sourceRoot.resolve("src");
-            Path classesDir = sourceRoot.resolve("classes");
-            Files.createDirectories(sourceDir);
-            Files.createDirectories(classesDir);
-            // javac requires a public top-level type to live in a file of the same name, so name
-            // the file after the public class/interface/enum/record when present (falling back to
-            // the provided default). Without this, any input with a public class fails to compile.
-            Path sourceFile = sourceDir.resolve(publicTypeFileName(source, fileName));
-            Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
-            JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-            if (compiler == null) {
-                throw new AnalysisException("WALA next pipeline requires a JDK compiler");
-            }
-            int exitCode = compiler.run(
-                    null,
-                    null,
-                    null,
-                    "-g",
-                    "-d",
-                    classesDir.toString(),
-                    sourceFile.toString()
-            );
-            if (exitCode != 0) {
-                throw new AnalysisException("Failed to compile source for WALA next pipeline: " + sourceFile);
-            }
-            return classesDir;
-        } catch (IOException ex) {
-            throw new AnalysisException("Failed to compile source for WALA next pipeline", ex);
-        }
-    }
-
-    private static String publicTypeFileName(String source, String fallback) {
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(
-                "public\\s+(?:final\\s+|abstract\\s+|sealed\\s+|non-sealed\\s+|strictfp\\s+)*"
-                        + "(?:class|interface|enum|record)\\s+([A-Za-z_$][A-Za-z0-9_$]*)")
-                .matcher(source);
-        if (matcher.find()) {
-            return matcher.group(1) + ".java";
-        }
-        return fallback;
-    }
-
     /**
      * Phase A region groups reconstructed into aligned-order source candidates for the recognizer.
      * Each region's spanned methods are rebuilt boundary-free (so helper extraction is compared as one
@@ -370,12 +388,15 @@ public class WalaNextPipelineRunner {
      * is surfaced rather than dropped. Replaces the old flat line-set projection.
      */
     private static List<RegionCandidate> reconstructedRegionCandidates(
-            Path leftClasses, Path rightClasses, String leftSource, String rightSource)
+            CompilationArtifact leftCompilation, CompilationArtifact rightCompilation,
+            String leftSource, String rightSource)
             throws AnalysisException {
         SdgBuilder sdgBuilder = new SdgBuilder();
         NodeDescriptorBuilder descriptorBuilder = new NodeDescriptorBuilder();
-        SemanticGraph leftGraph = sdgBuilder.build(leftClasses, "left");
-        SemanticGraph rightGraph = sdgBuilder.build(rightClasses, "right");
+        SemanticGraph leftGraph = sdgBuilder.build(leftCompilation.classesDirectory(),
+                leftCompilation.supportClasspath(), "left");
+        SemanticGraph rightGraph = sdgBuilder.build(rightCompilation.classesDirectory(),
+                rightCompilation.supportClasspath(), "right");
         Map<Integer, NodeDescriptor> leftDesc = descriptorBuilder.build(leftGraph);
         Map<Integer, NodeDescriptor> rightDesc = descriptorBuilder.build(rightGraph);
         List<SeedPair> seeds = new SeedMatcher().match(leftDesc, rightDesc);
@@ -410,11 +431,14 @@ public class WalaNextPipelineRunner {
     }
 
     /** Run Phase B over the cross product and bucket each pair by SMT verdict. */
-    private static SemanticVerdicts semanticVerdicts(Path leftClasses, Path rightClasses)
+    private static SemanticVerdicts semanticVerdicts(CompilationArtifact leftCompilation,
+                                                      CompilationArtifact rightCompilation)
             throws AnalysisException {
         MethodSummaryExtractor extractor = new MethodSummaryExtractor();
-        Map<String, SymbolicExpression> leftSummaries = extractor.extractAll(leftClasses);
-        Map<String, SymbolicExpression> rightSummaries = extractor.extractAll(rightClasses);
+        Map<String, SymbolicExpression> leftSummaries = extractor.extractAll(
+                leftCompilation.classesDirectory(), leftCompilation.supportClasspath());
+        Map<String, SymbolicExpression> rightSummaries = extractor.extractAll(
+                rightCompilation.classesDirectory(), rightCompilation.supportClasspath());
         SmtEquivalenceChecker checker = new SmtEquivalenceChecker();
         List<String[]> equivalent = new ArrayList<>();
         List<String[]> undecided = new ArrayList<>();
@@ -437,14 +461,17 @@ public class WalaNextPipelineRunner {
      * Of the SMT-undecided pairs, those the dynamic checker found to agree on every sampled input.
      * The class/method names are parsed from the raw WALA signature (e.g. {@code pkg.A.f(I)I}).
      */
-    private static List<String[]> dynamicEquivalentPairs(Path leftClasses, Path rightClasses,
+    private static List<String[]> dynamicEquivalentPairs(CompilationArtifact leftCompilation,
+                                                         CompilationArtifact rightCompilation,
                                                          List<String[]> undecided) {
         DynamicEquivalenceChecker checker = new DynamicEquivalenceChecker();
         List<String[]> pairs = new ArrayList<>();
         for (String[] pair : undecided) {
             DynamicVerdict verdict = checker.check(
-                    leftClasses, className(pair[0]), methodName(pair[0]),
-                    rightClasses, className(pair[1]), methodName(pair[1]));
+                    leftCompilation.classesDirectory(), leftCompilation.supportClasspath(),
+                    className(pair[0]), methodName(pair[0]), pair[0],
+                    rightCompilation.classesDirectory(), rightCompilation.supportClasspath(),
+                    className(pair[1]), methodName(pair[1]), pair[1]);
             if (verdict == DynamicVerdict.LIKELY_EQUIVALENT) {
                 pairs.add(pair);
             }
@@ -476,18 +503,4 @@ public class WalaNextPipelineRunner {
         return methods;
     }
 
-    private static void deleteQuietly(Path path) {
-        try (var stream = Files.walk(path)) {
-            stream.sorted((a, b) -> b.compareTo(a))
-                    .forEach(p -> {
-                        try {
-                            Files.deleteIfExists(p);
-                        } catch (IOException ignored) {
-                            // Temporary cleanup failure should not hide analysis results.
-                        }
-                    });
-        } catch (IOException ignored) {
-            // Temporary cleanup failure should not hide analysis results.
-        }
-    }
 }

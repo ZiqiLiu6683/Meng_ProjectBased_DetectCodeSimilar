@@ -42,7 +42,7 @@ class PipelineExecutionProvenanceTest {
         String previous = System.getProperty("codesim.skipDynamic");
         System.setProperty("codesim.skipDynamic", "true");
         try {
-            String left = "class LeftInput { MissingType value; int f() { return 1; } }";
+            String left = "class LeftInput { int f() { return unknownValue; } }";
             String right = "class RightInput { int g() { return 1; } }";
 
             PipelineExecution execution = new WalaNextPipelineRunner().runDetailed(left, right);
@@ -58,6 +58,26 @@ class PipelineExecutionProvenanceTest {
             assertEquals(PipelineExecution.StageStatus.SUCCESS,
                     execution.stages().get("fallback").status());
             assertNotNull(execution.result());
+        } finally {
+            restoreSkipDynamic(previous);
+        }
+    }
+
+    @Test
+    void recordsStubAssistedWalaSeparatelyFromExactWala() throws Exception {
+        String previous = System.getProperty("codesim.skipDynamic");
+        System.setProperty("codesim.skipDynamic", "true");
+        try {
+            String left = "class LeftInput { MissingType value; int f(int x) { return x + 1; } }";
+            String right = "class RightInput { int g(int y) { return y + 1; } }";
+
+            PipelineExecution execution = new WalaNextPipelineRunner().runDetailed(left, right);
+
+            assertEquals(PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT,
+                    execution.analysisMode());
+            assertEquals("STUBBED", execution.compilations().get("left").mode());
+            assertEquals(1, execution.compilations().get("left").generatedStubCount());
+            assertEquals(17, execution.compilations().get("left").javaRelease());
         } finally {
             restoreSkipDynamic(previous);
         }

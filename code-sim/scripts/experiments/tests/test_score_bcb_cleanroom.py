@@ -96,6 +96,7 @@ class CleanroomScorerTest(unittest.TestCase):
             "config_id": "strict-bcb",
             "code_commit": self.commit,
             "skip_dynamic": True,
+            "disable_stubs": True,
         }), encoding="utf-8")
         self.result = {
             "schemaVersion": MODULE.RESULT_SCHEMA_VERSION,
@@ -107,6 +108,10 @@ class CleanroomScorerTest(unittest.TestCase):
             "rightSha256": execution["right_sha256"],
             "analysisMode": "SOURCE_PLUS_WALA_SMT",
             "stages": {"compile_left": {"status": "SUCCESS", "durationMs": 1}},
+            "compilations": {
+                "left": {"mode": "STANDALONE"},
+                "right": {"mode": "STANDALONE"},
+            },
             "fallbackStage": "", "fallbackReason": "", "wallMs": 10,
             "report": {"regions": [{
                 "candidateId": "region-1", "type": "T1",
@@ -147,6 +152,17 @@ class CleanroomScorerTest(unittest.TestCase):
         with patch.object(MODULE, "current_commit", return_value=(self.commit, False)):
             with self.assertRaisesRegex(ValueError, "schemaVersion"):
                 MODULE.run(self.args(self.root / "broken-score"))
+
+    def test_rejects_stub_assisted_rows_from_primary_bcb(self):
+        broken = dict(self.result)
+        broken["compilations"] = {
+            "left": {"mode": "STUBBED"},
+            "right": {"mode": "STANDALONE"},
+        }
+        self.results.write_text(json.dumps(broken) + "\n", encoding="utf-8")
+        with patch.object(MODULE, "current_commit", return_value=(self.commit, False)):
+            with self.assertRaisesRegex(ValueError, "used generated stubs"):
+                MODULE.run(self.args(self.root / "stubbed-score"))
 
 
 if __name__ == "__main__":

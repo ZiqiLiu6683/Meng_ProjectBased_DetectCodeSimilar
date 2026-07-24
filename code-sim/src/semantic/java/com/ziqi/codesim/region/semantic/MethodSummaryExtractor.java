@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -45,7 +46,12 @@ public final class MethodSummaryExtractor {
     private static final int MAX_INLINE_DEPTH = 5;
 
     public Map<String, SymbolicExpression> extractAll(Path classesDir) throws AnalysisException {
-        ClassHierarchy hierarchy = WalaClassHierarchies.build(classesDir);
+        return extractAll(classesDir, List.of());
+    }
+
+    public Map<String, SymbolicExpression> extractAll(Path classesDir, List<Path> supportClasspath)
+            throws AnalysisException {
+        ClassHierarchy hierarchy = WalaClassHierarchies.build(classesDir, supportClasspath);
         AnalysisCacheImpl cache = new AnalysisCacheImpl();
         Summarizer summarizer = new Summarizer(hierarchy, cache);
         Map<String, SymbolicExpression> summaries = new LinkedHashMap<>();

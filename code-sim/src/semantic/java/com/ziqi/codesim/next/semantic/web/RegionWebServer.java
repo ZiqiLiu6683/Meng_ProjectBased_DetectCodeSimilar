@@ -9,6 +9,7 @@ import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.RegionCandidate;
 import com.ziqi.codesim.next.RegionDecision;
 import com.ziqi.codesim.next.RegionKind;
+import com.ziqi.codesim.next.semantic.PipelineExecution;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
 import java.io.IOException;
@@ -23,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * HTTP server for the modern SPA frontend, backed by the region pipeline. {@code POST /api/analyze}
@@ -35,9 +35,6 @@ import java.util.Set;
  * {@code mvn -Psemantic-analysis -Dexec.mainClass=com.ziqi.codesim.next.semantic.web.RegionWebServer exec:java}.
  */
 public final class RegionWebServer {
-
-    private static final Set<String> SOURCE_ONLY_CHANNELS = Set.of(
-            "EXACT_TEXT_SCAN", "NORMALIZED_AST_SCAN", "NORMALIZED_TOKEN_OVERLAP_SCAN", "STATEMENT_DIFF_SCAN");
 
     private final WalaNextPipelineRunner runner = new WalaNextPipelineRunner();
     private final Path webRoot;
@@ -80,9 +77,10 @@ public final class RegionWebServer {
         exchange.sendResponseHeaders(200, 0); // 0 => chunked, keeps the stream open
         OutputStream out = exchange.getResponseBody();
         try {
-            NextPipelineResult result = runner.run(leftSource, rightSource,
+            PipelineExecution execution = runner.runDetailed(leftSource, rightSource,
                     stage -> writeEvent(out, "stage", "{\"stage\":\"" + esc(stage) + "\"}"));
-            writeEvent(out, "result", toJson(leftName, leftSource, rightName, rightSource, result));
+            writeEvent(out, "result", toJson(
+                    leftName, leftSource, rightName, rightSource, execution));
         } catch (Exception ex) {
             writeEvent(out, "error", "{\"error\":\"" + esc(String.valueOf(ex.getMessage())) + "\"}");
         } finally {
@@ -103,7 +101,8 @@ public final class RegionWebServer {
     // --- JSON assembly (matches web-ui/src/types.ts AnalyzeResponse) ---
 
     private static String toJson(String leftName, String leftSource, String rightName, String rightSource,
-                                 NextPipelineResult result) {
+                                 PipelineExecution execution) {
+        NextPipelineResult result = execution.result();
         List<String> regions = new ArrayList<>();
         int index = 1;
         for (RegionDecision decision : result.regionDecisions()) {
@@ -112,9 +111,14 @@ public final class RegionWebServer {
             }
             regions.add(regionJson("r" + index++, decision));
         }
-        boolean regionBackend = detectRegionBackend(result);
+        boolean regionBackend = execution.analysisMode()
+                != PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK;
         return "{"
                 + "\"regionBackend\":" + regionBackend + ","
+                + "\"analysisMode\":\"" + execution.analysisMode().name() + "\","
+                + "\"fallbackStage\":\"" + esc(execution.fallbackStage()) + "\","
+                + "\"fallbackReason\":\"" + esc(execution.fallbackReason()) + "\","
+                + "\"compilations\":" + compilationsJson(execution) + ","
                 + "\"left\":{\"name\":\"" + esc(leftName) + "\",\"source\":\"" + esc(leftSource) + "\"},"
                 + "\"right\":{\"name\":\"" + esc(rightName) + "\",\"source\":\"" + esc(rightSource) + "\"},"
                 + "\"regions\":[" + String.join(",", regions) + "]"
@@ -168,15 +172,17 @@ public final class RegionWebServer {
         };
     }
 
-    /** True when the WALA region pipeline ran (some candidate carries a non-source-only channel). */
-    private static boolean detectRegionBackend(NextPipelineResult result) {
-        if (result.candidates().isEmpty()) {
-            return true;
-        }
-        return result.candidates().stream()
-                .flatMap(c -> c.sources().stream())
-                .map(CandidateSource::channel)
-                .anyMatch(channel -> !SOURCE_ONLY_CHANNELS.contains(channel));
+    private static String compilationsJson(PipelineExecution execution) {
+        List<String> entries = new ArrayList<>();
+        execution.compilations().forEach((side, provenance) -> entries.add(
+                "\"" + esc(side) + "\":{"
+                        + "\"mode\":\"" + esc(provenance.mode()) + "\","
+                        + "\"cacheHit\":" + provenance.cacheHit() + ","
+                        + "\"generatedStubCount\":" + provenance.generatedStubCount() + ","
+                        + "\"javaRelease\":" + provenance.javaRelease() + ","
+                        + "\"diagnosticSummary\":\""
+                        + esc(provenance.diagnosticSummary()) + "\"}"));
+        return "{" + String.join(",", entries) + "}";
     }
 
     // --- Static file serving for the built SPA ---

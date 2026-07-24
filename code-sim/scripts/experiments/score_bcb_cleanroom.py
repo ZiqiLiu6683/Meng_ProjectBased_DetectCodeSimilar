@@ -22,7 +22,7 @@ import bcb_cleanroom
 import execution_manifest
 
 
-RESULT_SCHEMA_VERSION = "3.0"
+RESULT_SCHEMA_VERSION = "4.0"
 OK_MODES = {"SOURCE_PLUS_WALA_SMT", "SOURCE_ONLY_FALLBACK"}
 C_MATCH_THRESHOLD = 0.70
 STRICT_CLONE_TYPES = {"T1", "T2", "T3", "T4_CONFIRMED"}
@@ -391,6 +391,11 @@ def validate_result(row: dict, execution: dict[str, str], run_config: dict,
         raise ValueError(f"{pair_id}: invalid result status {status}")
     if not isinstance(row.get("stages"), dict):
         raise ValueError(f"{pair_id}: missing stage provenance")
+    if status == "ok" and not isinstance(row.get("compilations"), dict):
+        raise ValueError(f"{pair_id}: missing compilation provenance")
+    if any(provenance.get("mode") == "STUBBED"
+           for provenance in (row.get("compilations") or {}).values()):
+        raise ValueError(f"{pair_id}: primary BCB result used generated stubs")
     for side in ("left", "right"):
         field = f"{side}Sha256"
         actual = str(row.get(field, ""))
@@ -448,6 +453,8 @@ def validate_provenance(executions_path: Path, lock_path: Path, references_path:
         raise ValueError("run_config has no code commit")
     if run_config.get("skip_dynamic") is not True:
         raise ValueError("BCB T1-T3 run must freeze skip_dynamic=true; T4 is a separate benchmark")
+    if run_config.get("disable_stubs") is not True:
+        raise ValueError("primary BCB run must freeze disable_stubs=true")
 
     selected, duplicates = select_attempts(strict_jsonl(results_path), attempt_policy)
     unknown = sorted(set(selected) - set(executions))

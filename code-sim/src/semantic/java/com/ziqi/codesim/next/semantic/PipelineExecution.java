@@ -19,17 +19,30 @@ public record PipelineExecution(
         AnalysisMode analysisMode,
         Map<String, StageOutcome> stages,
         String fallbackStage,
-        String fallbackReason
+        String fallbackReason,
+        Map<String, CompilationProvenance> compilations
 ) {
     public PipelineExecution {
         stages = Collections.unmodifiableMap(new LinkedHashMap<>(stages));
         fallbackStage = fallbackStage == null ? "" : fallbackStage;
         fallbackReason = fallbackReason == null ? "" : fallbackReason;
+        compilations = compilations == null ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(compilations));
+    }
+
+    public PipelineExecution(NextPipelineResult result, AnalysisMode analysisMode,
+                             Map<String, StageOutcome> stages, String fallbackStage,
+                             String fallbackReason) {
+        this(result, analysisMode, stages, fallbackStage, fallbackReason, Map.of());
     }
 
     public enum AnalysisMode {
         SOURCE_PLUS_WALA_SMT,
         SOURCE_PLUS_WALA_SMT_DYNAMIC,
+        SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT,
+        SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC,
+        SOURCE_PLUS_STUBBED_WALA_SMT,
+        SOURCE_PLUS_STUBBED_WALA_SMT_DYNAMIC,
         SOURCE_ONLY_FALLBACK
     }
 
@@ -43,6 +56,22 @@ public record PipelineExecution(
     public record StageOutcome(StageStatus status, long durationMs, String detail) {
         public StageOutcome {
             detail = detail == null ? "" : detail;
+        }
+    }
+
+    public record CompilationProvenance(
+            String mode,
+            String cacheKey,
+            boolean cacheHit,
+            int generatedStubCount,
+            int javaRelease,
+            int supportClasspathEntries,
+            String diagnosticSummary
+    ) {
+        public CompilationProvenance {
+            mode = mode == null ? "" : mode;
+            cacheKey = cacheKey == null ? "" : cacheKey;
+            diagnosticSummary = diagnosticSummary == null ? "" : diagnosticSummary;
         }
     }
 }

@@ -46,6 +46,26 @@ export interface AnalyzeResponse {
   regions: RegionVerdict[];
   /** Whether the WALA region backend ran (false => source-only fallback, weaker). */
   regionBackend: boolean;
+  analysisMode:
+    | "SOURCE_PLUS_WALA_SMT"
+    | "SOURCE_PLUS_WALA_SMT_DYNAMIC"
+    | "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT"
+    | "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC"
+    | "SOURCE_PLUS_STUBBED_WALA_SMT"
+    | "SOURCE_PLUS_STUBBED_WALA_SMT_DYNAMIC"
+    | "SOURCE_ONLY_FALLBACK";
+  fallbackStage: string;
+  fallbackReason: string;
+  compilations: Partial<Record<
+    "left" | "right",
+    {
+      mode: "STANDALONE" | "PROJECT_CONTEXT" | "STUBBED";
+      cacheHit: boolean;
+      generatedStubCount: number;
+      javaRelease: number;
+      diagnosticSummary: string;
+    }
+  >>;
   note?: string;
 }
 

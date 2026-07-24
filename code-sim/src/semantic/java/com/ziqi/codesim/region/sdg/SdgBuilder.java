@@ -46,6 +46,7 @@ import com.ziqi.codesim.semantic.backend.AnalysisException;
 import com.ziqi.codesim.semantic.model.InstructionCategory;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -93,9 +94,15 @@ public final class SdgBuilder {
      * @param fileLabel  human-readable label for provenance (e.g. the source file name)
      */
     public SemanticGraph build(Path classesDir, String fileLabel) throws AnalysisException {
+        return build(classesDir, List.of(), fileLabel);
+    }
+
+    /** Build the target-file SDG with dependencies/stubs available only as context. */
+    public SemanticGraph build(Path classesDir, List<Path> supportClasspath, String fileLabel)
+            throws AnalysisException {
         try {
-            AnalysisScope scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(
-                    classesDir.toAbsolutePath().toString(), null);
+            AnalysisScope scope = com.ziqi.codesim.semantic.backend.wala.WalaClassHierarchies
+                    .scope(classesDir, supportClasspath);
             IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
 
             Iterable<Entrypoint> entrypoints = new AllApplicationEntrypoints(scope, cha);

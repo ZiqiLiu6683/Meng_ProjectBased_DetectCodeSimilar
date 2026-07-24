@@ -66,9 +66,10 @@ python3 -u "${project_dir}/scripts/experiments/run_shards.py" \
   --workers 32 \
   --xmx 6g \
   --max-attempts 1 \
-  --config-id "bcb-cleanroom-original-files-dynamic-off-${short_commit}" \
+  --config-id "bcb-cleanroom-original-files-dynamic-off-stubs-off-${short_commit}" \
   --environment-id aws-us-east-2-r8i-8xlarge-ubuntu-24.04 \
-  --skip-dynamic
+  --skip-dynamic \
+  --disable-stubs
 
 echo "== strict reference scoring with mandatory backend audit =="
 python3 -u "${project_dir}/scripts/experiments/score_bcb_cleanroom.py" \
