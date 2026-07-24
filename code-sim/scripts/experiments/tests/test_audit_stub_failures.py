@@ -44,6 +44,12 @@ class AuditStubFailuresTest(unittest.TestCase):
         self.assertIn("Missing value", report)
         self.assertIn("Failed immutable entries: **1**", report)
 
+    def test_source_excerpt_finds_line_inside_compilation_failure_wrapper(self):
+        source = self.entry / "source" / "Example.java"
+        excerpt = MODULE.source_excerpt(
+            source, "Failed to compile [/tmp/source [L2 compiler.err.doesnt.exist: missing]]")
+        self.assertIn("Missing value", excerpt)
+
     def test_bundle_contains_private_failure_artifacts(self):
         failures = MODULE.collect(self.root, "3")
         report = self.root / "report.md"

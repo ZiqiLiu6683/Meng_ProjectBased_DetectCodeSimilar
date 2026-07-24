@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 DIAGNOSTIC_CODE = re.compile(r"compiler\.(?:err|warn|note)\.[A-Za-z0-9_.]+")
-DIAGNOSTIC_LINE = re.compile(r"(?:^|\|\s*)L(\d+)\s+compiler\.")
+DIAGNOSTIC_LINE = re.compile(r"(?:^|[^0-9A-Za-z])L(\d+)\s+compiler\.")
 
 
 def unescape_property(value: str) -> str:
