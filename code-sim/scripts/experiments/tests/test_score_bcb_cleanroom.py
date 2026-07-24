@@ -208,6 +208,31 @@ class CleanroomScorerTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "forbidden T4 evidence"):
                 MODULE.run(args)
 
+    def test_accepts_partial_stub_provenance_when_other_side_forces_fallback(self):
+        run_config = json.loads(self.run_config.read_text(encoding="utf-8"))
+        run_config["disable_stubs"] = False
+        self.run_config.write_text(json.dumps(run_config), encoding="utf-8")
+        fallback = dict(self.result)
+        fallback["analysisMode"] = "SOURCE_ONLY_FALLBACK"
+        fallback["compilations"] = {"left": {"mode": "STUBBED"}}
+        fallback["fallbackStage"] = "compile_right"
+        fallback["fallbackReason"] = "COMPILATION_FAILED"
+        fallback["stages"] = {
+            "compile_left": {"status": "SUCCESS", "durationMs": 1},
+            "compile_right": {"status": "FAILED", "durationMs": 1},
+            "fallback": {"status": "SUCCESS", "durationMs": 1},
+        }
+        self.results.write_text(json.dumps(fallback) + "\n", encoding="utf-8")
+        args = self.args(self.root / "partial-stub-fallback-score")
+        args.stub_policy = "allow"
+
+        with patch.object(MODULE, "current_commit", return_value=("b" * 40, False)):
+            records = MODULE.run(args)
+
+        self.assertEqual(2, len(records))
+        summary = (args.out / "summary.md").read_text(encoding="utf-8")
+        self.assertIn("SOURCE_ONLY_FALLBACK", summary)
+
 
 if __name__ == "__main__":
     unittest.main()

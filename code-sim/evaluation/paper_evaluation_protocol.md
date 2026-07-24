@@ -362,6 +362,11 @@ resource/graph measurements below:
 - process CPU, memory, worker, shard, and retry metadata;
 - full untruncated predictions and reference intervals.
 
+The dataset generator and product execution must share one frozen code commit.
+The scorer commit and scorer-script hash are recorded independently, allowing a
+scoring-only defect to be repaired and the immutable raw outputs to be rescored
+without rerunning the product.
+
 Retries must retain the original attempt and attempt number. Resume logic must
 distinguish a completed success, a completed failure, and a truncated row rather
 than treating every observed pair ID as permanently complete.

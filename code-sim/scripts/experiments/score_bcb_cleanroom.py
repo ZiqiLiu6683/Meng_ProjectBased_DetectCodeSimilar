@@ -404,7 +404,10 @@ def validate_result(row: dict, execution: dict[str, str], run_config: dict,
         raise ValueError(f"{pair_id}: no-stub BCB ablation used generated stubs")
     if status == "ok":
         reports_stubbed_mode = mode == "SOURCE_PLUS_STUBBED_WALA_SMT"
-        if reports_stubbed_mode != uses_stubs:
+        # A source-only fallback may retain successful provenance for the side that compiled
+        # before the other side failed. That partial compilation can legitimately be STUBBED even
+        # though the final product analysis mode is fallback.
+        if mode != "SOURCE_ONLY_FALLBACK" and reports_stubbed_mode != uses_stubs:
             raise ValueError(
                 f"{pair_id}: analysisMode and compilation Stub provenance disagree")
         if uses_stubs:
@@ -605,10 +608,11 @@ def run(args: argparse.Namespace) -> list[dict]:
         args.executions, args.dataset_lock, args.references, args.run_config,
         args.results, args.attempt_policy, args.stub_policy)
     run_config_identity = json.loads(args.run_config.read_text(encoding="utf-8"))
-    if lock["generator_commit"] != scorer_commit:
-        raise ValueError("dataset generator and scorer commits differ")
-    if run_config_identity["code_commit"] != scorer_commit:
-        raise ValueError("execution and scorer commits differ")
+    # Dataset construction and product execution must be paired at one frozen code commit. The
+    # scorer has its own independently hashed/recorded commit so a scoring-only defect can be fixed
+    # without spending hours rerunning immutable raw product outputs.
+    if lock["generator_commit"] != run_config_identity["code_commit"]:
+        raise ValueError("dataset generator and product execution commits differ")
     machine = json.loads(args.machine.read_text(encoding="utf-8"))
     if not machine.get("logical_cpu_count") or not machine.get("memory_kib"):
         raise ValueError("machine metadata lacks CPU or memory identity")
