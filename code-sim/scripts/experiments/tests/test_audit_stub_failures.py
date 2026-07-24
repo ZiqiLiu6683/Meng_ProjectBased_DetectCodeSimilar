@@ -1,4 +1,6 @@
 import importlib.util
+import csv
+import json
 import sys
 import tempfile
 import unittest
@@ -38,7 +40,7 @@ class AuditStubFailuresTest(unittest.TestCase):
         self.assertEqual("Example.java", failures[0]["source_name"])
         self.assertEqual("compiler.err.cant.resolve.location", failures[0]["primary_code"])
         self.assertEqual(1, len(failures[0]["stubs"]))
-        report = MODULE.render_report(failures, self.root, "3", 1)
+        report = MODULE.render_report(failures, str(self.root), "3", 1)
         self.assertIn("Missing value", report)
         self.assertIn("Failed immutable entries: **1**", report)
 
@@ -52,6 +54,34 @@ class AuditStubFailuresTest(unittest.TestCase):
             names = set(bundle.getnames())
         self.assertIn("audit/report.md", names)
         self.assertIn(f"entries/{'a' * 64}/source/Example.java", names)
+
+    def test_collects_fallback_source_from_frozen_run_without_cache(self):
+        dataset = self.root / "dataset"
+        dataset.mkdir()
+        source = dataset / "Fallback.java"
+        source.write_text("class Fallback { Missing value; }\n", encoding="utf-8")
+        executions = dataset / "executions.csv"
+        with executions.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=["pair_id", "left_path", "right_path"])
+            writer.writeheader()
+            writer.writerow({
+                "pair_id": "pair-1", "left_path": "Fallback.java",
+                "right_path": "Fallback.java",
+            })
+        results = self.root / "merged.jsonl"
+        results.write_text(json.dumps({
+            "pairId": "pair-1", "analysisMode": "SOURCE_ONLY_FALLBACK",
+            "fallbackStage": "compile_left",
+            "fallbackReason": "COMPILATION_FAILED",
+            "stages": {"compile_left": {
+                "detail": "L1 compiler.err.cant.resolve.location: cannot find symbol",
+            }},
+        }) + "\n", encoding="utf-8")
+
+        failures = MODULE.collect_from_results(results, executions)
+        self.assertEqual(1, len(failures))
+        self.assertEqual(source.resolve(), failures[0]["source"])
+        self.assertEqual("compiler.err.cant.resolve.location", failures[0]["primary_code"])
 
 
 if __name__ == "__main__":
