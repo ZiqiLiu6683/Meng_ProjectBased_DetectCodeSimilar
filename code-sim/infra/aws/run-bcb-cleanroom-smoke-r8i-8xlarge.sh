@@ -12,6 +12,22 @@ project_dir="${repo_root}/code-sim"
 : "${BCB_RELEASE:?Set BCB_RELEASE to the exact official release identifier}"
 : "${IJADATASET_RELEASE:?Set IJADATASET_RELEASE to the exact official release identifier}"
 
+stub_policy="${BCB_STUB_POLICY:-allow}"
+case "${stub_policy}" in
+  allow)
+    stub_args=()
+    stub_label="stubs-auto"
+    ;;
+  forbid)
+    stub_args=(--disable-stubs)
+    stub_label="stubs-off"
+    ;;
+  *)
+    echo "BCB_STUB_POLICY must be 'allow' (product primary) or 'forbid' (ablation)." >&2
+    exit 2
+    ;;
+esac
+
 if [[ -n "$(git -C "${repo_root}" status --porcelain)" ]]; then
   echo "Refusing a clean-room run from a dirty worktree:" >&2
   git -C "${repo_root}" status --short >&2
@@ -28,7 +44,7 @@ fi
 commit="$(git -C "${repo_root}" rev-parse HEAD)"
 short_commit="$(git -C "${repo_root}" rev-parse --short=12 HEAD)"
 run_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-artifact_root="${CODESIM_ARTIFACT_ROOT:-/opt/codesim/results}/bcb-cleanroom-smoke-${short_commit}-${run_stamp}"
+artifact_root="${CODESIM_ARTIFACT_ROOT:-/opt/codesim/results}/bcb-cleanroom-${stub_label}-${short_commit}-${run_stamp}"
 dataset_dir="${artifact_root}/dataset"
 run_dir="${artifact_root}/run"
 score_dir="${artifact_root}/score"
@@ -37,6 +53,7 @@ mkdir -p "${artifact_root}"
 echo "== clean-room identity =="
 echo "commit=${commit}"
 echo "vCPU=${cpu_count} MemTotalKiB=${memory_kib}"
+echo "stub_policy=${stub_policy}"
 echo "artifacts=${artifact_root}"
 
 echo "== build fresh BCB-derived diagnostic dataset from official inputs =="
@@ -66,10 +83,10 @@ python3 -u "${project_dir}/scripts/experiments/run_shards.py" \
   --workers 32 \
   --xmx 6g \
   --max-attempts 1 \
-  --config-id "bcb-cleanroom-original-files-dynamic-off-stubs-off-${short_commit}" \
+  --config-id "bcb-cleanroom-original-files-dynamic-off-${stub_label}-${short_commit}" \
   --environment-id aws-us-east-2-r8i-8xlarge-ubuntu-24.04 \
   --skip-dynamic \
-  --disable-stubs \
+  "${stub_args[@]}" \
   --java-opt="-Dcodesim.compileCache=${CODESIM_COMPILE_CACHE:-/opt/codesim/cache/compilation-v3}"
 
 echo "== strict reference scoring with mandatory backend audit =="
@@ -81,6 +98,7 @@ python3 -u "${project_dir}/scripts/experiments/score_bcb_cleanroom.py" \
   --results "${run_dir}/merged.jsonl" \
   --machine "${run_dir}/machine.json" \
   --out "${score_dir}" \
+  --stub-policy "${stub_policy}" \
   --attempt-policy first \
   --bootstrap-iterations 2000 \
   --seed 20260721

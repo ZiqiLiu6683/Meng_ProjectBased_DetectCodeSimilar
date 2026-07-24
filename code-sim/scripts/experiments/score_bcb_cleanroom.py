@@ -23,7 +23,12 @@ import execution_manifest
 
 
 RESULT_SCHEMA_VERSION = "4.0"
-OK_MODES = {"SOURCE_PLUS_WALA_SMT", "SOURCE_ONLY_FALLBACK"}
+OK_MODES = {
+    "SOURCE_PLUS_WALA_SMT",
+    "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT",
+    "SOURCE_PLUS_STUBBED_WALA_SMT",
+    "SOURCE_ONLY_FALLBACK",
+}
 C_MATCH_THRESHOLD = 0.70
 STRICT_CLONE_TYPES = {"T1", "T2", "T3", "T4_CONFIRMED"}
 PAIR_FIELDS = [
@@ -370,7 +375,7 @@ def select_attempts(rows: list[dict], policy: str) -> tuple[dict[str, dict], Cou
 
 
 def validate_result(row: dict, execution: dict[str, str], run_config: dict,
-                    manifest_sha256: str) -> None:
+                    manifest_sha256: str, stub_policy: str) -> None:
     pair_id = execution["pair_id"]
     exact = {
         "schemaVersion": RESULT_SCHEMA_VERSION,
@@ -393,9 +398,25 @@ def validate_result(row: dict, execution: dict[str, str], run_config: dict,
         raise ValueError(f"{pair_id}: missing stage provenance")
     if status == "ok" and not isinstance(row.get("compilations"), dict):
         raise ValueError(f"{pair_id}: missing compilation provenance")
-    if any(provenance.get("mode") == "STUBBED"
-           for provenance in (row.get("compilations") or {}).values()):
-        raise ValueError(f"{pair_id}: primary BCB result used generated stubs")
+    uses_stubs = any(provenance.get("mode") == "STUBBED"
+                     for provenance in (row.get("compilations") or {}).values())
+    if stub_policy == "forbid" and uses_stubs:
+        raise ValueError(f"{pair_id}: no-stub BCB ablation used generated stubs")
+    if status == "ok":
+        reports_stubbed_mode = mode == "SOURCE_PLUS_STUBBED_WALA_SMT"
+        if reports_stubbed_mode != uses_stubs:
+            raise ValueError(
+                f"{pair_id}: analysisMode and compilation Stub provenance disagree")
+        if uses_stubs:
+            region_types = {
+                str(region.get("type", ""))
+                for region in (row.get("report") or {}).get("regions", [])
+            }
+            forbidden_t4 = region_types & {"T4_CONFIRMED", "T4_DYNAMIC_EVIDENCE"}
+            if forbidden_t4:
+                raise ValueError(
+                    f"{pair_id}: Stub-assisted result emitted forbidden T4 evidence "
+                    f"{sorted(forbidden_t4)}")
     for side in ("left", "right"):
         field = f"{side}Sha256"
         actual = str(row.get(field, ""))
@@ -419,7 +440,8 @@ def validate_result(row: dict, execution: dict[str, str], run_config: dict,
 
 
 def validate_provenance(executions_path: Path, lock_path: Path, references_path: Path,
-                        run_config_path: Path, results_path: Path, attempt_policy: str
+                        run_config_path: Path, results_path: Path, attempt_policy: str,
+                        stub_policy: str
                         ) -> tuple[dict, dict[str, dict[str, str]], list[dict[str, str]],
                                    dict[str, dict], Counter[str]]:
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
@@ -453,15 +475,19 @@ def validate_provenance(executions_path: Path, lock_path: Path, references_path:
         raise ValueError("run_config has no code commit")
     if run_config.get("skip_dynamic") is not True:
         raise ValueError("BCB T1-T3 run must freeze skip_dynamic=true; T4 is a separate benchmark")
-    if run_config.get("disable_stubs") is not True:
-        raise ValueError("primary BCB run must freeze disable_stubs=true")
+    expected_disable_stubs = stub_policy == "forbid"
+    if run_config.get("disable_stubs") is not expected_disable_stubs:
+        raise ValueError(
+            f"BCB stub policy {stub_policy!r} requires "
+            f"disable_stubs={expected_disable_stubs}")
 
     selected, duplicates = select_attempts(strict_jsonl(results_path), attempt_policy)
     unknown = sorted(set(selected) - set(executions))
     if unknown:
         raise ValueError(f"results contain unknown execution {unknown[0]}")
     for pair_id, row in selected.items():
-        validate_result(row, executions[pair_id], run_config, lock["executions_sha256"])
+        validate_result(
+            row, executions[pair_id], run_config, lock["executions_sha256"], stub_policy)
     return lock, executions, references, selected, duplicates
 
 
@@ -577,7 +603,7 @@ def run(args: argparse.Namespace) -> list[dict]:
 
     lock, executions, references, results, duplicates = validate_provenance(
         args.executions, args.dataset_lock, args.references, args.run_config,
-        args.results, args.attempt_policy)
+        args.results, args.attempt_policy, args.stub_policy)
     run_config_identity = json.loads(args.run_config.read_text(encoding="utf-8"))
     if lock["generator_commit"] != scorer_commit:
         raise ValueError("dataset generator and scorer commits differ")
@@ -602,6 +628,11 @@ def run(args: argparse.Namespace) -> list[dict]:
     write_confusion(args.out / "confusion_matrix.csv", records)
     write_per_mode(args.out / "per_analysis_mode.csv", records)
     summary = build_metric_summary(records, args.bootstrap_iterations, args.seed)
+    summary += (
+        "\n## Frozen execution policy\n\n"
+        f"Stub policy: `{args.stub_policy}`. Dynamic execution is disabled for this "
+        "BCB T1--T3 experiment. Stub-assisted rows may use WALA region evidence but "
+        "cannot emit strict or dynamic T4 evidence.\n")
     summary += "\n" + unique_execution_audit(executions, results)
     summary += (
         "\n## Interpretation boundary\n\n"
@@ -629,6 +660,7 @@ def run(args: argparse.Namespace) -> list[dict]:
         "machine_sha256": execution_manifest.sha256_file(args.machine),
         "machine": machine,
         "attempt_policy": args.attempt_policy,
+        "stub_policy": args.stub_policy,
         "detection_policy": "strict",
         "coverage_threshold": C_MATCH_THRESHOLD,
         "bootstrap_iterations": args.bootstrap_iterations,
@@ -653,6 +685,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--machine", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--attempt-policy", choices=("first", "last"), default="first")
+    parser.add_argument("--stub-policy", choices=("allow", "forbid"), required=True)
     parser.add_argument("--min-region-lines", type=int, default=6)
     parser.add_argument("--bootstrap-iterations", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=20260721)

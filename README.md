@@ -48,8 +48,9 @@ pipeline. Reports and the web API expose whether the semantic region backend or
 the fallback path produced the result.
 
 Generated stubs are compiled into a separate WALA `Extension` context. They are
-never clone candidates, never edit the input source, and never supply executable
-semantics for a strict T4 proof. Batch schema 4.0 records the analysis mode,
+never clone candidates and never edit the input source. Stub-assisted executions
+may use WALA for T1--T3 region analysis, but SMT and dynamic T4 evidence are
+disabled because generated dependencies are not semantic truth. Batch schema 4.0 records the analysis mode,
 cache key/hit, Java release, generated-stub count, first compiler diagnostics,
 stage durations, and fallback reason for both inputs.
 Successful bytecode, generated dependency context, and deterministic compiler
@@ -138,7 +139,8 @@ Project roots are searched for common compiled-output and dependency directories
 (`target/classes`, Gradle `build/classes`, `lib`, `libs`, and related paths).
 CodeSim does not execute an arbitrary project's build scripts. Build the project
 first or pass an explicit platform-separated classpath. Use `--no-stubs` when an
-experiment must reject every file that lacks real context.
+ablation must reject every file that lacks real context. The default two-file
+product mode enables conservative Stub assistance.
 
 For repository-to-repository discovery, the project scanner indexes normalized
 method structure, retrieves bounded Top-K file-pair candidates, and sends only

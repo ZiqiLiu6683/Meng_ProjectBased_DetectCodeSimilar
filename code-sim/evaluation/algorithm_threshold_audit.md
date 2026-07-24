@@ -92,8 +92,10 @@ WALA Extension classes rather than clone candidates. Schema 4.0 reports
 standalone, project-context, stub-assisted, and fallback execution separately.
 
 This improves eligibility but does not turn generated dependency behaviour into
-semantic truth. The primary BCB experiment disables stubs; stub-assisted
-eligibility is a separately named secondary study.
+semantic truth. The primary BCB product run enables the same automatic Stub
+assistance as the default two-file product and reports stub-assisted executions
+as their own stratum. SMT and dynamic T4 evidence are disabled for those rows.
+An otherwise identical no-Stub run is the compilation-eligibility ablation.
 
 ### 3.4 Expensive single-file work is repeated for every pair
 

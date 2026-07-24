@@ -178,16 +178,25 @@ public class WalaNextPipelineRunner {
             );
             trace.success();
 
-            trace.start("smt", "smt");
-            // Phase B (semantic): prove which cross-file method pairs compute the same value for all
-            // inputs. Feed them both as candidates (so structurally-dissimilar Type-4 pairs enter the
-            // pool) and as an equivalence oracle (so the recognizer can confirm them as T4).
-            SemanticVerdicts verdicts = semanticVerdicts(leftCompilation, rightCompilation);
+            boolean stubbedContext = leftCompilation.usesStubs() || rightCompilation.usesStubs();
+            SemanticVerdicts verdicts;
+            if (stubbedContext) {
+                // Generated dependency shells are sufficient to construct WALA graphs for the
+                // application methods, but they are not semantic truth. Never let them participate
+                // in a strict T4 proof or an observed-behaviour claim.
+                trace.skipped("smt", "stubbed_dependency_context_not_eligible_for_t4");
+                verdicts = new SemanticVerdicts(List.of(), List.of());
+            } else {
+                trace.start("smt", "smt");
+                // Phase B (semantic): prove which cross-file method pairs compute the same value for
+                // all inputs. Feed them both as candidates and as an equivalence oracle.
+                verdicts = semanticVerdicts(leftCompilation, rightCompilation);
+                trace.success();
+            }
             List<String[]> equivalentPairs = verdicts.equivalent();
             SemanticEquivalenceOracle semanticOracle =
                     MethodPairEquivalenceOracle.fromRawSignaturePairs(equivalentPairs);
             CandidateSignalProvider semanticProvider = new SemanticMethodCandidateProvider(equivalentPairs);
-            trace.success();
 
             // Dynamic layer: for the pairs SMT could NOT decide (loops/nonlinear -> UNKNOWN), run both
             // methods on the same random inputs. Agreement on every input is EVIDENCE (not proof) of a
@@ -199,9 +208,12 @@ public class WalaNextPipelineRunner {
             // methods, and arbitrary corpus fragments may spawn processes, touch files, or call
             // System.exit (killing a batch JVM). The syntactic categories never need this tier.
             List<String[]> dynamicPairs;
-            if (dynamicDisabled) {
+            boolean dynamicSuppressed = dynamicDisabled || stubbedContext;
+            if (dynamicSuppressed) {
                 progress.accept("dynamic");
-                trace.skipped("dynamic", "disabled_by_codesim.skipDynamic");
+                trace.skipped("dynamic", stubbedContext
+                        ? "stubbed_dependency_context_not_eligible_for_t4"
+                        : "disabled_by_codesim.skipDynamic");
                 dynamicPairs = List.of();
             } else {
                 trace.start("dynamic", "dynamic");
@@ -237,7 +249,7 @@ public class WalaNextPipelineRunner {
             trace.success();
             return new PipelineExecution(
                     result,
-                    analysisMode(leftCompilation, rightCompilation, dynamicDisabled),
+                    analysisMode(leftCompilation, rightCompilation, dynamicSuppressed),
                     trace.outcomes(),
                     "",
                     "",

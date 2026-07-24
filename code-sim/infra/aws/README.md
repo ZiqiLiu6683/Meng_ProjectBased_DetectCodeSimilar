@@ -144,8 +144,17 @@ queries official H2 data deterministically, passes complete original Java files
 to the product, deduplicates repeated file pairs, and refuses dirty code or an
 undersized host. Scoring rejects mixed schema, dataset, manifest, commit,
 configuration, or source hashes and always reports WALA versus fallback counts.
-The primary clean-room command freezes both dynamic execution and generated
-stubs off; the strict scorer rejects either form of configuration drift.
+The primary clean-room command freezes dynamic execution off and enables the
+default product's automatic Stub assistance. Stub-assisted WALA executions are
+reported separately and cannot emit strict or dynamic T4 evidence. Run the
+paired no-Stub ablation against the same frozen inputs with:
+
+```bash
+bash code-sim/infra/aws/run-bcb-cleanroom-ablation-no-stubs-r8i-8xlarge.sh
+```
+
+The strict scorer rejects any mismatch between the declared Stub policy and the
+actual run configuration.
 Successful compilation artifacts and deterministic compilation failures share
 the content-addressed cache at `/opt/codesim/cache/compilation-v3`, so a source
 reused by many BCB pairs is not recompiled by every worker.

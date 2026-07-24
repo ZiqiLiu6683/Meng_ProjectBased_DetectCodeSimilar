@@ -131,7 +131,7 @@ class CleanroomScorerTest(unittest.TestCase):
             dataset_lock=self.lock, run_config=self.run_config, results=self.results,
             machine=self.machine,
             out=out, attempt_policy="first", min_region_lines=6,
-            bootstrap_iterations=20, seed=42,
+            bootstrap_iterations=20, seed=42, stub_policy="forbid",
         )
 
     def test_one_original_file_pair_scores_multiple_bcb_references_once(self):
@@ -153,7 +153,7 @@ class CleanroomScorerTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "schemaVersion"):
                 MODULE.run(self.args(self.root / "broken-score"))
 
-    def test_rejects_stub_assisted_rows_from_primary_bcb(self):
+    def test_rejects_stub_assisted_rows_from_no_stub_ablation(self):
         broken = dict(self.result)
         broken["compilations"] = {
             "left": {"mode": "STUBBED"},
@@ -161,8 +161,52 @@ class CleanroomScorerTest(unittest.TestCase):
         }
         self.results.write_text(json.dumps(broken) + "\n", encoding="utf-8")
         with patch.object(MODULE, "current_commit", return_value=(self.commit, False)):
-            with self.assertRaisesRegex(ValueError, "used generated stubs"):
+            with self.assertRaisesRegex(ValueError, "no-stub BCB ablation"):
                 MODULE.run(self.args(self.root / "stubbed-score"))
+
+    def test_accepts_stub_assisted_rows_in_product_primary(self):
+        run_config = json.loads(self.run_config.read_text(encoding="utf-8"))
+        run_config["disable_stubs"] = False
+        self.run_config.write_text(json.dumps(run_config), encoding="utf-8")
+        stubbed = dict(self.result)
+        stubbed["analysisMode"] = "SOURCE_PLUS_STUBBED_WALA_SMT"
+        stubbed["compilations"] = {
+            "left": {"mode": "STUBBED"},
+            "right": {"mode": "STANDALONE"},
+        }
+        self.results.write_text(json.dumps(stubbed) + "\n", encoding="utf-8")
+        args = self.args(self.root / "stubbed-primary-score")
+        args.stub_policy = "allow"
+
+        with patch.object(MODULE, "current_commit", return_value=(self.commit, False)):
+            records = MODULE.run(args)
+
+        self.assertEqual(2, len(records))
+        summary = (args.out / "summary.md").read_text(encoding="utf-8")
+        self.assertIn("SOURCE_PLUS_STUBBED_WALA_SMT", summary)
+
+    def test_rejects_t4_claim_from_stub_assisted_primary_row(self):
+        run_config = json.loads(self.run_config.read_text(encoding="utf-8"))
+        run_config["disable_stubs"] = False
+        self.run_config.write_text(json.dumps(run_config), encoding="utf-8")
+        stubbed = dict(self.result)
+        stubbed["analysisMode"] = "SOURCE_PLUS_STUBBED_WALA_SMT"
+        stubbed["compilations"] = {
+            "left": {"mode": "STUBBED"},
+            "right": {"mode": "STANDALONE"},
+        }
+        stubbed["report"] = {"regions": [{
+            "candidateId": "region-t4", "type": "T4_CONFIRMED",
+            "left": {"beginLine": 10, "endLine": 19},
+            "right": {"beginLine": 10, "endLine": 19},
+        }]}
+        self.results.write_text(json.dumps(stubbed) + "\n", encoding="utf-8")
+        args = self.args(self.root / "stubbed-t4-score")
+        args.stub_policy = "allow"
+
+        with patch.object(MODULE, "current_commit", return_value=(self.commit, False)):
+            with self.assertRaisesRegex(ValueError, "forbidden T4 evidence"):
+                MODULE.run(args)
 
 
 if __name__ == "__main__":

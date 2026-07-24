@@ -178,19 +178,23 @@ The same raw run is then stratified into:
 - WALA/graph/region failures after successful compilation;
 - source-only fallback cases.
 
-No case-specific source repair is permitted in the primary experiment. The
-product receives the complete original IJaDataset Java files byte-for-byte;
-BCB method intervals are scoring references only. Cutting methods, adding
-imports, wrapping fragments in generated classes, or copying them into renamed
-inputs is prohibited. Any dependency reconstruction or generated-stub
-experiment is a separately named secondary study.
+No case-specific manual source repair is permitted. The product receives the
+complete original IJaDataset Java files byte-for-byte; BCB method intervals are
+scoring references only. Cutting methods, adding imports by hand, wrapping
+fragments in generated classes, or copying them into renamed inputs is
+prohibited. The product's deterministic diagnostic-driven Stub coordinator may
+provide missing dependency shells in a separate WALA Extension context; it
+cannot alter the application source or become a clone candidate.
 
-The primary runner must freeze both `skip_dynamic=true` and
-`disable_stubs=true`. The strict scorer rejects a run configuration without
-either flag and rejects any schema-4 result whose compilation provenance reports
-`mode=STUBBED`. A secondary stub-assisted run may use the identical frozen
-manifest, but it receives a different `config_id` and is never substituted into
-the primary denominator.
+The primary end-to-end runner freezes `skip_dynamic=true` and uses the default
+product configuration with automatic Stub assistance enabled. The scorer
+accepts and separately reports standalone, real-project-context, stub-assisted,
+fallback, and error outcomes; every reference remains in the primary
+denominator. Stub-assisted rows are eligible for T1--T3 WALA region analysis but
+not strict or dynamic T4 evidence. An otherwise identical paired no-Stub
+ablation freezes `disable_stubs=true` on the same manifest and quantifies the
+change in WALA eligibility, accuracy, and runtime. Its results are not
+substituted into the primary denominator.
 
 The clean-room dataset has two immutable tables. `executions.csv` contains only
 unique file pairs, source hashes, and dataset identity, with no ground-truth

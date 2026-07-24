@@ -6,6 +6,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfSystemProperty(named = "semantic.tests.enabled", matches = "true")
 class PipelineExecutionProvenanceTest {
@@ -78,6 +79,32 @@ class PipelineExecutionProvenanceTest {
             assertEquals("STUBBED", execution.compilations().get("left").mode());
             assertEquals(1, execution.compilations().get("left").generatedStubCount());
             assertEquals(17, execution.compilations().get("left").javaRelease());
+        } finally {
+            restoreSkipDynamic(previous);
+        }
+    }
+
+    @Test
+    void stubbedDependencyContextCannotProduceStrictOrDynamicT4Evidence() throws Exception {
+        String previous = System.getProperty("codesim.skipDynamic");
+        System.clearProperty("codesim.skipDynamic");
+        try {
+            String left = "class LeftInput { MissingType dependency; "
+                    + "int f(int x) { return x + x + x; } }";
+            String right = "class RightInput { int g(int y) { return y * 3; } }";
+
+            PipelineExecution execution = new WalaNextPipelineRunner().runDetailed(left, right);
+
+            assertEquals(PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT,
+                    execution.analysisMode());
+            assertEquals(PipelineExecution.StageStatus.SKIPPED_CONFIG,
+                    execution.stages().get("smt").status());
+            assertEquals(PipelineExecution.StageStatus.SKIPPED_CONFIG,
+                    execution.stages().get("dynamic").status());
+            assertTrue(execution.result().regionDecisions().stream().noneMatch(decision ->
+                    decision.type() == com.ziqi.codesim.next.CloneRegionType.T4_CONFIRMED
+                            || decision.type()
+                            == com.ziqi.codesim.next.CloneRegionType.T4_DYNAMIC_EVIDENCE));
         } finally {
             restoreSkipDynamic(previous);
         }
