@@ -303,6 +303,7 @@ def extract(args: argparse.Namespace) -> None:
     out = args.out.resolve()
     ensure_new_output(out)
     official_database = database_file(args.db)
+    print(f"[bcb-cleanroom] hashing immutable official database: {official_database}")
     official_database_sha256 = execution_manifest.sha256_file(official_database)
     query_dir = out / "query_exports"
     query_dir.mkdir()
@@ -316,6 +317,8 @@ def extract(args: argparse.Namespace) -> None:
 
     working_database_initial_sha256 = ""
     working_database_after_queries_sha256 = ""
+    print("[bcb-cleanroom] creating verified ephemeral H2 query copy "
+          "(the official database will not be modified)")
     with writable_database_copy(
             official_database, official_database_sha256) as query_database:
         working_database_initial_sha256 = execution_manifest.sha256_file(query_database)
