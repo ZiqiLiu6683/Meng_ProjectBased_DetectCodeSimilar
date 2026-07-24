@@ -37,16 +37,36 @@ def resolve(manifest: Path, value: str) -> Path:
     return p if p.is_absolute() else (manifest.parent / p).resolve()
 
 
+def rows_from_pairs_dir(pairs_dir: Path) -> list[dict]:
+    """Rebuild rows by scanning a pairs/ directory of <pair_id>/{Original,Mutant}.java.
+    Used when the input manifest's paths point at a different machine (e.g. WSL)."""
+    rows = []
+    for d in sorted(p for p in pairs_dir.iterdir() if p.is_dir()):
+        left, right = d / "Original.java", d / "Mutant.java"
+        if left.is_file() and right.is_file():
+            rows.append({"pair_id": d.name,
+                         "left_path": str(left), "right_path": str(right)})
+    return rows
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="inp", required=True, type=Path)
+    ap.add_argument("--in", dest="inp", type=Path,
+                    help="3-column manifest (paths must be valid on THIS machine)")
+    ap.add_argument("--pairs-dir", type=Path,
+                    help="alternative: rebuild rows by scanning this pairs/ directory")
     ap.add_argument("--dataset-id", required=True)
     ap.add_argument("--out", required=True, type=Path)
     args = ap.parse_args()
 
-    rows = list(csv.DictReader(open(args.inp, encoding="utf-8-sig")))
+    if args.pairs_dir:
+        rows = rows_from_pairs_dir(args.pairs_dir.resolve())
+    elif args.inp:
+        rows = list(csv.DictReader(open(args.inp, encoding="utf-8-sig")))
+    else:
+        raise SystemExit("provide --in <manifest> or --pairs-dir <dir>")
     if not rows:
-        raise SystemExit(f"empty input manifest: {args.inp}")
+        raise SystemExit("no rows found")
 
     written, missing = 0, 0
     with open(args.out, "w", newline="", encoding="utf-8") as f:
