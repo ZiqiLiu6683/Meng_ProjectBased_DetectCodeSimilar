@@ -45,7 +45,7 @@ import java.util.regex.Pattern;
 public final class JavaCompilationCoordinator {
     public static final int JAVA_RELEASE = 17;
     private static final int MAX_STUB_ROUNDS = 5;
-    private static final String CACHE_VERSION = "2";
+    private static final String CACHE_VERSION = "3";
     private static final Pattern PUBLIC_TYPE = Pattern.compile(
             "public\\s+(?:final\\s+|abstract\\s+|sealed\\s+|non-sealed\\s+|strictfp\\s+)*"
                     + "(?:class|interface|enum|record)\\s+([A-Za-z_$][A-Za-z0-9_$]*)");
@@ -118,7 +118,10 @@ public final class JavaCompilationCoordinator {
 
             if (!exact.success()) {
                 if (!input.allowStubs()) {
-                    throw compilationFailure(sourceFile, exact.diagnostics());
+                    AnalysisException failure = compilationFailure(sourceFile, exact.diagnostics());
+                    writeFailureManifest(work, diagnostics);
+                    publish(work, cacheKey);
+                    throw failure;
                 }
                 StubGenerator generator = new StubGenerator();
                 CompileAttempt current = exact;
@@ -155,16 +158,15 @@ public final class JavaCompilationCoordinator {
                     diagnostics = summarize(current.diagnostics());
                 }
                 if (!compiled) {
-                    throw compilationFailure(sourceFile, current.diagnostics());
+                    AnalysisException failure = compilationFailure(sourceFile, current.diagnostics());
+                    writeFailureManifest(work, diagnostics);
+                    publish(work, cacheKey);
+                    throw failure;
                 }
             }
 
             writeManifest(work, mode, stubCount, diagnostics);
-            Path entry = cacheRoot.resolve("entries").resolve(cacheKey);
-            if (Files.exists(entry)) {
-                deleteTree(entry);
-            }
-            moveDirectory(work, entry);
+            Path entry = publish(work, cacheKey);
             List<Path> publishedSupport = new ArrayList<>(context);
             if (mode == CompilationArtifact.CompilationMode.STUBBED) {
                 publishedSupport.add(entry.resolve("stub-classes"));
@@ -184,11 +186,12 @@ public final class JavaCompilationCoordinator {
         }
     }
 
-    private CompilationArtifact readCached(String cacheKey, List<Path> context) throws IOException {
+    private CompilationArtifact readCached(String cacheKey, List<Path> context)
+            throws IOException, AnalysisException {
         Path entry = cacheRoot.resolve("entries").resolve(cacheKey);
         Path manifest = entry.resolve("compilation.properties");
         Path classes = entry.resolve("classes");
-        if (!Files.isRegularFile(manifest) || !containsClassFile(classes)) {
+        if (!Files.isRegularFile(manifest)) {
             return null;
         }
         Properties properties = new Properties();
@@ -196,6 +199,13 @@ public final class JavaCompilationCoordinator {
             properties.load(reader);
         }
         if (!CACHE_VERSION.equals(properties.getProperty("cacheVersion"))) {
+            return null;
+        }
+        if ("failed".equals(properties.getProperty("status"))) {
+            throw new AnalysisException("Cached Java 17 compilation failure ["
+                    + properties.getProperty("diagnosticSummary", "") + "]");
+        }
+        if (!containsClassFile(classes)) {
             return null;
         }
         CompilationArtifact.CompilationMode mode = CompilationArtifact.CompilationMode.valueOf(
@@ -328,6 +338,7 @@ public final class JavaCompilationCoordinator {
                                       int stubCount, String diagnostics) throws IOException {
         Properties properties = new Properties();
         properties.setProperty("cacheVersion", CACHE_VERSION);
+        properties.setProperty("status", "success");
         properties.setProperty("stubGeneratorVersion", StubGenerator.VERSION);
         properties.setProperty("javaRelease", String.valueOf(JAVA_RELEASE));
         properties.setProperty("runtimeVersion", Runtime.version().toString());
@@ -338,6 +349,29 @@ public final class JavaCompilationCoordinator {
                 StandardCharsets.UTF_8)) {
             properties.store(writer, "CodeSim immutable compilation artifact");
         }
+    }
+
+    private static void writeFailureManifest(Path work, String diagnostics) throws IOException {
+        Properties properties = new Properties();
+        properties.setProperty("cacheVersion", CACHE_VERSION);
+        properties.setProperty("status", "failed");
+        properties.setProperty("stubGeneratorVersion", StubGenerator.VERSION);
+        properties.setProperty("javaRelease", String.valueOf(JAVA_RELEASE));
+        properties.setProperty("runtimeVersion", Runtime.version().toString());
+        properties.setProperty("diagnosticSummary", diagnostics);
+        try (var writer = Files.newBufferedWriter(work.resolve("compilation.properties"),
+                StandardCharsets.UTF_8)) {
+            properties.store(writer, "CodeSim immutable negative compilation artifact");
+        }
+    }
+
+    private Path publish(Path work, String cacheKey) throws IOException {
+        Path entry = cacheRoot.resolve("entries").resolve(cacheKey);
+        if (Files.exists(entry)) {
+            deleteTree(entry);
+        }
+        moveDirectory(work, entry);
+        return entry;
     }
 
     private static AnalysisException compilationFailure(Path source,
@@ -365,7 +399,7 @@ public final class JavaCompilationCoordinator {
     private static Path defaultCacheRoot() {
         String configured = System.getProperty("codesim.compileCache", "").strip();
         return configured.isEmpty()
-                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v2")
+                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v3")
                 : Path.of(configured);
     }
 

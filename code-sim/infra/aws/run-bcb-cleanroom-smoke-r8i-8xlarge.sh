@@ -69,7 +69,8 @@ python3 -u "${project_dir}/scripts/experiments/run_shards.py" \
   --config-id "bcb-cleanroom-original-files-dynamic-off-stubs-off-${short_commit}" \
   --environment-id aws-us-east-2-r8i-8xlarge-ubuntu-24.04 \
   --skip-dynamic \
-  --disable-stubs
+  --disable-stubs \
+  --java-opt="-Dcodesim.compileCache=${CODESIM_COMPILE_CACHE:-/opt/codesim/cache/compilation-v3}"
 
 echo "== strict reference scoring with mandatory backend audit =="
 python3 -u "${project_dir}/scripts/experiments/score_bcb_cleanroom.py" \

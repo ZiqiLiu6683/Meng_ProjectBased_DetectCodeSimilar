@@ -20,7 +20,7 @@ pipeline is the current main path.
 - Bounded dynamic input/output checks reported as evidence, not proof.
 - Optional project/classpath context plus conservative dependency stubs for files
   that are valid only inside a larger build.
-- Content-addressed Java 17 compilation/stub cache for bulk pair evaluation.
+- Content-addressed Java 17 compilation/stub/failure cache for bulk pair evaluation.
 - Source-only fallback when compilation or WALA analysis is unavailable.
 - React/Vite web interface with streamed, real pipeline progress.
 - Evaluation tooling for the in-house dataset, long-code cases, robustness
@@ -52,6 +52,9 @@ never clone candidates, never edit the input source, and never supply executable
 semantics for a strict T4 proof. Batch schema 4.0 records the analysis mode,
 cache key/hit, Java release, generated-stub count, first compiler diagnostics,
 stage durations, and fallback reason for both inputs.
+Successful bytecode, generated dependency context, and deterministic compiler
+failures are reused; they are rebuilt only when source, classpath fingerprints,
+Java release, or generator version changes.
 
 ## Result Labels
 

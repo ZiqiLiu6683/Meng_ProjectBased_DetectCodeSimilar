@@ -13,7 +13,8 @@ mvn -f "${project_dir}/pom.xml" -Psemantic-analysis -DskipTests clean compile
 
 echo "== affected Java regression tests =="
 mvn -f "${project_dir}/pom.xml" -q -Psemantic-analysis \
-  -Dtest=WalaNextPipelineRunnerTest,WalaNextPipelineT4Test,WalaNextPipelineDynamicT4Test,PipelineExecutionProvenanceTest,BatchPairMainSchemaTest \
+  -Dcodesim.compileCache="${CODESIM_COMPILE_CACHE:-/opt/codesim/cache/compilation-v3}" \
+  -Dtest=WalaNextPipelineRunnerTest,WalaNextPipelineT4Test,WalaNextPipelineDynamicT4Test,PipelineExecutionProvenanceTest,BatchPairMainSchemaTest,JavaCompilationCoordinatorTest,ProjectCandidateIndexerTest,DynamicEquivalenceCheckerTest \
   test
 
 echo "== experiment harness and scorer tests =="

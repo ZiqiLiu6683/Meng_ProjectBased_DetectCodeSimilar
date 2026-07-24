@@ -97,8 +97,9 @@ eligibility is a separately named secondary study.
 
 ### 3.4 Expensive single-file work is repeated for every pair
 
-Java compilation and generated dependency context are now content-addressed and
-reused across pairs and workers. Parsing, WALA hierarchy construction, raw
+Java compilation, generated dependency context, and deterministic compilation
+failures are now content-addressed and reused across pairs and workers. Parsing,
+WALA hierarchy construction, raw
 extraction, CFG analysis, method-summary extraction, and SDG construction are
 still repeated each time a source appears in a pair. BigCloneBench reuses
 functions in many pairs, so a future immutable `SourceArtifact` cache remains a

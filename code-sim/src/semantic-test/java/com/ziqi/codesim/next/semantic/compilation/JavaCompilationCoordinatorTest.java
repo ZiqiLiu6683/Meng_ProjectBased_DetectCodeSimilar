@@ -72,12 +72,15 @@ class JavaCompilationCoordinatorTest {
     }
 
     @Test
-    void failsClosedWhenDiagnosticsCannotBeSafelyStubbed() {
+    void failsClosedAndCachesDiagnosticsThatCannotBeSafelyStubbed() {
         JavaCompilationCoordinator coordinator = new JavaCompilationCoordinator(temp.resolve("cache-fail"));
         SourceAnalysisInput input = SourceAnalysisInput.standalone(
                 "class Input { int f() { return unknownValue; } }", "Input.java");
 
         assertThrows(AnalysisException.class, () -> coordinator.compile(input));
+        AnalysisException cached = assertThrows(
+                AnalysisException.class, () -> coordinator.compile(input));
+        assertTrue(cached.getMessage().startsWith("Cached Java 17 compilation failure"));
     }
 
     @Test

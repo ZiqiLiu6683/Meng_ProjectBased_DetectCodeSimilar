@@ -146,6 +146,9 @@ undersized host. Scoring rejects mixed schema, dataset, manifest, commit,
 configuration, or source hashes and always reports WALA versus fallback counts.
 The primary clean-room command freezes both dynamic execution and generated
 stubs off; the strict scorer rejects either form of configuration drift.
+Successful compilation artifacts and deterministic compilation failures share
+the content-addressed cache at `/opt/codesim/cache/compilation-v3`, so a source
+reused by many BCB pairs is not recompiled by every worker.
 
 The remainder of this section documents the obsolete plumbing path only:
 
