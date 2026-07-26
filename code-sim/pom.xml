@@ -94,8 +94,12 @@
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
               <transformers>
+                <!-- Default-build entry point. The current detector is the region pipeline
+                     (com.ziqi.codesim.next.semantic.WalaNextPipelineMain), but that lives in the
+                     semantic-analysis profile, so the plain jar manifest names the source-only
+                     region pipeline instead. The previous value (ast.AstMain) moved to -Plegacy. -->
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.ziqi.codesim.ast.AstMain</mainClass>
+                  <mainClass>com.ziqi.codesim.next.NextPipelineMain</mainClass>
                 </transformer>
               </transformers>
               <filters>
@@ -194,6 +198,85 @@
              parser dep, edu.tum.cs:java-cup, lives only in the sosy-lab repo, not Maven Central; we
              build formulas via the JavaSMT API programmatically, not by parsing text, so it is not
              needed at runtime. If a java_cup class is ever missing, add the sosy-lab Maven repo.) -->
+        <dependency>
+          <groupId>de.uni-freiburg.informatik.ultimate</groupId>
+          <artifactId>smtinterpol</artifactId>
+          <version>2.5-1242-g5c50fb6d</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <!-- Superseded implementations, kept verbatim for reproducibility and reference but NOT
+         compiled by default: the first-generation Winnowing/token detector, the second-generation
+         AST/APTED staged classifier (Stage 0-4), the legacy embedded web UI, the retired Phase A
+         wiring (StructuralRegionProjector and friends), and the evaluation harnesses. Nothing on
+         the current Phase A/B path references them, so excluding them changes no behaviour; it
+         only keeps the default build, the IDE index, and the shaded jar free of dead code.
+
+         Browse them any time under src/legacy*/ (git history is preserved through the move).
+         Build or run them with:  mvn -Plegacy ...
+         The WALA/SMT dependencies are declared here as well so -Plegacy works on its own; when
+         combined with -Psemantic-analysis Maven simply de-duplicates them. -->
+    <profile>
+      <id>legacy</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>add-legacy-source</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/legacy/java</source>
+                    <source>src/legacy-semantic/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+              <execution>
+                <id>add-legacy-test-source</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/legacy-test/java</source>
+                    <source>src/legacy-semantic-test/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <dependencies>
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.core</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.util</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.ibm.wala</groupId>
+          <artifactId>com.ibm.wala.shrike</artifactId>
+          <version>${wala.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.sosy-lab</groupId>
+          <artifactId>java-smt</artifactId>
+          <version>${java-smt.version}</version>
+        </dependency>
         <dependency>
           <groupId>de.uni-freiburg.informatik.ultimate</groupId>
           <artifactId>smtinterpol</artifactId>

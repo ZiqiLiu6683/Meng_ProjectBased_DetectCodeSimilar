@@ -32,9 +32,19 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def resolve(manifest: Path, value: str) -> Path:
+def resolve(manifest: Path | None, value: str) -> Path:
+    """Resolve a manifest path value.
+
+    ``manifest`` is None in --pairs-dir mode, where rows_from_pairs_dir already
+    produced absolute paths.  Guard the relative branch so a relative value in
+    that mode fails with a clear message instead of AttributeError on None.
+    """
     p = Path(value)
-    return p if p.is_absolute() else (manifest.parent / p).resolve()
+    if p.is_absolute():
+        return p
+    if manifest is None:
+        raise SystemExit(f"relative path {value!r} cannot be resolved without --in")
+    return (manifest.parent / p).resolve()
 
 
 def rows_from_pairs_dir(pairs_dir: Path) -> list[dict]:

@@ -42,7 +42,28 @@ public class NextJsonReportFormatter {
             }
             out.append('\n');
         }
-        indent(out, 1).append("]\n");
+        // A region the recognizer examined and refused is evidence too, but serializing every
+        // NON_CLONE decision would dominate a bulk run's output. Off by default; turn on with
+        // -Dcodesim.emitRejectedRegions=true to audit WHY a region was refused (each carries its
+        // full decision path), which is otherwise unrecoverable from the result alone.
+        List<RegionDecision> rejected = Boolean.getBoolean("codesim.emitRejectedRegions")
+                ? result.regionDecisions().stream()
+                        .filter(decision -> decision.type() == CloneRegionType.NON_CLONE)
+                        .limit(maxRegions)
+                        .toList()
+                : List.of();
+        indent(out, 1).append(rejected.isEmpty() ? "]\n" : "],\n");
+        if (!rejected.isEmpty()) {
+            indent(out, 1).append("\"rejectedRegions\": [\n");
+            for (int i = 0; i < rejected.size(); i++) {
+                appendRegion(out, rejected.get(i), i + 1, 2);
+                if (i + 1 < rejected.size()) {
+                    out.append(',');
+                }
+                out.append('\n');
+            }
+            indent(out, 1).append("]\n");
+        }
         out.append("}\n");
         return out.toString();
     }
@@ -78,9 +99,16 @@ public class NextJsonReportFormatter {
         field(out, level + 1, "unrelatedCodeRatio", summary.unrelatedCodeRatio(), true);
         appendEnumIntMap(out, level + 1, "regionTypeCounts", summary.regionTypeCounts(), true);
         appendEnumDoubleMap(out, level + 1, "regionTypeCoverage", summary.regionTypeCoverage(), true);
+        // A file pair gets NO single clone type. The three single-label fields below contradict
+        // that contract, so they are off by default and only emitted for tooling that still reads
+        // them: -Dcodesim.emitLegacyFileSummary=true. The aggregator still computes them, so
+        // nothing is lost; they are simply not part of the reported result.
+        boolean emitLegacy = Boolean.getBoolean("codesim.emitLegacyFileSummary");
         appendStringArray(out, level + 1, "fileTags",
-                summary.fileTags().stream().map(Enum::name).sorted().toList(), true);
-        appendLegacySummary(out, level + 1, summary, false);
+                summary.fileTags().stream().map(Enum::name).sorted().toList(), emitLegacy);
+        if (emitLegacy) {
+            appendLegacySummary(out, level + 1, summary, false);
+        }
         indent(out, level).append('}');
     }
 

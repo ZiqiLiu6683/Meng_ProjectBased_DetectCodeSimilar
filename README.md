@@ -217,14 +217,18 @@ semantic equivalence.
 ```text
 .
 ├── code-sim/
-│   ├── src/main/java/          # Winnowing, AST/staged, and source-only region analysis
+│   ├── src/main/java/          # Source/AST evidence and the region type recognizer
 │   ├── src/semantic/java/      # WALA, SDG, SMT, dynamic, and semantic region pipeline
 │   ├── src/test/java/          # Source/AST/region tests
 │   ├── src/semantic-test/java/ # WALA/semantic-profile tests
+│   ├── src/legacy/java/        # Superseded generations, not built by default (-Plegacy)
+│   ├── src/legacy-semantic/java/    # Superseded WALA-dependent code (-Plegacy)
+│   ├── src/legacy-test/java/        # Tests for the above (-Plegacy)
+│   ├── src/legacy-semantic-test/java/
 │   ├── web-ui/                 # React, TypeScript, Vite, and Tailwind frontend
 │   ├── evaluation/             # Labeled in-house, long-code, and robustness datasets
 │   ├── scripts/                # Dataset, experiment, shard, and scoring tools
-│   └── results/                # Local experiment summaries and outputs (Git-ignored)
+│   └── results/                # Experiment summaries and outputs
 ├── code-sim-c/                 # Early C prototype
 ├── report/                     # LaTeX M.Eng. report source
 └── outputs/                    # Generated presentation artifacts
@@ -256,10 +260,21 @@ coverage rule.
 | Negative | — | 100% rejection |
 
 Only 22 of the 140 pairs completed the full semantic path; 118 used the
-source-only fallback. These figures therefore evaluate the end-to-end system,
-not WALA alone. The local generated artifacts are under
-`code-sim/results/bcb_smoke/`; this results directory is intentionally ignored
-by Git.
+source-only fallback. The generated artifacts are under
+`code-sim/results/bcb_smoke/` and are tracked in Git.
+
+**Treat the fallback rate as a property of this dataset, not of the detector.**
+These pairs are synthetic wrappers: each BigCloneBench fragment was pasted into
+a generated `public class LeftInput { ... }`, so a fragment that referenced a
+field of its original class cannot compile, and the diagnostic-driven stub
+generator cannot repair it (it supplies missing *external* dependencies, and is
+forbidden from editing the input source). A re-measurement in July 2026 with
+stub assistance enabled still reached only 26 of 140, with the dominant
+compiler error being `cannot find symbol: variable X location: class LeftInput`.
+The clean-room pipeline (`scripts/experiments/bcb_cleanroom.py`) exists to
+remove exactly this artifact by feeding the complete original IJaDataset files
+byte-for-byte; WALA eligibility must be re-measured there before any figure is
+quoted.
 
 ### In-house 55-pair set
 
@@ -282,9 +297,20 @@ The repository retains earlier stages for reproducibility:
 - discovRE-inspired basic-block distance, KNN candidate indexing, and approximate
   maximum-common-subgraph matching.
 
-The Maven shade configuration still points its executable JAR manifest at the
-legacy `AstMain`. Use the explicit semantic main classes shown above for the
-current detector.
+These generations are not compiled by the default build. They live unchanged
+under `src/legacy/java` and `src/legacy-semantic/java` (git history preserved
+across the move) and are built and tested with the `legacy` profile:
+
+```bash
+cd code-sim
+mvn -Plegacy,semantic-analysis clean test
+```
+
+Nothing on the current Phase A/B path references them, so excluding them changes
+no detector behaviour; it only keeps the default build, the IDE index, and the
+shaded jar free of superseded code. The shaded jar manifest now names
+`com.ziqi.codesim.next.NextPipelineMain` (the source-only region pipeline);
+use the explicit semantic main classes shown above for the current detector.
 
 ## Current Limitations
 
