@@ -25,6 +25,46 @@ class JavaCompilationCoordinatorTest {
     @TempDir
     Path temp;
 
+    /**
+     * A file that only fails standalone because its own project's classes are missing must be
+     * resolved from real sibling sources, never from invented stubs -- and the siblings must land
+     * in the support classpath (WALA Extension scope), never in the analysed classes directory,
+     * or they would silently become clone candidates.
+     */
+    @Test
+    void resolvesSiblingSourcesWithoutStubsAndKeepsThemOutOfTheAnalysedClasses() throws Exception {
+        Path project = temp.resolve("project");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("Helper.java"),
+                "public class Helper { static int weigh(int v) { return v * 3; } }",
+                StandardCharsets.UTF_8);
+        String target = "public class Target { int f(int v) { return Helper.weigh(v); } }";
+
+        JavaCompilationCoordinator coordinator = new JavaCompilationCoordinator(temp.resolve("cache"));
+        CompilationArtifact artifact = coordinator.compile(new SourceAnalysisInput(
+                target, "Target.java", null, List.of(), List.of(project), true));
+
+        assertEquals(CompilationArtifact.CompilationMode.SOURCE_PATH_CONTEXT, artifact.mode());
+        assertEquals(0, artifact.generatedStubCount(), "real sources must not trigger stub generation");
+        assertFalse(artifact.usesStubs(), "sibling-source context stays T4-eligible");
+
+        assertTrue(Files.exists(artifact.classesDirectory().resolve("Target.class")));
+        assertFalse(Files.exists(artifact.classesDirectory().resolve("Helper.class")),
+                "the sibling must not be an Application-scope clone candidate");
+        assertTrue(artifact.supportClasspath().stream()
+                        .anyMatch(path -> Files.exists(path.resolve("Helper.class"))),
+                "the sibling must be reachable as Extension-scope context");
+    }
+
+    /** Without a source path the same file has no way to resolve its sibling and must fail closed. */
+    @Test
+    void withoutSourcePathTheSameFileStillFailsWhenStubsAreDisabled() throws Exception {
+        JavaCompilationCoordinator coordinator = new JavaCompilationCoordinator(temp.resolve("cache"));
+        assertThrows(AnalysisException.class, () -> coordinator.compile(new SourceAnalysisInput(
+                "public class Target { int f(int v) { return Helper.weigh(v); } }",
+                "Target.java", null, List.of(), List.of(), false)));
+    }
+
     @Test
     void generatesDependencyStubOnceAndThenReusesImmutableCache() throws Exception {
         JavaCompilationCoordinator coordinator = new JavaCompilationCoordinator(temp.resolve("cache"));

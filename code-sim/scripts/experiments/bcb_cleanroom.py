@@ -220,6 +220,25 @@ def resolve_source(bcb_root: Path, key: str) -> Path:
     return source
 
 
+def project_root_for(bcb_root: Path, key: str, depth: int) -> Path | None:
+    """Directory to offer the product as this file's compilation context.
+
+    IJaDataset ships source *files*, not built projects: third-party jars are absent and, in the
+    reduced BigCloneBench distribution, files are grouped per functionality rather than by their
+    original project.  How many leading path components form a project is therefore a property of
+    the distribution on disk, not something this script may guess -- so the depth is explicit and
+    the feature is off (depth 0) unless the caller asks for it.  A root only ever enables javac to
+    read the file's real sibling *sources*; no build script is run and nothing is fabricated.
+    """
+    if depth <= 0:
+        return None
+    parts = Path(key).parts
+    if len(parts) <= depth:
+        return None
+    root = (bcb_root.resolve() / Path(*parts[:depth])).resolve()
+    return root if root.is_dir() else None
+
+
 def line_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8", errors="replace").splitlines())
 
@@ -314,6 +333,8 @@ def extract(args: argparse.Namespace) -> None:
     source_keys_by_path: dict[Path, set[str]] = defaultdict(set)
     references: list[dict[str, str]] = []
     execution_sources: dict[str, dict[str, Path]] = {}
+    execution_roots: dict[str, dict[str, Path]] = {}
+    project_root_depth = getattr(args, "project_root_depth", 0)
 
     working_database_initial_sha256 = ""
     working_database_after_queries_sha256 = ""
@@ -341,6 +362,15 @@ def extract(args: argparse.Namespace) -> None:
                 previous = execution_sources.setdefault(reference["execution_id"], sources)
                 if previous != sources:
                     raise ValueError(f"execution ID collision: {reference['execution_id']}")
+                roots = {}
+                for side in ("left", "right"):
+                    root = project_root_for(
+                        args.bcb.resolve(), reference[f"{side}_source_key"],
+                        project_root_depth)
+                    if root:
+                        roots[side] = root
+                if roots:
+                    execution_roots.setdefault(reference["execution_id"], roots)
         working_database_after_queries_sha256 = execution_manifest.sha256_file(
             query_database)
 
@@ -374,7 +404,7 @@ def extract(args: argparse.Namespace) -> None:
         sources = execution_sources[execution_id]
         for path in sources.values():
             source_hash_cache.setdefault(path, execution_manifest.sha256_file(path))
-        executions.append({
+        row = {
             "schema_version": execution_manifest.SCHEMA_VERSION,
             "dataset_id": dataset_id,
             "pair_id": execution_id,
@@ -382,8 +412,19 @@ def extract(args: argparse.Namespace) -> None:
             "right_path": portable_path(sources["right"], executions_path),
             "left_sha256": source_hash_cache[sources["left"]],
             "right_sha256": source_hash_cache[sources["right"]],
-        })
-    write_csv(executions_path, execution_manifest.FIELDS, executions)
+        }
+        for side in ("left", "right"):
+            root = execution_roots.get(execution_id, {}).get(side)
+            row[f"{side}_project_root"] = (
+                portable_path(root, executions_path) if root else "")
+        executions.append(row)
+    execution_fields = execution_manifest.FIELDS + execution_manifest.OPTIONAL_FIELDS
+    resolved_roots = sum(
+        1 for row in executions
+        if row["left_project_root"] and row["right_project_root"])
+    print(f"[cleanroom] project roots resolved for {resolved_roots}/{len(executions)} executions"
+          f" (depth={project_root_depth})")
+    write_csv(executions_path, execution_fields, executions)
     write_csv(references_path, REFERENCE_FIELDS, references)
     execution_manifest.validate_manifest(executions_path, dataset_id)
 
@@ -464,6 +505,14 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--per-stratum", type=int, default=0,
                         help="0 uses every eligible row; N creates a diagnostic smoke sample")
     parser.add_argument("--seed", type=int, default=20260721)
+    parser.add_argument(
+        "--project-root-depth", type=int, default=0,
+        help="how many leading components of an IJaDataset path form one project, so the runner "
+             "can offer javac that directory as -sourcepath and resolve the file's real sibling "
+             "sources instead of generating stubs. 0 (default) emits no project root and keeps "
+             "the previous behaviour. Inspect the extracted tree and set this deliberately: the "
+             "reduced BigCloneBench distribution groups files per functionality rather than per "
+             "project, in which case no depth is correct and this must stay 0.")
     return parser.parse_args(argv)
 
 

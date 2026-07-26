@@ -7,7 +7,12 @@ import java.util.List;
 import java.util.Map;
 
 public class NextCandidateDiscovery {
-    private static final double BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY = 0.50;
+    /**
+     * Not a type threshold: a region pair is proposed when it shares anything at all, and the
+     * recognizer alone decides whether that is a clone. Zero-overlap pairs are excluded only so
+     * discovery does not emit the full cross product as candidates.
+     */
+    private static final double MIN_PROPOSAL_SIMILARITY = 0.0;
     private final List<CandidateSignalProvider> signalProviders;
     // When false, the built-in source-only scans (whole-method / file / window text+AST matching) are
     // skipped, so ONLY external provider signals (Phase B semantic + dynamic method pairs) create
@@ -90,11 +95,19 @@ public class NextCandidateDiscovery {
             sources.add(new CandidateSource("NORMALIZED_AST_SCAN", 1.0));
         }
 
+        // Proposal is not type judgment. These two channels used to be gated at the same 0.50
+        // Type-3 boundary the recognizer applies, so a region pair below it never became a
+        // candidate at all and could not even be reported as refused -- the recognizer never saw
+        // it. That contradicts this pipeline's own rule that discovery only proposes and Stage 4
+        // decides, and it is why a moderately edited clone could lose to a small exact-match
+        // fragment inside the same methods. The scores are still carried, so ranking is unchanged
+        // for everything that previously passed; MIN_PROPOSAL_SIMILARITY only keeps a pair with
+        // literally nothing in common out of the candidate set.
         double normalizedTokenSimilarity = NextEvidenceExtractor.jaccardSimilarity(
                 left.t2NormalizedTokens(),
                 right.t2NormalizedTokens()
         );
-        if (normalizedTokenSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY) {
+        if (normalizedTokenSimilarity > MIN_PROPOSAL_SIMILARITY) {
             // Jaccard overlap of normalized tokens (not a kNN scan): renamed for honesty.
             sources.add(new CandidateSource("NORMALIZED_TOKEN_OVERLAP_SCAN", normalizedTokenSimilarity));
         }
@@ -103,7 +116,7 @@ public class NextCandidateDiscovery {
                 left.normalizedStatementTexts(),
                 right.normalizedStatementTexts()
         );
-        if (statementSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY) {
+        if (statementSimilarity > MIN_PROPOSAL_SIMILARITY) {
             sources.add(new CandidateSource("STATEMENT_DIFF_SCAN", statementSimilarity));
         }
         return List.copyOf(sources);

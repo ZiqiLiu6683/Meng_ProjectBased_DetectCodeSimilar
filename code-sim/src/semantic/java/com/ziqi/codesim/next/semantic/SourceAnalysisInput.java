@@ -15,24 +15,36 @@ public record SourceAnalysisInput(
         String fileName,
         Path projectRoot,
         List<Path> classpath,
+        List<Path> sourcePath,
         boolean allowStubs
 ) {
     public SourceAnalysisInput {
         source = source == null ? "" : source;
         fileName = fileName == null || fileName.isBlank() ? "Input.java" : fileName;
         projectRoot = projectRoot == null ? null : projectRoot.toAbsolutePath().normalize();
-        classpath = classpath == null ? List.of() : classpath.stream()
+        classpath = normalize(classpath);
+        sourcePath = normalize(sourcePath);
+    }
+
+    private static List<Path> normalize(List<Path> paths) {
+        return paths == null ? List.of() : paths.stream()
                 .filter(path -> path != null)
                 .map(path -> path.toAbsolutePath().normalize())
                 .distinct()
                 .toList();
     }
 
+    /** Pre-sourcePath call shape, retained so existing two-file callers keep compiling. */
+    public SourceAnalysisInput(String source, String fileName, Path projectRoot,
+                               List<Path> classpath, boolean allowStubs) {
+        this(source, fileName, projectRoot, classpath, List.of(), allowStubs);
+    }
+
     public static SourceAnalysisInput standalone(String source, String fileName) {
-        return new SourceAnalysisInput(source, fileName, null, List.of(), true);
+        return new SourceAnalysisInput(source, fileName, null, List.of(), List.of(), true);
     }
 
     public boolean hasRequestedContext() {
-        return projectRoot != null || !classpath.isEmpty();
+        return projectRoot != null || !classpath.isEmpty() || !sourcePath.isEmpty();
     }
 }

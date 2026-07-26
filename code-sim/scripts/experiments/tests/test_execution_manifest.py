@@ -52,6 +52,49 @@ class ExecutionManifestTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
             MODULE.validate_manifest(self.manifest)
 
+    def write_with_roots(self, left_root, right_root):
+        row = {
+            "schema_version": MODULE.SCHEMA_VERSION,
+            "dataset_id": "official-test",
+            "pair_id": "exec_1",
+            "left_path": "Left.java",
+            "right_path": "Right.java",
+            "left_sha256": MODULE.sha256_file(self.left),
+            "right_sha256": MODULE.sha256_file(self.right),
+            "left_project_root": left_root,
+            "right_project_root": right_root,
+        }
+        fields = MODULE.FIELDS + MODULE.OPTIONAL_FIELDS
+        with self.manifest.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+            writer.writeheader()
+            writer.writerow(row)
+
+    def test_accepts_project_roots_that_contain_their_source(self):
+        self.write_with_roots(".", ".")
+        rows, _ = MODULE.validate_manifest(self.manifest)
+        self.assertEqual(".", rows[0]["left_project_root"])
+
+    def test_rejects_project_root_that_does_not_contain_its_source(self):
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        self.write_with_roots("elsewhere", ".")
+        with self.assertRaisesRegex(ValueError, "outside its project root"):
+            MODULE.validate_manifest(self.manifest)
+
+    def test_rejects_missing_project_root_directory(self):
+        self.write_with_roots("no-such-dir", ".")
+        with self.assertRaises(NotADirectoryError):
+            MODULE.validate_manifest(self.manifest)
+
+    def test_still_accepts_manifests_frozen_before_the_project_root_columns(self):
+        self.write()
+        with self.manifest.open(encoding="utf-8") as stream:
+            text = stream.read().replace(MODULE.SCHEMA_VERSION, "execution-1.0")
+        self.manifest.write_text(text, encoding="utf-8")
+        rows, _ = MODULE.validate_manifest(self.manifest)
+        self.assertEqual("execution-1.0", rows[0]["schema_version"])
+
 
 if __name__ == "__main__":
     unittest.main()

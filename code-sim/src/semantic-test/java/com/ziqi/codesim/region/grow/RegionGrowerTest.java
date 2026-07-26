@@ -62,6 +62,51 @@ class RegionGrowerTest {
         assertEquals(top.strength(), rerun.get(0).strength(), 1e-9);
     }
 
+    /**
+     * The substantive floor must not weaken a real clone, and must reject a region whose only
+     * real work is a single node. Such a region scores a perfect aligned fraction (1 substantive
+     * node out of 1) while representing one statement, which is a coincidence, not a clone.
+     */
+    @Test
+    void substantiveFloorKeepsRealClonesAndRejectsSingleNodeCoincidences() throws Exception {
+        SemanticGraph leftGraph = buildGraph("left", "A", "f", "x", "Left.java");
+        SemanticGraph rightGraph = buildGraph("right", "B", "g", "y", "Right.java");
+        Map<Integer, NodeDescriptor> leftDesc = new NodeDescriptorBuilder().build(leftGraph);
+        Map<Integer, NodeDescriptor> rightDesc = new NodeDescriptorBuilder().build(rightGraph);
+        List<SeedPair> seeds = new SeedMatcher().match(leftDesc, rightDesc);
+
+        List<RegionGroup> withFloor =
+                new RegionGrower(2, 2).grow(leftGraph, leftDesc, rightGraph, rightDesc, seeds);
+        List<RegionGroup> withoutFloor =
+                new RegionGrower(2, 0).grow(leftGraph, leftDesc, rightGraph, rightDesc, seeds);
+
+        assertFalse(withFloor.isEmpty(), "the real clone must survive the substantive floor");
+        assertEquals(withoutFloor.get(0).size(), withFloor.get(0).size(),
+                "the floor must not shrink the top region of a real clone");
+        assertTrue(withFloor.size() <= withoutFloor.size(),
+                "the floor may only remove regions, never add them");
+        for (RegionGroup region : withFloor) {
+            long substantive = region.alignment().stream()
+                    .map(pair -> leftGraph.node(pair.leftNodeId()).orElse(null))
+                    .filter(node -> node != null && SUBSTANTIVE.contains(node.operation()))
+                    .count();
+            assertTrue(substantive >= 2,
+                    "every emitted region must do at least two units of real work, got " + substantive);
+        }
+    }
+
+    private static final java.util.Set<com.ziqi.codesim.semantic.model.InstructionCategory> SUBSTANTIVE =
+            java.util.EnumSet.of(
+                    com.ziqi.codesim.semantic.model.InstructionCategory.ARITHMETIC,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.LOGIC,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.COMPARISON,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.BRANCH,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.FIELD_ACCESS,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.ARRAY_ACCESS,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.ALLOCATION,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.CALL,
+                    com.ziqi.codesim.semantic.model.InstructionCategory.ASSIGNMENT);
+
     private SemanticGraph buildGraph(String pkg, String type, String method, String param,
                                      String label) throws Exception {
         Path sourceDir = tempDir.resolve(pkg + "/src/" + pkg);

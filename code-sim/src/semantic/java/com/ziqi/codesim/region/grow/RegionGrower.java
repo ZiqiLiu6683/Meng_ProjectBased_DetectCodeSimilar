@@ -43,17 +43,42 @@ import java.util.TreeSet;
 public final class RegionGrower {
 
     private final int minPairs;
+    private final int minSubstantivePairs;
 
     public RegionGrower() {
-        this(2);
+        this(2, 2);
     }
 
     /** @param minPairs smallest region (in aligned pairs) worth emitting; singletons are dropped */
     public RegionGrower(int minPairs) {
+        this(minPairs, 2);
+    }
+
+    /**
+     * @param minPairs            smallest region in aligned pairs, counting plumbing
+     * @param minSubstantivePairs smallest region in aligned pairs that do REAL WORK (arithmetic,
+     *                            logic, comparison, branch, field/array access, allocation, call,
+     *                            assignment). {@code minPairs} alone is not enough: a region of two
+     *                            aligned pairs where only one does real work scores a perfect
+     *                            aligned fraction (1 of 1 substantive node) while representing a
+     *                            single statement, which is a coincidence rather than a clone.
+     *                            Measured on 1,183 grown regions, every region that failed this
+     *                            floor also projected to no source tokens and was silently dropped
+     *                            further down the pipeline -- so this makes an accidental filter
+     *                            explicit rather than changing behaviour, and it stops those
+     *                            regions from becoming false positives for any consumer that reads
+     *                            the alignment directly instead of the projected source.
+     */
+    public RegionGrower(int minPairs, int minSubstantivePairs) {
         if (minPairs < 1) {
             throw new IllegalArgumentException("minPairs must be >= 1: " + minPairs);
         }
+        if (minSubstantivePairs < 0) {
+            throw new IllegalArgumentException(
+                    "minSubstantivePairs must be >= 0: " + minSubstantivePairs);
+        }
         this.minPairs = minPairs;
+        this.minSubstantivePairs = minSubstantivePairs;
     }
 
     public List<RegionGroup> grow(SemanticGraph leftGraph, Map<Integer, NodeDescriptor> leftDesc,
@@ -66,7 +91,8 @@ public final class RegionGrower {
                 continue;
             }
             List<AlignedPair> alignment = aligner.growFrom(seed);
-            if (alignment.size() < minPairs) {
+            if (alignment.size() < minPairs
+                    || substantivePairs(alignment, leftGraph) < minSubstantivePairs) {
                 continue;
             }
             aligner.claim(alignment);
@@ -99,6 +125,21 @@ public final class RegionGrower {
             }
         }
         return new RegionGroup(alignment, strength, coverage, leftSpan, rightSpan, leftMethods, rightMethods);
+    }
+
+    /**
+     * Aligned pairs whose left node does real work. Mirrors the substance split used by
+     * {@code AlignedRegionClassifier}: everything {@link #substanceWeight} scores at or above 0.6.
+     */
+    private static int substantivePairs(List<AlignedPair> alignment, SemanticGraph leftGraph) {
+        int count = 0;
+        for (AlignedPair pair : alignment) {
+            SemanticNode left = leftGraph.node(pair.leftNodeId()).orElse(null);
+            if (left != null && substanceWeight(left.operation()) >= 0.6) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

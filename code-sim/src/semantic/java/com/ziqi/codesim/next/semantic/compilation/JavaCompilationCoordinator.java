@@ -38,15 +38,22 @@ import java.util.regex.Pattern;
 /**
  * Compiles one source file under a frozen Java-17 contract, with immutable content-addressed reuse.
  *
- * <p>Resolution order: real project/classpath context, plain standalone javac, diagnostic-driven
- * dependency stubs, then an {@link AnalysisException} for the caller's source-only fallback. Stubs
- * are kept in a separate class directory so WALA can load them as context rather than Application
- * clone candidates.
+ * <p>Resolution order, weakest assumption last:
+ * <ol>
+ *   <li>real project/classpath context;</li>
+ *   <li>plain standalone javac;</li>
+ *   <li>{@code -sourcepath} resolution against the file's own sibling sources — real code, so the
+ *       result keeps true semantics and stays eligible for T4;</li>
+ *   <li>diagnostic-driven dependency stubs — invented shells, so T4 is disabled for them;</li>
+ *   <li>an {@link AnalysisException} for the caller's source-only fallback.</li>
+ * </ol>
+ * Supporting classes from steps 3 and 4 are kept in a separate class directory so WALA loads them
+ * as context rather than Application clone candidates.
  */
 public final class JavaCompilationCoordinator {
     public static final int JAVA_RELEASE = 17;
     private static final int MAX_STUB_ROUNDS = 5;
-    private static final String CACHE_VERSION = "4";
+    private static final String CACHE_VERSION = "5";
     private static final String IMPLEMENTATION_SHA256 = implementationFingerprint();
     private static final Pattern PUBLIC_TYPE = Pattern.compile(
             "public\\s+(?:final\\s+|abstract\\s+|sealed\\s+|non-sealed\\s+|strictfp\\s+)*"
@@ -117,6 +124,29 @@ public final class JavaCompilationCoordinator {
             String initialDiagnostics = summarize(exact.diagnostics());
             String diagnostics = initialDiagnostics;
             List<Path> support = new ArrayList<>(context);
+
+            // Real sibling sources before invented ones: if the file only fails to compile because
+            // its own project's classes are missing, javac can resolve them from -sourcepath with
+            // no fabricated code at all. Stubs stay the last resort.
+            List<Path> sourceRoots = resolveSourceRoots(input);
+            if (!exact.success() && !sourceRoots.isEmpty()) {
+                Path siblingClasses = work.resolve("sibling-classes");
+                Path resolved = compileWithSourcePath(compiler, sourceFile, classes,
+                        siblingClasses, context, sourceRoots);
+                if (resolved != null) {
+                    support.add(resolved);
+                    mode = CompilationArtifact.CompilationMode.SOURCE_PATH_CONTEXT;
+                    diagnostics = initialDiagnostics;
+                    writeManifest(work, mode, 0, diagnostics);
+                    Path entry = publish(work, cacheKey);
+                    List<Path> publishedSupport = new ArrayList<>(context);
+                    publishedSupport.add(entry.resolve("sibling-classes"));
+                    return new CompilationArtifact(entry.resolve("classes"), publishedSupport,
+                            mode, cacheKey, false, 0, diagnostics);
+                }
+                recreateDirectory(classes);
+                exact = compile(compiler, List.of(sourceFile), classes, context);
+            }
 
             if (!exact.success()) {
                 if (!input.allowStubs()) {
@@ -223,6 +253,12 @@ public final class JavaCompilationCoordinator {
                 return null;
             }
             support.add(stubs);
+        } else if (mode == CompilationArtifact.CompilationMode.SOURCE_PATH_CONTEXT) {
+            Path siblings = entry.resolve("sibling-classes");
+            if (!containsClassFile(siblings)) {
+                return null;
+            }
+            support.add(siblings);
         }
         return new CompilationArtifact(classes, support, mode, cacheKey, true,
                 Integer.parseInt(properties.getProperty("stubCount", "0")),
@@ -231,6 +267,12 @@ public final class JavaCompilationCoordinator {
 
     private static CompileAttempt compile(JavaCompiler compiler, List<Path> sourceFiles,
                                           Path output, List<Path> classpath) throws IOException {
+        return compile(compiler, sourceFiles, output, classpath, List.of());
+    }
+
+    private static CompileAttempt compile(JavaCompiler compiler, List<Path> sourceFiles,
+                                          Path output, List<Path> classpath,
+                                          List<Path> sourcePath) throws IOException {
         Files.createDirectories(output);
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(
@@ -246,11 +288,68 @@ public final class JavaCompilationCoordinator {
                 options.add(String.join(java.io.File.pathSeparator,
                         classpath.stream().map(Path::toString).toList()));
             }
+            if (!sourcePath.isEmpty()) {
+                options.add("-sourcepath");
+                options.add(String.join(java.io.File.pathSeparator,
+                        sourcePath.stream().map(Path::toString).toList()));
+                // Emit class files for the sibling sources javac pulls in, and do not let their
+                // warnings fail or pollute the target file's diagnostics.
+                options.add("-implicit:class");
+                options.add("-nowarn");
+            }
             boolean success = Boolean.TRUE.equals(compiler.getTask(
                     null, fileManager, collector, options, null, units).call());
             return new CompileAttempt(success, collector.getDiagnostics().stream()
                     .map(CompilerDiagnostic::from)
                     .toList());
+        }
+    }
+
+    /**
+     * Resolve the target file against its real sibling sources.
+     *
+     * <p>Two passes, because a single javac run would emit the siblings into the same output
+     * directory as the target and WALA would then load them as Application classes — i.e. as clone
+     * candidates, which the two-file contract forbids.
+     * <ol>
+     *   <li>compile the target with {@code -sourcepath} into {@code siblingClasses}; javac pulls in
+     *       and compiles exactly the sources it needs;</li>
+     *   <li>recompile the target alone against those classes into {@code classes}, then strip from
+     *       {@code siblingClasses} every class file the target itself owns.</li>
+     * </ol>
+     * The result is a clean split: {@code classes} holds only the analysed file's own types,
+     * {@code siblingClasses} holds real project code as Extension-scope context. No code is
+     * invented, so unlike stubs this context carries true semantics and stays T4-eligible.
+     *
+     * @return the sibling-class directory, or null when the source path could not resolve the file
+     */
+    private static Path compileWithSourcePath(JavaCompiler compiler, Path sourceFile, Path classes,
+                                              Path siblingClasses, List<Path> context,
+                                              List<Path> sourceRoots) throws IOException {
+        recreateDirectory(siblingClasses);
+        CompileAttempt withSources = compile(compiler, List.of(sourceFile), siblingClasses,
+                context, sourceRoots);
+        if (!withSources.success()) {
+            return null;
+        }
+        List<Path> targetClasspath = new ArrayList<>(context);
+        targetClasspath.add(siblingClasses);
+        recreateDirectory(classes);
+        CompileAttempt target = compile(compiler, List.of(sourceFile), classes, targetClasspath);
+        if (!target.success()) {
+            return null;
+        }
+        removeOwnClasses(classes, siblingClasses);
+        return containsClassFile(siblingClasses) ? siblingClasses : null;
+    }
+
+    /** Drop from the context directory every class file the target directory also produced. */
+    private static void removeOwnClasses(Path classes, Path context) throws IOException {
+        try (var stream = Files.walk(classes)) {
+            for (Path own : stream.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".class")).toList()) {
+                Files.deleteIfExists(context.resolve(classes.relativize(own)));
+            }
         }
     }
 
@@ -293,6 +392,32 @@ public final class JavaCompilationCoordinator {
         return List.copyOf(entries);
     }
 
+    /**
+     * Source roots javac may resolve sibling classes from: the caller's explicit {@code sourcePath}
+     * first, then the conventional source directories under an optional project root. Only
+     * directories that exist are returned, and nothing here is executed — this is javac reading
+     * source files, not a project build.
+     */
+    private static List<Path> resolveSourceRoots(SourceAnalysisInput input) throws AnalysisException {
+        LinkedHashSet<Path> roots = new LinkedHashSet<>();
+        for (Path path : input.sourcePath()) {
+            if (!Files.isDirectory(path)) {
+                throw new AnalysisException("Source path entry is not a directory: " + path);
+            }
+            roots.add(path);
+        }
+        Path root = input.projectRoot();
+        if (root != null) {
+            for (String relative : List.of("src/main/java", "src/java", "src", "java", "")) {
+                Path candidate = relative.isEmpty() ? root : root.resolve(relative);
+                if (Files.isDirectory(candidate)) {
+                    roots.add(candidate.toAbsolutePath().normalize());
+                }
+            }
+        }
+        return List.copyOf(roots);
+    }
+
     private String cacheKey(SourceAnalysisInput input, List<Path> context) throws AnalysisException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -307,6 +432,11 @@ public final class JavaCompilationCoordinator {
             update(digest, "source=" + input.source());
             for (Path path : context) {
                 update(digest, "classpath=" + classpathFingerprint(path));
+            }
+            // Sibling sources decide the resolved semantics, so an edit to them must invalidate
+            // this entry exactly as a classpath change does.
+            for (Path path : resolveSourceRoots(input)) {
+                update(digest, "sourcepath=" + classpathFingerprint(path));
             }
             return hex(digest.digest());
         } catch (Exception ex) {
@@ -408,7 +538,7 @@ public final class JavaCompilationCoordinator {
     private static Path defaultCacheRoot() {
         String configured = System.getProperty("codesim.compileCache", "").strip();
         return configured.isEmpty()
-                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v4")
+                ? Path.of(System.getProperty("java.io.tmpdir"), "codesim-compile-cache-v5")
                 : Path.of(configured);
     }
 

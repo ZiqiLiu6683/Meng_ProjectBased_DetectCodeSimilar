@@ -26,6 +26,14 @@ public record CompilationArtifact(
     public enum CompilationMode {
         STANDALONE,
         PROJECT_CONTEXT,
+        /**
+         * Resolved by letting javac compile the file's real sibling sources on demand from a
+         * {@code -sourcepath}. Unlike {@link #STUBBED} this introduces no invented code: every
+         * supporting class is the project's own source, compiled by the same Java 17 contract.
+         * The siblings are published as support classpath (WALA Extension scope), so they provide
+         * resolution and real semantics without ever becoming clone candidates.
+         */
+        SOURCE_PATH_CONTEXT,
         STUBBED
     }
 }

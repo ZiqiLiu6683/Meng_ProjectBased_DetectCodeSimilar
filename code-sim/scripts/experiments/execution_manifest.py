@@ -8,7 +8,10 @@ import hashlib
 from pathlib import Path
 
 
-SCHEMA_VERSION = "execution-1.0"
+SCHEMA_VERSION = "execution-1.1"
+# Accepted for reading so manifests frozen before the project-root columns existed still
+# validate; new manifests are written at SCHEMA_VERSION.
+SUPPORTED_SCHEMA_VERSIONS = frozenset({"execution-1.0", SCHEMA_VERSION})
 FIELDS = [
     "schema_version",
     "dataset_id",
@@ -17,6 +20,13 @@ FIELDS = [
     "right_path",
     "left_sha256",
     "right_sha256",
+]
+# Optional per-side compilation context. When a corpus preserves each file's original project
+# tree, naming it here lets javac resolve the file's real sibling sources (-sourcepath) instead
+# of falling back to generated stubs. Absent or blank means "no context", i.e. today's behaviour.
+OPTIONAL_FIELDS = [
+    "left_project_root",
+    "right_project_root",
 ]
 
 
@@ -64,7 +74,7 @@ def validate_manifest(manifest: Path, expected_dataset_id: str | None = None
         if pair_id in seen:
             raise ValueError(f"line {line_number}: duplicate pair_id {pair_id}")
         seen.add(pair_id)
-        if row["schema_version"] != SCHEMA_VERSION:
+        if row["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS:
             raise ValueError(
                 f"{pair_id}: unsupported execution schema {row['schema_version']}")
         dataset_id = row["dataset_id"]
@@ -87,6 +97,19 @@ def validate_manifest(manifest: Path, expected_dataset_id: str | None = None
             actual_hash = hash_cache[path]
             if actual_hash != expected_hash.lower():
                 raise ValueError(f"{pair_id}: {side} SHA-256 mismatch")
+
+            # A declared project root must exist and must actually contain the source file,
+            # otherwise the run would silently analyse the file without the context the
+            # manifest promised.
+            declared_root = row.get(f"{side}_project_root", "")
+            if declared_root:
+                root = resolve_path(manifest, declared_root)
+                if not root.is_dir():
+                    raise NotADirectoryError(
+                        f"{pair_id}: {side} project root is not a directory: {root}")
+                if not path.is_relative_to(root):
+                    raise ValueError(
+                        f"{pair_id}: {side} source {path} is outside its project root {root}")
 
     if len(dataset_ids) != 1:
         raise ValueError(f"manifest must contain one dataset_id, found {sorted(dataset_ids)}")

@@ -160,22 +160,32 @@ public class WalaNextPipelineRunner {
             String leftLabel = leftClasses.toAbsolutePath().toString();
             String rightLabel = rightClasses.toAbsolutePath().toString();
 
-            RawToolProgram leftProgram = extractor.extract(leftHierarchy, leftCache, leftLabel);
-            RawToolProgram rightProgram = extractor.extract(rightHierarchy, rightCache, rightLabel);
-            CandidateSignalProvider provider = new RawToolCfgCandidateProvider(
-                    methods(leftProgram),
-                    methods(rightProgram),
-                    RAW_FILTERED_KEEP,
-                    view,
-                    topK
-            );
-            // Second discovRE stage: analyze the same classes into method CFGs so the recognizer
-            // can confirm/veto whole-method clones with the approximate-MCS structural matcher.
-            WalaAnalysisBackend backend = new WalaAnalysisBackend();
-            StructuralSimilarityOracle structuralOracle = new WalaStructuralSimilarityOracle(
-                    backend.analyze(leftHierarchy, leftCache, leftLabel).methods(),
-                    backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
-            );
+            // Pre-Phase-A discovRE/kNN stages, kept switchable for a measured A/B before the
+            // default flips. They cost a full raw snapshot, a kNN index build, and a second WALA
+            // analysis pass on EVERY pair, and they contribute:
+            //   * RawToolCfgCandidateProvider -> METHOD-level T1/T2/T3 candidates. Phase A regions
+            //     do not need them: an aligned region is already a complete comparable unit
+            //     (RegionKind.CALL_EXPANDED_REGION) and already carries a non-source channel
+            //     (ALIGNED_REGION_SCAN), so it satisfies the recognizer's T3 scope gate twice over.
+            //     Those METHOD-level verdicts are also the only reason the main path still emits a
+            //     method-level syntactic clone type, which the region-level contract excludes.
+            //   * WalaStructuralSimilarityOracle -> a similarity number the recognizer reports as
+            //     "informational; not used to change the type"; it appears in no condition.
+            boolean legacyCfgChannels = Boolean.parseBoolean(
+                    System.getProperty("codesim.legacyCfgChannels", "true"));
+            List<CandidateSignalProvider> cfgProviders = List.of();
+            StructuralSimilarityOracle structuralOracle = StructuralSimilarityOracle.NONE;
+            if (legacyCfgChannels) {
+                RawToolProgram leftProgram = extractor.extract(leftHierarchy, leftCache, leftLabel);
+                RawToolProgram rightProgram = extractor.extract(rightHierarchy, rightCache, rightLabel);
+                cfgProviders = List.of(new RawToolCfgCandidateProvider(
+                        methods(leftProgram), methods(rightProgram), RAW_FILTERED_KEEP, view, topK));
+                WalaAnalysisBackend backend = new WalaAnalysisBackend();
+                structuralOracle = new WalaStructuralSimilarityOracle(
+                        backend.analyze(leftHierarchy, leftCache, leftLabel).methods(),
+                        backend.analyze(rightHierarchy, rightCache, rightLabel).methods()
+                );
+            }
             trace.success();
 
             boolean stubbedContext = leftCompilation.usesStubs() || rightCompilation.usesStubs();
@@ -242,8 +252,11 @@ public class WalaNextPipelineRunner {
             // method-level providers stay for behavioural T4 only. The source-only scans remain the
             // fallback below, used only when WALA is unavailable.
             trace.start("classify", "classify");
+            List<CandidateSignalProvider> providers = new ArrayList<>(cfgProviders);
+            providers.add(semanticProvider);
+            providers.add(dynamicProvider);
             NextPipelineResult result = new NextPipelineRunner(
-                    List.of(provider, semanticProvider, dynamicProvider),
+                    List.copyOf(providers),
                     structuralOracle, semanticOracle, dynamicOracle, false)
                     .run(leftInput.source(), rightInput.source(), reconstructedRegions);
             trace.success();
@@ -280,8 +293,11 @@ public class WalaNextPipelineRunner {
     private static PipelineExecution.AnalysisMode analysisMode(
             CompilationArtifact left, CompilationArtifact right, boolean dynamicDisabled) {
         boolean stubbed = left.usesStubs() || right.usesStubs();
-        boolean projectContext = left.mode() == CompilationArtifact.CompilationMode.PROJECT_CONTEXT
-                || right.mode() == CompilationArtifact.CompilationMode.PROJECT_CONTEXT;
+        // SOURCE_PATH_CONTEXT is real project context too: the supporting classes are the project's
+        // own sources compiled under the same contract, not invented code, so it keeps full T4
+        // eligibility and reports as project context here. The exact per-side mode stays visible in
+        // the compilations provenance block.
+        boolean projectContext = isProjectContext(left.mode()) || isProjectContext(right.mode());
         if (stubbed) {
             return dynamicDisabled
                     ? PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT
@@ -295,6 +311,11 @@ public class WalaNextPipelineRunner {
         return dynamicDisabled
                 ? PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT
                 : PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC;
+    }
+
+    private static boolean isProjectContext(CompilationArtifact.CompilationMode mode) {
+        return mode == CompilationArtifact.CompilationMode.PROJECT_CONTEXT
+                || mode == CompilationArtifact.CompilationMode.SOURCE_PATH_CONTEXT;
     }
 
     private static PipelineExecution.CompilationProvenance provenance(CompilationArtifact artifact) {
