@@ -1,0 +1,6 @@
+block_id,source_file,statements,lines,tokens,imports
+D0001,s482619351.java,6,7,64,""
+D0002,s342172019.java,6,7,71,""
+D0003,s634210288.java,6,7,121,"import java.util.Map;;import java.util.HashMap;"
+D0004,s195923895.java,6,7,46,""
+D0005,s402449631.java,6,7,86,"import java.util.HashMap;"

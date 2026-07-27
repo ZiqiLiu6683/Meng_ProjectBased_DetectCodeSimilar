@@ -15,3 +15,27 @@ code-sim/results/bcb_smoke/*
 code-sim/results/experiments/
 code-sim/results/cloud-*/
 code-sim/errors.log
+
+# Mutation / injection / region-corpus experiment outputs.
+# Generated corpora and raw run output are large and fully reproducible from the
+# scripts + seed corpus; only the small scored artefacts are worth versioning.
+# Manifests hold absolute paths from the machine that produced them, so they are
+# regenerated rather than shared.
+code-sim/results/mutation-*/pairs/
+code-sim/results/mutation-*/run*/
+code-sim/results/mutation-*/*.jsonl
+code-sim/results/mutation-*/manifest.csv
+code-sim/results/mutation-*/exec_manifest*.csv
+code-sim/results/region-corpus-*/pairs/
+code-sim/results/region-corpus-*/run*/
+code-sim/results/region-corpus-*/*.jsonl
+code-sim/results/region-corpus-*/manifest*.csv
+code-sim/results/region-corpus-*/exec_manifest*.csv
+code-sim/results/spoon-t2-probe/
+
+# Spoon mutant generator: standalone Maven project, build output only.
+mutation-gen/target/
+
+# Runner logs: WALA emits call-graph debug output that reaches hundreds of MB per shard.
+*.log
+!code-sim/errors.log

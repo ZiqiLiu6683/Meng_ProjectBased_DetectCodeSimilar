@@ -1,0 +1,6 @@
+        java.util.Map<java.lang.String, java.lang.Integer> zz10d1_sutes = new java.util.HashMap<java.lang.String, java.lang.Integer>();
+        java.lang.String[] zz10d1_suite_rev = new java.lang.String[]{ "S", "H", "C", "D" };
+        zz10d1_sutes.put("S", 0);
+        zz10d1_sutes.put("H", 1);
+        zz10d1_sutes.put("C", 2);
+        zz10d1_sutes.put("D", 3);

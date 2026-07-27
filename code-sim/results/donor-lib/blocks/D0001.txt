@@ -1,0 +1,6 @@
+        java.lang.String[] zz811_week = new java.lang.String[7];
+        zz811_week[0] = "SUN";
+        zz811_week[1] = "MON";
+        zz811_week[2] = "TUE";
+        zz811_week[3] = "WED";
+        zz811_week[4] = "THU";

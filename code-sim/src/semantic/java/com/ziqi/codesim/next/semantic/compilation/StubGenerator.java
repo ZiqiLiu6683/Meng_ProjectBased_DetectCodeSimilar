@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * source and never invents executable semantics for Type-4 proof.
  */
 final class StubGenerator {
-    static final String VERSION = "3";
+    static final String VERSION = "4";
 
     private static final Pattern PACKAGE = Pattern.compile(
             "(?m)^\\s*package\\s+([A-Za-z_$][A-Za-z0-9_$.]*)\\s*;");
@@ -46,6 +46,13 @@ final class StubGenerator {
             "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(");
     private static final Pattern FIELD_ACCESS = Pattern.compile(
             "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\b(?!\\s*\\()");
+    /** javac naming the type it wanted where a generated member gave it something else. */
+    private static final Pattern INCOMPATIBLE_TYPES = Pattern.compile(
+            "incompatible types:\\s+([A-Za-z_$][A-Za-z0-9_$.]*)\\s+cannot be converted to\\s+"
+                    + "([A-Za-z_$][A-Za-z0-9_$.]*)");
+    /** A member read on the source line a diagnostic points at, e.g. {@code Owner.FIELD}. */
+    private static final Pattern QUALIFIED_MEMBER = Pattern.compile(
+            "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\b(?!\\s*[(.])");
     private static final Pattern EXTENDS_TYPE = Pattern.compile(
             "\\bextends\\s+([A-Za-z_$][A-Za-z0-9_$.]*(?:\\s*<[^>{}]+>)?)");
     private static final Pattern IMPLEMENTS_TYPES = Pattern.compile(
@@ -112,6 +119,34 @@ final class StubGenerator {
             if (variable.find() && location.find()) {
                 for (StubType owner : ownersForLocation(location.group(1), names)) {
                     owner.fields.add(variable.group(1));
+                }
+            }
+        }
+
+        // Learn the type javac actually wanted where a generated field handed it an Object. The
+        // diagnostic names the required type; the source line it points at names the member. Doing
+        // this per round lets the existing retry loop converge instead of regenerating the same
+        // Object-typed member forever. Only widen from the default: never overwrite a type already
+        // learned, so two conflicting uses do not oscillate between rounds.
+        for (CompilerDiagnostic diagnostic : diagnostics) {
+            if (diagnostic.kind() != javax.tools.Diagnostic.Kind.ERROR) {
+                continue;
+            }
+            Matcher incompatible = INCOMPATIBLE_TYPES.matcher(diagnostic.message());
+            if (!incompatible.find() || !"Object".equals(simpleName(incompatible.group(1)))) {
+                continue;
+            }
+            String wanted = incompatible.group(2);
+            if (wanted.startsWith("java.")) {
+                wanted = simpleName(wanted);
+            }
+            Matcher member = QUALIFIED_MEMBER.matcher(line(source, diagnostic.line()));
+            while (member.find()) {
+                String ownerName = variableTypes(source, names)
+                        .getOrDefault(member.group(1), names.resolve(member.group(1)));
+                StubType owner = findType(ownerName);
+                if (owner != null && owner.fields.contains(member.group(2))) {
+                    owner.fieldTypes.putIfAbsent(member.group(2), wanted);
                 }
             }
         }
@@ -214,10 +249,15 @@ final class StubGenerator {
                 .findFirst().orElse(null);
     }
 
+    /**
+     * Change counter driving the retry loop: the loop stops when a round adds nothing. Learning a
+     * field's real type changes no member COUNT, so the learned types must be counted too or the
+     * loop would stop before the corrected stub is ever compiled.
+     */
     private int fingerprintSize() {
         int size = types.size();
         for (StubType type : types.values()) {
-            size += type.methods.size() + type.fields.size();
+            size += type.methods.size() + type.fields.size() + type.fieldTypes.size();
         }
         return size;
     }
@@ -281,6 +321,8 @@ final class StubGenerator {
         private final StubKind kind;
         private final Set<String> methods = new LinkedHashSet<>();
         private final Set<String> fields = new LinkedHashSet<>();
+        /** Field name to the type javac said it wanted; absent means the safe default, Object. */
+        private final Map<String, String> fieldTypes = new LinkedHashMap<>();
 
         private StubType(String packageName, String simpleName, StubKind kind) {
             this.packageName = packageName;
@@ -319,7 +361,16 @@ final class StubGenerator {
             for (String field : fields) {
                 // A static field is legal through either Type.FIELD or an instance expression.
                 // The inverse is not true and caused non-static-reference failures in BCB files.
-                out.append("  public static Object ").append(field).append(";\n");
+                //
+                // The declared type is learned from javac rather than fixed at Object. Measured
+                // over 169 failed BigCloneBench compilations, an Object-typed member was the
+                // largest single cause: "cannot find symbol ... location: class java.lang.Object"
+                // (90) and "bad operand types for binary operator" (41). One missing dependency
+                // then cascades into unrelated errors, because every expression built on that
+                // member is also Object. javac names the type it wanted in
+                // "incompatible types: X cannot be converted to Y", so the next round declares Y.
+                out.append("  public static ").append(fieldTypes.getOrDefault(field, "Object"))
+                        .append(' ').append(field).append(";\n");
             }
             for (String method : methods) {
                 out.append("  public static <T> T ").append(method)

@@ -23,6 +23,349 @@ correct:
 
 ---
 
+## 2026-07-27 — Spoon operators, the negative stratum, and a valid timing baseline
+
+### Decision: Spoon is a supplementary instrument; official MIF stays as E2
+
+Restated here because the reasoning is easy to lose: `paper_evaluation_protocol.md` §6 requires the
+official MIF v1.0 release with recorded version and checksums so published MIF numbers stay
+comparable, and the 81% generation / 46% injection drop rates are recorded as **results**, not
+defects. A type-safe reimplementation cannot preserve `mSIL` (an undeclared placeholder *is* the
+operator) or `mARI` (inconsistent renaming *is* the operator), so 100% compilation across all 15
+operators is unreachable without silently redefining them.
+
+Spoon's defensible role is the gap official MIF structurally cannot cover on a compilation-based
+detector: `mSIL` (0% survival) and `mML` (≈2.5%) leave two of five T3 operators unexercised.
+
+**The stronger argument for Spoon is not the compile rate.** TXL operators choose their own site and
+`gen_mutants.py` recovers it afterwards by diffing; Spoon can place a known edit at a *chosen*
+statement range. The region-level contract requires T1–T3 ground truth to be statement-level and
+boundary-free, which needs exactly that ability.
+
+### Finding: Spoon's sniper printer is edit-local, which is the property the ground truth needs
+
+**measured**, 39 of 39 files. The first probe asked the wrong question — byte-fidelity against the
+original file, which sniper fails (0/60: `class Main{` becomes `class Main {`). That does not
+matter: both sides of a pair are Spoon output, so unchanged code only has to match *the other side*.
+The property that does matter is edit locality, and renaming one local variable changed exactly the
+lines mentioning that identifier — 3.9 lines changed, 3.9 expected, zero extra noise.
+
+### Finding: type-safe operators reach 100% survival; every residual failure was a Java rule
+
+**measured** on 200 seeds (the 7 that do not compile standalone excluded first, so all figures are
+mutation-induced only).
+
+| Operator | MIF counterpart | before fixes | after fixes | TXL original |
+| --- | --- | ---: | ---: | ---: |
+| `ins` | `mIL` | 98.5% | **100.0%** | ~36% (10/28) |
+| `del` | `mDL` | 96.0% | **100.0%** | ~91% (10/11) |
+| `wrap` | `mML` | 96.0% | **97.5%** | **~1% (2/200)** |
+| rename | `mSRI` | 100.0% | 100.0% | ~71% (10/14) |
+
+Zero compile failures across 600 mutations after the fixes. The three residual causes were all
+definite-assignment or reachability rules, not a failure of Spoon's type model:
+
+- `ins` → `unreachable statement`: anchored after a `return`.
+- `del` → `variable X might not have been initialized`: the safety check covered declarations but
+  not *assignments* to a variable declared without an initialiser.
+- `wrap` → `missing return statement`: javac does not treat `if (true)` as guaranteeing execution
+  (unlike `while (true)`), so wrapping a method's only `return` leaves it able to complete normally.
+
+Each fix narrows where the operator applies. MIF operators already carry applicability predicates,
+so this is **not** an additional deviation to declare; the only declared deviation remains
+"placeholder made type-correct". `wrap`'s residual 2.5% is applicability (five seeds whose
+top-level statements are all declarations or contain `return`), not compilation.
+
+**Retracted: "Spoon 96.5% vs TXL 19%".** The 19% is an aggregate over 15 operators while the Spoon
+figure covered renaming only. The comparison above is per-operator.
+
+### Retracted: "without a region-level negative, precision cannot be measured"
+
+**Own invention, not a protocol requirement.** §4 defines localisation as minimum-side **boundary
+precision** (`|G∩P|/|P|`) and IoU — over-reach measured on positives alone — and §4.1 defines both
+false-positive definitions at pair level. `score_results_v2.py` already emits
+`boundary_precision_left/right` and `iou_left/right` (lines 274–277, 321–322), **code-verified**, so
+no new mechanism is needed.
+
+This retraction closed a line of work that had already been measured to be unproductive: a library
+of portable donor blocks yielded 5 validated blocks from 6,000 files (~63 projected over the full
+corpus) and all of them were constant-table initialisation (`week[0]="SUN"`, `hashMap.put(...)`).
+That is a **systematic bias**, not bad luck: requiring every variable read to be declared inside the
+block excludes anything that processes input, leaving only literal setup. Three probe defects were
+found and fixed along the way (Spoon models a comment as a `CtStatement`, so runs of commented-out
+code passed every check; "not a declaration" was too lax a definition of substantive; the output
+directory was never cleared, so stale blocks from earlier runs survived alongside current ones).
+
+### Finding: unrelated CodeNet files share ~16 tokens of scaffolding, and same-problem pairs share no more
+
+**measured** over 400 different-problem and 188 same-problem whole-file pairs, using the longest run
+of *consecutive* shared tokens (token-set overlap is useless here — it is high for any two Java
+files).
+
+| | median | p90 | p99 | max |
+| --- | ---: | ---: | ---: | ---: |
+| different-problem | 16 | 27 | 36 | 59 |
+| same-problem | 17 | 29 | 44 | 51 |
+
+The two distributions being identical says the shared runs are not problem logic, and inspection
+confirms it directly: `Scanner sc = new Scanner ( System . in ) ;` (11 tokens),
+`class Main { public static void main ( String [ ] args ) { Scanner` (15 tokens).
+
+An earlier block-level measurement (median 4, max 5 shared tokens) **does not carry over** to whole
+files and was not used.
+
+**Decision:** the negative stratum is different-problem pairs with a longest shared run below **30
+tokens** — above the scaffolding ceiling (p90 = 27), and 95.8% of different-problem pairs qualify.
+Residual scaffolding still exceeds `RegionGrower`'s floor of two substantive aligned pairs, so the
+detector may legitimately report a template region inside a pair labelled non-clone. §4.1 already
+prescribes the handling: report both false-positive definitions and audit the strict-product tier.
+
+### Finding: `--skip-dynamic` changes no syntactic verdict, and 76/76 complete
+
+**measured**, `results/mutation-injected-smoke/run3-skipdyn`, cold cache
+(`cache=miss, stubs=0, mode=STANDALONE` on all 152 sides), 2 workers × `-Xmx1600m`:
+
+| | value |
+| --- | ---: |
+| completed | **76 / 76**, all `SOURCE_PLUS_WALA_SMT`, 0 fallback |
+| median wall | **40.8 s** / pair |
+| p90 / max | 54.9 s / 999 s (heavy tail) |
+| total pair work | 102 min → ~51 min wall at 2 workers |
+| runner logs | **0 MB** (36 GB with the dynamic tier enabled) |
+
+| Stage | median | share |
+| --- | ---: | ---: |
+| `regions` | 34.2 s | **87.0%** |
+| `smt` | 2.45 s | 6.2% |
+| `graph` | 2.24 s | 5.7% |
+| `compile` (both sides) | 0.16 s | 0.4% |
+
+Comparing the 59 pairs completed by both this run and `run2` (dynamic enabled): **0 differences in
+detection and 0 in type**. This is the empirical confirmation of the claim in
+`WalaNextPipelineRunner.java:231` that the syntactic categories never need the dynamic tier, so
+freezing `skip_dynamic=true` for T1–T3 costs nothing.
+
+**Retracted: "median 234 s/pair, so skipping the dynamic tier saves only 3%".** That measurement ran
+4 JVMs at `-Xmx4g` on an **8 GB** machine — a 2× heap oversubscription — and reported swap pressure,
+not pipeline cost. The same oversubscription later killed a run outright. Machine memory was never
+checked before choosing `--workers`/`--xmx`; `run_shards.py` defaults to `4g` per shard, so worker
+count must always be sized against physical RAM.
+
+**Unknown:** how much of the ~6× improvement comes from skipping the dynamic tier versus from
+removing memory pressure. Two variables changed together, and isolating them needs a dynamic-enabled
+run at 2 workers, which hangs on the `DynamicEquivalenceChecker` thread-pool leak.
+
+Revised planning figure, from the mean of 80.5 s/pair at 2 workers: 1,000 pairs ≈ 11 h, 2,000 ≈ 22 h.
+**`regions` is the constraint on corpus size** — not seed supply (~12,900 usable) and not operator
+survival (~100%).
+
+### Finding: the region growth loops are bounded
+
+**code-verified**, after an out-of-memory kill raised the question. `growFrom`'s
+`while (!frontier.isEmpty())` only grows the frontier through `tryAdd`, whose `alignment` and
+`usedRight` sets are monotonic and bounded by the graph node count; `reachableTargets`'s expansion
+enqueues only when `depth < MAX_BRIDGE_DEPTH` and the recorded depth improves. Neither can diverge.
+The only non-terminating path in the system remains the known `DynamicEquivalenceChecker` thread
+leak, which `--skip-dynamic` avoids.
+
+### Finding: seed availability is not the constraint
+
+**measured** with Spoon over 400 CodeNet files. A first probe required all mutated ranges inside one
+method (largest method: median 19 lines, p90 34) and found only 2.3% usable — but that constraint
+was **self-imposed and wrong**: the contract forbids a syntactic type from *being* a method, not
+from living in different methods. Counting each method's capacity for padded 6-line ranges:
+
+| design | usable | projected over 75,000 files |
+| --- | ---: | ---: |
+| 2 ranges × 6 lines, 3-line padding | 39.0% | ~29,250 |
+| **3 ranges × 6 lines, 3-line padding** | **17.3%** | **~12,937** |
+| 4 ranges × 6 lines, 3-line padding | 8.5% | ~6,375 |
+
+**Retracted: "~9,300 files have ≥3 methods".** That came from a regex method counter that also
+matched `if (…) {`, `for (…) {` and `catch (…) {`. Spoon's AST count gives median 1 method per file,
+p75 = 1, p90 = 5.
+
+The 6-line range is also confirmed against the detector rather than assumed: `RegionGrower`'s
+emission floor is `minPairs=2, minSubstantivePairs=2` **graph node pairs** (`RegionGrower()` default,
+code-verified), far below 6 lines, and `score_results_v2.py --min-region-lines` defaults to 6. The
+earlier "≥6 lines, ≥50 tokens" figure was `bcb_extract.py`'s filter for selecting BCB *references*,
+not the detector's threshold.
+
+---
+
+## 2026-07-27 — Injection corpus: first Phase A/B run, and a ground truth that violated the contract
+
+### Finding: a compilable corpus does make Phase A/B run — zero fallback
+
+**measured** on `results/mutation-injected-smoke/run2`, 59 of 76 injected pairs completed
+(the run was stopped early, see the disk finding below):
+
+| | value |
+| --- | ---: |
+| `analysisMode = SOURCE_PLUS_WALA_SMT_DYNAMIC` | **59 / 59** |
+| `fallbackStage` non-empty | 0 |
+| `compile_left` / `compile_right` SUCCESS | 59 / 59 |
+| generated stubs used | **0** (`mode=STANDALONE`) |
+| median wall time | 241 s / pair |
+
+This is the first run in the project where every scored pair went through the compiled path.
+The contrast is with `results/bcb_smoke`, where **118 of 140 (84%)** took the source-only
+fallback — those pairs never exercised the system under test at all.
+Cause of the difference, **code-verified**: CodeNet submissions are self-contained single files,
+so nothing has to be stubbed.
+
+Three questions: both arms are the same build (`phaseab-full76`, one `run_shards` invocation,
+`target/classes` rebuilt at 21:33 with the working-tree `StubGenerator`); compile cache was cold
+for both (`cache=miss` on every row); a broken measurement would have shown up as a missing or
+empty `analysisMode`, which the scorer counts separately as `MISSING` — and it did, for the 17
+pairs that never ran.
+
+### Retracted: "the 44% detection rate is a scoring-convention artifact"
+
+**inferred, then disproved by re-reading the region-level contract.**
+
+Strict c-match (min-side reference coverage ≥ 0.70) over the pairs that actually ran:
+
+| | T1 | T2 | T3 |
+| --- | ---: | ---: | ---: |
+| ran | 26 | 17 | 16 |
+| c-matched | 10 (38.5%) | 9 (52.9%) | 7 (43.8%) |
+| conditional type accuracy | 100% | 55.6% | 100% |
+
+Every undetected pair had a predicted region **strictly inside** the reference range
+(e.g. GT `(8,21)` vs predicted `(13,18)`). I concluded the reference block was too coarse and
+that the metric was penalising boundary definition rather than detection, and I quoted an
+`any-correct-overlap` figure of 96.6% (57/59) as the "real" number.
+
+Both moves were wrong:
+
+1. `paper_evaluation_protocol.md` §4 already states that `any-correct-overlap` is **a diagnostic
+   only, not a headline result**. Quoting it as the corrected detection rate was exactly the
+   substitution the protocol forbids.
+2. The actual defect is the ground truth, not the metric. `inject_mutants.py` labels the whole
+   injected nested static class as one region, i.e. a **boundary-aligned, class-scoped** reference
+   for a syntactic type. The region-level contract requires the opposite: T1/T2/T3 are
+   region-level only and must never be scoped to a method (or any other declaration boundary),
+   because Phase A is designed to grow regions **without** function boundaries. The detector
+   emitting `CALL_EXPANDED_REGION` sub-regions was correct behaviour; the reference was the thing
+   in breach.
+
+**Consequence:** T1–T3 reference ranges must be statement-level sub-method ranges. The mutation
+operators already edit at that granularity — the class-block reference was introduced by the
+injection wrapper, not by the operators.
+
+Also retracted, from the same reasoning: the proposal to assign one clone type per *method*
+(T2 in method A, T3 in method B, untouched methods labelled T1). That reproduces, inside the
+ground truth, the same method-scoped syntactic typing that was already found and disabled in the
+discovRE/kNN channel.
+
+### Finding: host template code breaks the injection premise on CodeNet
+
+**measured.** `inject_mutants.py` assumes "the only thing the two files have in common is the
+injected fragment". On CodeNet that assumption is false. Of the 57 pairs with any overlap,
+**36 emitted regions outside the reference range, median 77 lines**. Inspected content is
+competition boilerplate shared by unrelated submissions:
+
+```java
+while (st == null || !st.hasMoreElements())
+    st = new StringTokenizer(br.readLine());     // FastReader template
+MyScanner sc = new MyScanner();                  // IO template
+```
+
+These are **real clones between the two hosts**, correctly reported. The reference table lists
+only the injected fragment, so the ground truth is incomplete and no false-positive figure
+computed against it is valid. Union-of-regions IoU makes this visible: it scores *worse*
+(27.1% ≥ 0.70) than best-single-region (54.2%), because the union absorbs the template regions.
+
+Sampled contamination rate: of 4,000 CodeNet files in the 40–400 line band, **525 contain a
+recognisable IO/fast-reader template and 466 do not** — 47% clean. Whole-file token-set Jaccard
+between "clean" files still has median 0.383, but that figure is **not evidence of
+contamination**: identifier-set overlap is high for any two Java files. Contiguous common token
+runs are the quantity a clone detector responds to and were not measured before this direction
+was set aside.
+
+### Finding: the dynamic tier must not run over corpus code — thread leak, not just crashes
+
+**measured**, reproduced identically in two independent runs (both died on `mCC_EOL_00003`).
+
+Two distinct failures, both from `-Dcodesim.skipDynamic` being left at its default:
+
+1. **Blocked/failed execution.** `DynamicEquivalenceChecker` invokes the subject's `main()`.
+   Every CodeNet submission reads stdin, so the sampled invocation either throws
+   `java.io.IOException: Stream closed` at `Main$FastReader.next` or blocks forever.
+2. **Non-terminating JVM.** `jstack` on a shard that had already written all 19/19 records showed
+   thread pools numbered to `pool-358` — one per dynamic check, never shut down — each a
+   non-daemon thread still consuming CPU. The shards ran a further ~2 hours at 100–280% CPU after
+   their work was complete and had to be killed; `run_shards` exited 1 as a result.
+
+`paper_evaluation_protocol.md` §5 already freezes `skip_dynamic=true` for the primary runner and
+§7 prohibits dynamic execution of external corpus code in the ordinary batch JVM. The protocol was
+not consulted before the run. Both failures are fully avoided by honouring it.
+
+### Finding: WALA debug output is an operational hazard at batch scale
+
+**measured.** Four shards wrote **36 GB** of `got NEW <...> in Node: <...>` call-graph tracing in
+roughly one hour, taking free disk from 57 GiB to 13 GiB. The string is assembled at runtime
+(`"got " + instanceKey`), is not present as a literal in any classpath jar, and `BatchPairMain`
+has no quiet flag — so it cannot be switched off from the outside.
+
+Mitigation used, **measured** as effective: an external watchdog truncating each shard log in
+place above 200 MB. `run_shards` opens logs with `O_APPEND`, and truncation under `O_APPEND`
+frees the space immediately and restarts the next write at offset 0 with no sparse hole
+(verified: 1,000,000 → 0 → 100 bytes). Over the second run it fired 202 times and free disk stayed
+flat. The logs themselves were deleted afterwards; they are regenerable debug output, not code.
+
+### Decision: Spoon is evaluated as a *supplementary* instrument, not a replacement for MIF
+
+**measured** on 200 CodeNet seeds, scope-aware Type-2 renaming via Spoon 11.5.0
+`CtRenameLocalVariableRefactoring`:
+
+| | value |
+| --- | ---: |
+| pairs kept | **193 / 200 (96.5%)** |
+| dropped because the *mutation* broke compilation | **0** |
+| dropped because the *seed* does not compile standalone | 7 |
+| regions per pair | 3.7 |
+| lines per region | 2.0 |
+
+A prerequisite was measured first, because the whole approach depends on it. Spoon regenerates
+source from its model, so the question is not fidelity to the original file — both sides of a pair
+are Spoon output — but **edit locality**: does a local edit change only local text? With the
+sniper printer, renaming one local variable changed exactly the lines mentioning that identifier
+in **39 of 39** files (3.9 lines changed, 3.9 expected, zero extra noise). Unmodified code is
+therefore byte-identical between the two sides.
+
+**The headline comparison "96.5% vs TXL's 19%" is not apples-to-apples and is retracted.** The
+19% is an aggregate over 15 TXL operators; the Spoon figure covers renaming only. The fair
+comparison is against the TXL operators of the same kind: `mSRI` ≈ 71% (10 kept / 14 tried),
+`mARI` ≈ 7% (10 / 137). TXL's six T1 operators were already 100%.
+
+Why Spoon does not replace MIF:
+
+- §6 requires the official MIF v1.0 release with recorded version and checksums, so published
+  MIF results stay comparable. A reimplementation is a different instrument.
+- The 81% generation drop and 46% injection drop are recorded as **results** — properties of the
+  operators and of the injection method. Engineering them away deletes a finding rather than
+  producing one.
+- Some MIF operators are compilation-breaking *by definition* (`mSIL` inserts an undeclared
+  placeholder; `mARI`'s whole point is inconsistent renaming). No type-aware reimplementation can
+  preserve their definition and also compile. 100% compilation across all 15 operators is
+  therefore **not achievable**, and claiming it would mean silently redefining the operators.
+
+Spoon's defensible role is to cover what official MIF structurally cannot test on a
+compilation-based detector: `mSIL` (0% survival) and `mML` (≈2.5%) leave two of five T3 operators
+effectively unexercised. That gap is worth its own reported experiment, with the deviation from
+the MIF definitions stated explicitly.
+
+### Finding: CodeNet seeds are too small for declaration-scoped region design
+
+**measured** over 193 seeds: median **1 method** and **24 lines** per file; 75% have at most one
+method. Filtering to ≥60 lines *and* ≥3 methods leaves 12% of the corpus (~9,300 files of 75,000).
+This was measured while evaluating the method-scoped design that has since been retracted above;
+it is retained because it also bounds any future design that needs multiple declarations per seed.
+
+---
+
 ## 2026-07-26 — MIF mutation corpus
 
 ### Decision: seed corpus is CodeNet Java250, not IJaDataset or TheAlgorithms

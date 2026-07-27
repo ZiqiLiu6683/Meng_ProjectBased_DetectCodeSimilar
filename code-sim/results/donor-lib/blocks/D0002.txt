@@ -1,0 +1,6 @@
+        boolean zzf83_cards[][] = new boolean[4][13];
+        java.lang.String zzf83_markList[] = new java.lang.String[4];
+        zzf83_markList[0] = "S";
+        zzf83_markList[1] = "H";
+        zzf83_markList[2] = "C";
+        zzf83_markList[3] = "D";

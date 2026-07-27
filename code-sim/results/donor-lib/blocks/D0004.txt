@@ -1,0 +1,6 @@
+        int[] zz12d5_candidates = new int[9];
+        zz12d5_candidates[0] = 111;
+        zz12d5_candidates[1] = 222;
+        zz12d5_candidates[2] = 333;
+        zz12d5_candidates[3] = 444;
+        zz12d5_candidates[4] = 555;

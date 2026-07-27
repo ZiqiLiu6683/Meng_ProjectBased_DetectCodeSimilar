@@ -1,0 +1,4 @@
+group,analysis_mode,n,detected,typed,errors
+T1,SOURCE_PLUS_WALA_SMT,33,11,11,0
+T2,SOURCE_PLUS_WALA_SMT,22,14,10,0
+T3,SOURCE_PLUS_WALA_SMT,21,8,8,0

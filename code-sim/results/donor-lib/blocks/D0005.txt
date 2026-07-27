@@ -1,0 +1,6 @@
+        java.util.HashMap<java.lang.String, java.lang.Integer> zz1372_hashMap = new java.util.HashMap<>();
+        zz1372_hashMap.put("SUN", 7);
+        zz1372_hashMap.put("MON", 6);
+        zz1372_hashMap.put("TUE", 5);
+        zz1372_hashMap.put("WED", 4);
+        zz1372_hashMap.put("THU", 3);
