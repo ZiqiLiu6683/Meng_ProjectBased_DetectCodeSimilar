@@ -343,12 +343,29 @@ public class NextJsonReportFormatter {
         field(out, level + 1, "kind", region.kind().name(), true);
         field(out, level + 1, "displayName", region.displayName(), true);
         field(out, level + 1, "beginLine", region.beginLine(), true);
-        field(out, level + 1, "endLine", region.endLine(), false);
+        field(out, level + 1, "endLine", region.endLine(), true);
+        // beginLine/endLine are only the bounding box. "segments" is what the verdict covers, and
+        // for a region grown across two methods the two differ substantially.
+        appendSegments(out, level + 1, region.segments());
         indent(out, level).append('}');
         if (comma) {
             out.append(',');
         }
         out.append('\n');
+    }
+
+    /** {@code "segments":[{"begin":12,"end":20},{"begin":95,"end":100}]} — no trailing comma. */
+    private static void appendSegments(StringBuilder out, int level, List<LineSegment> segments) {
+        indent(out, level).append("\"segments\": [");
+        for (int i = 0; i < segments.size(); i++) {
+            LineSegment segment = segments.get(i);
+            out.append("{\"begin\": ").append(segment.begin())
+                    .append(", \"end\": ").append(segment.end()).append('}');
+            if (i < segments.size() - 1) {
+                out.append(", ");
+            }
+        }
+        out.append("]\n");
     }
 
     private static void appendSources(StringBuilder out, int level,

@@ -224,12 +224,25 @@ public class NextEvidenceExtractor {
                 displayName,
                 beginLine,
                 endLine,
+                // A block sequence drops nested blocks, so consecutive statements here can still
+                // leave a hole; a statement window is contiguous and simply yields one run.
+                segmentsOf(statements),
                 List.copyOf(rawTokens),
                 List.copyOf(t1Tokens),
                 List.copyOf(t2Tokens),
                 List.copyOf(statementTexts),
                 List.copyOf(normalizedStatementTexts)
         );
+    }
+
+    /** The line runs a set of statements occupies, coalesced. */
+    private static List<LineSegment> segmentsOf(List<Statement> statements) {
+        List<LineSegment> segments = new ArrayList<>();
+        for (Statement statement : statements) {
+            statement.getRange().ifPresent(range ->
+                    segments.add(new LineSegment(range.begin.line, range.end.line)));
+        }
+        return LineSegment.normalize(segments);
     }
 
     private static List<Statement> nonBlockStatements(Node node) {
@@ -326,8 +339,13 @@ public class NextEvidenceExtractor {
                 .mapToInt(r -> r.begin.line).min().orElse(-1);
         int endLine = outermost.stream().flatMap(s -> s.getRange().stream())
                 .mapToInt(r -> r.end.line).max().orElse(-1);
+        // The runs the tokens above came from. Growth can spread this region across two methods, so
+        // beginLine..endLine may enclose code that belongs to neither -- and the clone type is
+        // decided on `outermost` alone, never on the enclosed remainder.
+        List<LineSegment> segments = segmentsOf(outermost);
         return new CodeRegion(id, side, RegionKind.CALL_EXPANDED_REGION, "aligned region " + id,
-                beginLine, endLine, List.copyOf(rawTokens), List.copyOf(t1Tokens), List.copyOf(t2Tokens),
+                beginLine, endLine, segments,
+                List.copyOf(rawTokens), List.copyOf(t1Tokens), List.copyOf(t2Tokens),
                 List.copyOf(statementTexts), List.copyOf(normalizedStatementTexts));
     }
 

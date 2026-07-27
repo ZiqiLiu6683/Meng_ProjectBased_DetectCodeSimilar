@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.ziqi.codesim.next.CandidateSource;
 import com.ziqi.codesim.next.CloneRegionType;
 import com.ziqi.codesim.next.CodeRegion;
+import com.ziqi.codesim.next.LineSegment;
 import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.RegionCandidate;
 import com.ziqi.codesim.next.RegionDecision;
@@ -145,12 +146,31 @@ public final class RegionWebServer {
                 + "\"type\":\"" + type.name() + "\","
                 + "\"scope\":\"" + (regionScope ? "region" : "method") + "\","
                 + "\"crossMethod\":" + crossMethod + ","
-                + "\"left\":{\"begin\":" + left.beginLine() + ",\"end\":" + left.endLine() + "},"
-                + "\"right\":{\"begin\":" + right.beginLine() + ",\"end\":" + right.endLine() + "},"
+                // begin/end stay as the bounding box for anything that wants one span; "segments"
+                // is what the verdict actually covers, so the UI can avoid highlighting code that
+                // sits between two runs of a cross-method region and was never compared.
+                + "\"left\":{\"begin\":" + left.beginLine() + ",\"end\":" + left.endLine()
+                + ",\"segments\":" + segmentsJson(left) + "},"
+                + "\"right\":{\"begin\":" + right.beginLine() + ",\"end\":" + right.endLine()
+                + ",\"segments\":" + segmentsJson(right) + "},"
                 + "\"similarity\":" + similarity + ","
                 + "\"tags\":[" + String.join(",", tags) + "],"
                 + "\"path\":[" + String.join(",", path) + "]"
                 + "}";
+    }
+
+    private static String segmentsJson(CodeRegion region) {
+        StringBuilder out = new StringBuilder("[");
+        List<LineSegment> segments = region.segments();
+        for (int i = 0; i < segments.size(); i++) {
+            LineSegment segment = segments.get(i);
+            if (i > 0) {
+                out.append(',');
+            }
+            out.append("{\"begin\":").append(segment.begin())
+                    .append(",\"end\":").append(segment.end()).append('}');
+        }
+        return out.append(']').toString();
     }
 
     /** Region-only counting: a Phase A region of a clone type, OR a method-level behavioural T4. */

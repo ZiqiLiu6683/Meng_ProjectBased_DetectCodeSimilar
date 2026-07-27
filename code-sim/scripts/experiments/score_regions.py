@@ -90,19 +90,37 @@ def right_range(left_lines: list[str], right_lines: list[str],
     return lo, hi
 
 
-def overlap(a: tuple[int, int], b: tuple[int, int]) -> int:
-    return max(0, min(a[1], b[1]) - max(a[0], b[0]) + 1)
+def segments_of(endpoint: dict) -> list[tuple[int, int]]:
+    """The runs the verdict actually covers, falling back to the bounding box for old results.
+
+    A region is not necessarily contiguous: `beginLine`/`endLine` are only the minimum and maximum
+    over its statements, so a region reported as lines 12-100 may really be 12-17, 22-23 and 96-100.
+    Scoring the bounding box lets a prediction that encloses the reference score full coverage while
+    having examined almost none of it, which is exactly what the protocol's parallel substance-line
+    reporting exists to prevent.
+    """
+    raw = endpoint.get("segments")
+    if raw:
+        return [(int(s["begin"]), int(s["end"])) for s in raw]
+    return [(int(endpoint["beginLine"]), int(endpoint["endLine"]))]
 
 
-def size(span: tuple[int, int]) -> int:
-    return span[1] - span[0] + 1
+def lines_of(segments: list[tuple[int, int]]) -> set[int]:
+    covered: set[int] = set()
+    for begin, end in segments:
+        if end >= begin >= 1:
+            covered.update(range(begin, end + 1))
+    return covered
 
 
-def quality(reference: tuple[int, int], prediction: tuple[int, int]) -> tuple[float, float, float]:
-    inter = overlap(reference, prediction)
-    union = size(reference) + size(prediction) - inter
-    coverage = inter / size(reference) if size(reference) else 0.0
-    precision = inter / size(prediction) if size(prediction) else 0.0
+def quality(reference: list[tuple[int, int]],
+            prediction: list[tuple[int, int]]) -> tuple[float, float, float]:
+    g = lines_of(reference)
+    p = lines_of(prediction)
+    inter = len(g & p)
+    union = len(g | p)
+    coverage = inter / len(g) if g else 0.0
+    precision = inter / len(p) if p else 0.0
     return coverage, precision, (inter / union if union else 0.0)
 
 
@@ -125,7 +143,9 @@ def main() -> None:
     scored_rows: list[dict] = []
     source_cache: dict[str, list[str]] = {}
 
-    def lines_of(path: str) -> list[str]:
+    # Named distinctly from the module-level lines_of(segments): the two take different things and
+    # a shadowed name here would silently change what quality() compares.
+    def source_lines(path: str) -> list[str]:
         if path not in source_cache:
             source_cache[path] = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         return source_cache[path]
@@ -135,8 +155,8 @@ def main() -> None:
         entry = manifest.get(pair_id)
         if entry is None:
             continue
-        left_lines = lines_of(entry["left_path"])
-        right_lines = lines_of(entry["right_path"])
+        left_lines = source_lines(entry["left_path"])
+        right_lines = source_lines(entry["right_path"])
 
         predictions = []
         if record is not None:
@@ -144,13 +164,17 @@ def main() -> None:
                 predictions.append({
                     "id": region.get("candidateId", ""),
                     "type": region.get("type", ""),
-                    "left": (region["left"]["beginLine"], region["left"]["endLine"]),
-                    "right": (region["right"]["beginLine"], region["right"]["endLine"]),
+                    "left": segments_of(region["left"]),
+                    "right": segments_of(region["right"]),
+                    "left_box": [(region["left"]["beginLine"], region["left"]["endLine"])],
+                    "right_box": [(region["right"]["beginLine"], region["right"]["endLine"])],
                 })
 
         for ref in refs:
-            g_left = (int(ref["left_begin"]), int(ref["left_end"]))
-            g_right = right_range(left_lines, right_lines, *g_left)
+            g_left_span = (int(ref["left_begin"]), int(ref["left_end"]))
+            g_right_span = right_range(left_lines, right_lines, *g_left_span)
+            g_left = [g_left_span]
+            g_right = None if g_right_span is None else [g_right_span]
             row = {
                 "pair_id": pair_id,
                 "region_index": ref["region_index"],
@@ -158,19 +182,32 @@ def main() -> None:
                 "operator": ref["operator"],
                 "analysis_mode": "" if record is None else record.get("analysisMode", ""),
                 "status": "missing" if record is None else record.get("status", ""),
-                "left_begin": g_left[0], "left_end": g_left[1],
-                "right_begin": "" if g_right is None else g_right[0],
-                "right_end": "" if g_right is None else g_right[1],
+                "left_begin": g_left_span[0], "left_end": g_left_span[1],
+                "right_begin": "" if g_right_span is None else g_right_span[0],
+                "right_end": "" if g_right_span is None else g_right_span[1],
                 "detected": False, "primary_type": "", "type_correct": False,
                 "coverage_min": 0.0, "precision_min": 0.0, "iou_min": 0.0,
+                "box_coverage_min": 0.0, "box_precision_min": 0.0, "box_iou_min": 0.0,
+                "box_detected": False,
                 "predictions": len(predictions),
             }
             if g_right is not None and predictions:
                 ranked = []
+                box_ranked = []
                 for prediction in predictions:
                     cl, pl, il = quality(g_left, prediction["left"])
                     cr, pr, ir = quality(g_right, prediction["right"])
                     ranked.append((min(il, ir), min(pl, pr), min(cl, cr), prediction))
+                    # Control arm: the same computation on the bounding box, kept so the report can
+                    # quantify how much the old convention overstated coverage.
+                    bcl, bpl, bil = quality(g_left, prediction["left_box"])
+                    bcr, bpr, bir = quality(g_right, prediction["right_box"])
+                    box_ranked.append((min(bil, bir), min(bpl, bpr), min(bcl, bcr)))
+                box_ranked.sort(key=lambda item: (-item[0], -item[1], -item[2]))
+                row["box_iou_min"] = round(box_ranked[0][0], 4)
+                row["box_precision_min"] = round(box_ranked[0][1], 4)
+                row["box_coverage_min"] = round(box_ranked[0][2], 4)
+                row["box_detected"] = box_ranked[0][2] >= args.c_match
                 # Boundary quality first, type never consulted; candidate id breaks ties stably.
                 ranked.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]["id"]))
                 best_iou, best_precision, best_coverage, best = ranked[0]
@@ -197,17 +234,29 @@ def main() -> None:
              "| Median min IoU | Median min boundary precision |",
              "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
 
+    control: list[str] = []
     for expected in sorted({row["expected"] for row in scored_rows}):
         group = [row for row in scored_rows if row["expected"] == expected]
         detected = [row for row in group if row["detected"]]
         correct = [row for row in detected if row["type_correct"]]
         ious = sorted(row["iou_min"] for row in detected) or [0.0]
         precisions = sorted(row["precision_min"] for row in detected) or [0.0]
+        box_detected = [row for row in group if row["box_detected"]]
+        box_ious = sorted(row["box_iou_min"] for row in box_detected) or [0.0]
+        control.append(
+            f"| {expected} | {len(group)} | {len(box_detected) / len(group) * 100:.2f}% "
+            f"| {statistics.median(box_ious):.3f} |")
         lines.append(
             f"| {expected} | {len(group)} | {len(detected) / len(group) * 100:.2f}% "
             f"| {len(correct) / len(group) * 100:.2f}% "
             f"| {(len(correct) / len(detected) * 100 if detected else 0.0):.2f}% "
             f"| {statistics.median(ious):.3f} | {statistics.median(precisions):.3f} |")
+
+    lines += ["", "## Control: same scoring on the bounding box (begin..end)", "",
+              "Reported because the difference is the point: a prediction that merely ENCLOSES the",
+              "reference scores full coverage here while covering almost none of it.", "",
+              "| Expected | N | Detection | Median min IoU |", "| --- | ---: | ---: | ---: |"]
+    lines += control
 
     confusion = Counter((row["expected"], row["primary_type"] or "NOT_DETECTED") for row in scored_rows)
     lines += ["", "## Type confusion (expected -> primary matched prediction)", "",

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AnalyzeResponse, CloneFamily, RegionVerdict } from "./types";
+import type { AnalyzeResponse, CloneFamily, LineSpan, RegionVerdict } from "./types";
 import { SAMPLE, DEMO_LEFT, DEMO_RIGHT } from "./sample";
 
 const FAMILY: Record<CloneFamily, { name: string; tone: string; soft: string }> = {
@@ -476,6 +476,7 @@ function Sidebar(props: {
                 </div>
                 <div className="mt-1 text-[12px] text-ink-soft font-mono">
                   L{r.left.begin}–{r.left.end} · R{r.right.begin}–{r.right.end}
+                  {coverageNote(r.left)}
                   {r.similarity != null && ` · sim ${r.similarity.toFixed(2)}`}
                 </div>
               </button>
@@ -603,6 +604,26 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
-function within(span: { begin: number; end: number }, line: number): boolean {
+/**
+ * How much of the bounding box the region really covers, shown only when the two differ.
+ * "L12-100" on its own reads as 89 contiguous lines; when the region is three runs totalling 13
+ * lines, the label has to say so or it contradicts the highlighting right next to it.
+ */
+function coverageNote(span: LineSpan): string {
+  const segments = span.segments;
+  if (!segments || segments.length === 0) return "";
+  const covered = segments.reduce((sum, s) => sum + (s.end - s.begin + 1), 0);
+  const boxed = span.begin > 0 ? span.end - span.begin + 1 : 0;
+  if (segments.length <= 1 || covered >= boxed) return "";
+  return ` · ${covered} lines in ${segments.length} runs`;
+}
+
+function within(span: LineSpan, line: number): boolean {
+  // Prefer the real runs. Falling back to the bounding box would highlight code between two runs
+  // of a cross-method region -- code the verdict never compared, so it must not be coloured as
+  // part of the match. The fallback exists only for a backend that predates `segments`.
+  if (span.segments && span.segments.length > 0) {
+    return span.segments.some((s) => line >= s.begin && line <= s.end);
+  }
   return span.begin > 0 && line >= span.begin && line <= span.end;
 }

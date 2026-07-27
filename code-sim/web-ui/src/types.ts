@@ -13,10 +13,27 @@ export type CloneType =
   | "T4_DYNAMIC_EVIDENCE"
   | "POSSIBLE_T4_CANDIDATE";
 
-export interface LineSpan {
-  /** 1-based inclusive line range on that side; 0/absent when not applicable. */
+export interface LineSegment {
+  /** 1-based inclusive run of lines that is genuinely part of the region. */
   begin: number;
   end: number;
+}
+
+export interface LineSpan {
+  /**
+   * Bounding box: the minimum and maximum line of the region, 0/absent when not applicable.
+   * NOT the region's content -- a region grown across two methods encloses code belonging to
+   * neither, so highlighting begin..end colours lines the verdict never examined. Use `segments`.
+   */
+  begin: number;
+  end: number;
+  /**
+   * The contiguous runs the region is actually made of, ascending and non-overlapping. Always
+   * within begin..end, and often far smaller: one measured T1 region reported as lines 12-100
+   * (89 lines) was really 12-17, 22-23 and 96-100 -- 13 lines.
+   * Absent only in responses from a backend older than this field.
+   */
+  segments?: LineSegment[];
 }
 
 export interface RegionVerdict {
