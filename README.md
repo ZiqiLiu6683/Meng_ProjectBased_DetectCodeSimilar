@@ -336,7 +336,12 @@ use the explicit semantic main classes shown above for the current detector.
 
 ## Documentation and Data
 
+- [`Decision and evidence log`](code-sim/docs/decision-log.md) — what was decided, what was
+  measured, and which earlier conclusions were retracted once data arrived. Read this first when
+  asking why something is the way it is.
 - [`Evaluation dataset guide`](code-sim/evaluation/README.md)
+- [`Paper evaluation protocol`](code-sim/evaluation/paper_evaluation_protocol.md)
+- [`Algorithm and threshold audit`](code-sim/evaluation/algorithm_threshold_audit.md)
 - [`Robustness experiment guide`](code-sim/evaluation/robustness/README.md)
 - [`BigCloneBench Windows runbook`](code-sim/scripts/experiments/RUNBOOK_WINDOWS.md)
 - Local M.Eng. report source: `report/` (Git-ignored)

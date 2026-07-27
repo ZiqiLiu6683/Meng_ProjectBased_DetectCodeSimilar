@@ -160,19 +160,31 @@ public class WalaNextPipelineRunner {
             String leftLabel = leftClasses.toAbsolutePath().toString();
             String rightLabel = rightClasses.toAbsolutePath().toString();
 
-            // Pre-Phase-A discovRE/kNN stages, kept switchable for a measured A/B before the
-            // default flips. They cost a full raw snapshot, a kNN index build, and a second WALA
-            // analysis pass on EVERY pair, and they contribute:
+            // Pre-Phase-A discovRE/kNN stages, OFF by default since the A/B below.
+            //
+            // They cost a full raw snapshot, a kNN index build, and a second WALA analysis pass on
+            // every pair, and contribute two things, neither of them wanted:
             //   * RawToolCfgCandidateProvider -> METHOD-level T1/T2/T3 candidates. Phase A regions
-            //     do not need them: an aligned region is already a complete comparable unit
+            //     never needed them: an aligned region is already a complete comparable unit
             //     (RegionKind.CALL_EXPANDED_REGION) and already carries a non-source channel
             //     (ALIGNED_REGION_SCAN), so it satisfies the recognizer's T3 scope gate twice over.
-            //     Those METHOD-level verdicts are also the only reason the main path still emits a
+            //     Those METHOD-level verdicts were also the only reason the main path emitted a
             //     method-level syntactic clone type, which the region-level contract excludes.
-            //   * WalaStructuralSimilarityOracle -> a similarity number the recognizer reports as
-            //     "informational; not used to change the type"; it appears in no condition.
+            //   * WalaStructuralSimilarityOracle -> a similarity number the recognizer itself
+            //     labels "informational; not used to change the type"; it appears in no condition.
+            //
+            // Measured over 209 pairs (36 labelled clones, 140 negatives), same build, warm cache:
+            //   pair-level recall 36/36 and false positives 0/140 -- IDENTICAL either way;
+            //   method-level T1/T2/T3 regions 68 -> 0;
+            //   Phase A regions actually emitted 124 -> 145, because METHOD candidates outrank
+            //     CALL_EXPANDED_REGION in AcceptedRegionSelector.kindPriority and were suppressing
+            //     the region-level results they contained (77% -> 52% of candidates suppressed);
+            //   graph stage 528s -> 370s (-30%), end to end 5551s -> 4523s (-18%).
+            //
+            // The classes stay compiled and the switch stays so the comparison can be reproduced
+            // on a future corpus: -Dcodesim.legacyCfgChannels=true restores the old behaviour.
             boolean legacyCfgChannels = Boolean.parseBoolean(
-                    System.getProperty("codesim.legacyCfgChannels", "true"));
+                    System.getProperty("codesim.legacyCfgChannels", "false"));
             List<CandidateSignalProvider> cfgProviders = List.of();
             StructuralSimilarityOracle structuralOracle = StructuralSimilarityOracle.NONE;
             if (legacyCfgChannels) {

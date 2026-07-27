@@ -27,13 +27,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
 import difflib
 import hashlib
 import random
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 OPERATORS: dict[str, list[str]] = {
@@ -110,6 +113,47 @@ def run_txl(txl: str, mutator: Path, source: Path, target: Path, timeout: int) -
     return completed.returncode == 0 and target.is_file() and target.stat().st_size > 0
 
 
+PUBLIC_TYPE = re.compile(
+    r"public\s+(?:final\s+|abstract\s+|sealed\s+|non-sealed\s+|strictfp\s+)*"
+    r"(?:class|interface|enum|record)\s+([A-Za-z_$][A-Za-z0-9_$]*)")
+
+
+def compiles(text: str, javac: str, release: str, timeout: int) -> bool:
+    """Does this source compile on its own under the detector's Java contract?
+
+    The mutation operators are purely syntactic: they rewrite the parse tree without checking that
+    the result still type-checks.  Measured on a 30-pair sample, that left only 67% of pairs
+    analysable -- e.g. mSRI renames a variable at its declaration but also inside an import, mDL
+    deletes a declaration whose uses remain, mSIL inserts a statement that breaks the syntax.  A
+    pair whose sides do not compile cannot reach the graph pipeline at all, which is exactly what
+    this corpus exists to exercise, so both sides are checked here and the pair is dropped
+    otherwise.  Report generated vs kept counts: the drop rate is a property of the operators, not
+    a silent filter.
+
+    The file is named after its public type, mirroring what the detector itself does, so a mutant
+    that renamed the class is not failed for the filename alone.
+    """
+    match = PUBLIC_TYPE.search(text)
+    name = f"{match.group(1)}.java" if match else "Input.java"
+    with tempfile.TemporaryDirectory(prefix="genmut-") as directory:
+        root = Path(directory)
+        source = root / name
+        classes = root / "classes"
+        classes.mkdir()
+        try:
+            source.write_text(text, encoding="utf-8")
+        except (OSError, ValueError):
+            return False
+        try:
+            completed = subprocess.run(
+                [javac, "--release", release, "-proc:none", "-nowarn",
+                 "-d", str(classes), str(source)],
+                capture_output=True, text=True, timeout=timeout)
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        return completed.returncode == 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mutators", required=True, type=Path,
@@ -123,6 +167,12 @@ def main() -> None:
     parser.add_argument("--limit-seeds", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--txl", default="txl")
+    parser.add_argument("--javac", default="javac")
+    parser.add_argument("--release", default="17",
+                        help="must match the detector's frozen Java release")
+    parser.add_argument("--no-compile-check", action="store_true",
+                        help="keep pairs whose sides do not compile; they will only ever "
+                             "reach the source-only fallback, never the graph pipeline")
     parser.add_argument("--project-root", type=Path, default=None,
                         help="recorded per side so the runner can resolve the seed's real sibling "
                              "sources via -sourcepath instead of generating stubs")
@@ -146,6 +196,8 @@ def main() -> None:
     print(f"[gen] {len(seeds)} candidate seeds; target {args.per_operator} pairs/operator")
 
     project_root = str(args.project_root.resolve()) if args.project_root else ""
+    dropped: collections.Counter[str] = collections.Counter()
+    seed_compiles: dict[Path, bool] = {}
     manifest_rows: list[dict[str, str]] = []
     label_rows: list[dict[str, str]] = []
     work = args.out / ".work"
@@ -180,6 +232,20 @@ def main() -> None:
                 if original_text == mutant_text:
                     shutil.rmtree(pair_dir, ignore_errors=True)  # operator did not apply
                     continue
+                if not args.no_compile_check:
+                    if seed_compiles.get(source) is None:
+                        seed_compiles[source] = compiles(
+                            original_text, args.javac, args.release, args.timeout)
+                    if not seed_compiles[source]:
+                        dropped["seed does not compile"] += 1
+                        shutil.rmtree(pair_dir, ignore_errors=True)
+                        scratch.unlink(missing_ok=True)
+                        continue
+                    if not compiles(mutant_text, args.javac, args.release, args.timeout):
+                        dropped[f"mutant does not compile ({operator})"] += 1
+                        shutil.rmtree(pair_dir, ignore_errors=True)
+                        scratch.unlink(missing_ok=True)
+                        continue
                 shutil.move(str(scratch), str(mutant))
                 lb, le, rb, re_, changed = mutated_range(original_text, mutant_text)
                 manifest_rows.append({
@@ -211,6 +277,12 @@ def main() -> None:
         by_type[row["clone_type"]] = by_type.get(row["clone_type"], 0) + 1
     print(f"[gen] wrote {len(manifest_rows)} pairs {by_type} -> {args.out}")
     print(f"[gen] manifest sha256={digest}")
+    if dropped:
+        total = sum(dropped.values())
+        print(f"[gen] dropped {total} generated pairs that would never reach the graph "
+              f"pipeline:")
+        for reason, count in dropped.most_common():
+            print(f"[gen]   {count:5d}  {reason}")
     if not manifest_rows:
         sys.exit(1)
 

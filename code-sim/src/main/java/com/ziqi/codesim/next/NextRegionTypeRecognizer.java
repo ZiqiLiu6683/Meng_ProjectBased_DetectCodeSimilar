@@ -90,49 +90,65 @@ public class NextRegionTypeRecognizer {
                     structuralSimilarity));
         }
 
-        if (!left.t1ComparableTokens().isEmpty()
-                && left.t1ComparableTokens().equals(right.t1ComparableTokens())) {
-            tags.add(RegionTag.EXACT_COPY);
-            path.add("T1 passed: T1 comparable token sequences are 100% identical.");
-            return decision(candidate, CloneRegionType.T1, CloneStrength.NONE, 1.0,
-                    structuralSimilarity, renameEvidence, editScript, tags, path);
-        }
-        path.add("T1 failed: T1 comparable token sequences are not 100% identical.");
-
-        if (!left.t2NormalizedTokens().isEmpty()
-                && left.t2NormalizedTokens().equals(right.t2NormalizedTokens())
-                && !editScript.hasAnyChange()) {
-            path.add("T2 passed: T2 normalized token sequences are 100% identical and statement edit script is empty.");
-            return decision(candidate, CloneRegionType.T2, CloneStrength.NONE, 1.0,
-                    structuralSimilarity, renameEvidence, editScript, tags, path);
-        }
-        path.add("T2 failed: T2 normalized token sequences are not 100% identical or statement edits exist.");
-
         double syntacticSimilarity = syntacticSimilarity(left, right);
-        boolean t3ComparableScope = hasCompleteComparableUnit(candidate) || hasExternalCandidateEvidence(candidate);
-        if (editScript.hasAnyChange()
-                && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
-                && t3ComparableScope) {
-            CloneStrength strength = strength(syntacticSimilarity);
+
+        // A candidate proposed ONLY by Phase B exists to carry behavioural evidence about a method
+        // pair; it is not a claim that the two methods are syntactically alike. Letting it run the
+        // syntactic layers would report a method-scoped T1/T2/T3, and a file pair gets no
+        // method-scoped syntactic type -- that verdict belongs to the Phase A region covering the
+        // same code, which is region-scoped by construction. So such a candidate skips straight to
+        // the behavioural layers, where its only outcomes are the T4 family or NON_CLONE.
+        // The cascade order itself is unchanged: T1/T2/T3 are still tried first for every candidate
+        // that carries any syntactic evidence at all.
+        if (isBehaviouralOnly(candidate)) {
+            path.add("T1-T3 skipped: this candidate carries only behavioural method-pair evidence "
+                    + "(" + behaviouralChannels(candidate) + "); a syntactic clone type at method "
+                    + "scope is not part of the result contract, so only T4 evidence can apply.");
+        } else {
+            if (!left.t1ComparableTokens().isEmpty()
+                    && left.t1ComparableTokens().equals(right.t1ComparableTokens())) {
+                tags.add(RegionTag.EXACT_COPY);
+                path.add("T1 passed: T1 comparable token sequences are 100% identical.");
+                return decision(candidate, CloneRegionType.T1, CloneStrength.NONE, 1.0,
+                        structuralSimilarity, renameEvidence, editScript, tags, path);
+            }
+            path.add("T1 failed: T1 comparable token sequences are not 100% identical.");
+
+            if (!left.t2NormalizedTokens().isEmpty()
+                    && left.t2NormalizedTokens().equals(right.t2NormalizedTokens())
+                    && !editScript.hasAnyChange()) {
+                path.add("T2 passed: T2 normalized token sequences are 100% identical and statement edit script is empty.");
+                return decision(candidate, CloneRegionType.T2, CloneStrength.NONE, 1.0,
+                        structuralSimilarity, renameEvidence, editScript, tags, path);
+            }
+            path.add("T2 failed: T2 normalized token sequences are not 100% identical or statement edits exist.");
+
+            boolean t3ComparableScope =
+                    hasCompleteComparableUnit(candidate) || hasExternalCandidateEvidence(candidate);
+            if (editScript.hasAnyChange()
+                    && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
+                    && t3ComparableScope) {
+                CloneStrength strength = strength(syntacticSimilarity);
+                path.add(String.format(
+                        "T3 passed: statement edit script has insert/delete/modify evidence and syntactic similarity %.4f is in the BigCloneBench Type-3 range.",
+                        syntacticSimilarity
+                ));
+                return decision(candidate, CloneRegionType.T3, strength, syntacticSimilarity,
+                        structuralSimilarity, renameEvidence, editScript, tags, path);
+            }
+            if (editScript.hasAnyChange()
+                    && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
+                    && !t3ComparableScope) {
+                path.add(String.format(
+                        "T3 held: local source-only window has statement edits and syntactic similarity %.4f, but no complete comparable unit or external CFG/semantic signal approved it.",
+                        syntacticSimilarity
+                ));
+            }
             path.add(String.format(
-                    "T3 passed: statement edit script has insert/delete/modify evidence and syntactic similarity %.4f is in the BigCloneBench Type-3 range.",
+                    "T3 failed: statement edit evidence is absent or syntactic similarity %.4f is below 0.5000.",
                     syntacticSimilarity
             ));
-            return decision(candidate, CloneRegionType.T3, strength, syntacticSimilarity,
-                    structuralSimilarity, renameEvidence, editScript, tags, path);
         }
-        if (editScript.hasAnyChange()
-                && syntacticSimilarity >= BIGCLONEBENCH_T3_MIN_SYNTACTIC_SIMILARITY
-                && !t3ComparableScope) {
-            path.add(String.format(
-                    "T3 held: local source-only window has statement edits and syntactic similarity %.4f, but no complete comparable unit or external CFG/semantic signal approved it.",
-                    syntacticSimilarity
-            ));
-        }
-        path.add(String.format(
-                "T3 failed: statement edit evidence is absent or syntactic similarity %.4f is below 0.5000.",
-                syntacticSimilarity
-        ));
 
         // T4: T1/T2/T3 did not approve a syntactic clone. Confirm a semantic (Type-4) clone only on
         // independent positive evidence -- an SMT proof that the two regions compute the same value
@@ -263,6 +279,29 @@ public class NextRegionTypeRecognizer {
                 .mapToDouble(CandidateSource::score)
                 .max()
                 .orElse(0.0);
+    }
+
+    /**
+     * Channels that only ever say "these two METHODS behave the same" -- Phase B's SMT proof and
+     * its sampled-execution fallback. They carry no claim about syntax.
+     */
+    private static final Set<String> BEHAVIOURAL_METHOD_CHANNELS = Set.of(
+            "SEMANTIC_EQUIV_SCAN",
+            "DYNAMIC_EQUIV_SCAN"
+    );
+
+    /** True when every piece of evidence on this candidate is behavioural method-pair evidence. */
+    private static boolean isBehaviouralOnly(RegionCandidate candidate) {
+        return !candidate.sources().isEmpty() && candidate.sources().stream()
+                .allMatch(source -> BEHAVIOURAL_METHOD_CHANNELS.contains(source.channel()));
+    }
+
+    private static String behaviouralChannels(RegionCandidate candidate) {
+        return candidate.sources().stream()
+                .map(CandidateSource::channel)
+                .distinct()
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private static boolean hasExternalCandidateEvidence(RegionCandidate candidate) {
