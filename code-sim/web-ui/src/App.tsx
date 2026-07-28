@@ -401,7 +401,12 @@ function CodePane(props: {
           const n = i + 1;
           const owning = props.regions.filter((r) => within(span(r), n));
           const isActive = props.active ? within(span(props.active), n) : false;
-          const activeFam = isActive && props.active ? FAMILY[props.active.family] : null;
+          // Colour by the sub-region covering this line, not by the region as a whole. A region is
+          // maximal, so it stops where the two sides stop corresponding -- not where the KIND of
+          // difference changes; painting all of it one colour would claim, for example, that 30
+          // lines are all near-miss when only one inserted statement is.
+          const subFam = isActive && props.active ? subFamilyAt(props.active, props.side, n) : null;
+          const activeFam = subFam ?? (isActive && props.active ? FAMILY[props.active.family] : null);
           const startsActive = props.active ? span(props.active).begin === n : false;
           const marker = owning[0];
           return (
@@ -616,6 +621,29 @@ function coverageNote(span: LineSpan): string {
   const boxed = span.begin > 0 ? span.end - span.begin + 1 : 0;
   if (segments.length <= 1 || covered >= boxed) return "";
   return ` · ${covered} lines in ${segments.length} runs`;
+}
+
+/** Family of the sub-region covering this line on this side, or null when there is no breakdown. */
+function subFamilyAt(
+  region: RegionVerdict,
+  side: "left" | "right",
+  line: number,
+): (typeof FAMILY)[CloneFamily] | null {
+  const subs = region.subRegions;
+  if (!subs || subs.length === 0) return null;
+  for (const sub of subs) {
+    const runs = side === "left" ? sub.left : sub.right;
+    if (runs.some((r) => line >= r.begin && line <= r.end)) {
+      return FAMILY[familyOf(sub.type)];
+    }
+  }
+  return null;
+}
+
+function familyOf(type: string): CloneFamily {
+  if (type.startsWith("T4") || type === "POSSIBLE_T4_CANDIDATE") return "T4";
+  if (type === "T1" || type === "T2" || type === "T3") return type;
+  return "T3";
 }
 
 function within(span: LineSpan, line: number): boolean {

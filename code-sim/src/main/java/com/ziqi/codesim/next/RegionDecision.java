@@ -15,6 +15,18 @@ public record RegionDecision(
         RenameEvidence renameEvidence,
         StatementEditScript statementEditScript,
         Set<RegionTag> tags,
-        List<String> decisionPath
+        List<String> decisionPath,
+        /**
+         * The same cascade applied per aligned statement pair, coalesced into uniformly-typed runs.
+         *
+         * {@code type} above stays the region's verdict and remains the authoritative one; this is
+         * a finer view of the same evidence, never a second opinion. Anything counting clones must
+         * pick one scale -- a T3 region containing T3 sub-regions is one finding, not several.
+         * Empty when the region carries no statement positions to attribute types to.
+         */
+        List<SubRegion> subRegions
 ) {
+    public RegionDecision {
+        subRegions = subRegions == null ? List.of() : List.copyOf(subRegions);
+    }
 }

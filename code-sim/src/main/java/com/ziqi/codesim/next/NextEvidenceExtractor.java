@@ -176,11 +176,16 @@ public class NextEvidenceExtractor {
                 displayName,
                 beginLine,
                 endLine,
+                // A whole AST node is one unbroken run, so here the bounding box IS the content.
+                beginLine >= 1 && endLine >= beginLine
+                        ? List.of(new LineSegment(beginLine, endLine))
+                        : List.<LineSegment>of(),
                 rawTokens,
                 t1Tokens,
                 t2Tokens,
                 statementTexts,
-                normalizedStatementTexts
+                normalizedStatementTexts,
+                statementLinesOf(statements)
         );
     }
 
@@ -231,8 +236,50 @@ public class NextEvidenceExtractor {
                 List.copyOf(t1Tokens),
                 List.copyOf(t2Tokens),
                 List.copyOf(statementTexts),
-                List.copyOf(normalizedStatementTexts)
-        );
+                List.copyOf(normalizedStatementTexts),
+                statementLinesOf(statements));
+    }
+
+    /**
+     * Per-statement line spans for producers whose statementTexts come from {@code tokens()}, i.e.
+     * the statement INCLUDING its nested statements -- so the span must be the full range too.
+     * {@code alignedRegion} uses {@code ownTokens} instead and pairs it with {@link #ownLineSpan}.
+     * Getting this pairing wrong would attach the right index to the wrong extent.
+     *
+     * Filtered by the same blank test as statementTexts so index i means the same statement in
+     * both lists; CodeRegion fails fast if they ever fall out of step.
+     */
+    private static List<LineSegment> statementLinesOf(List<Statement> statements) {
+        List<LineSegment> lines = new ArrayList<>();
+        for (Statement statement : statements) {
+            if (!String.join(" ", tokens(statement, TokenView.T1)).isBlank()) {
+                lines.add(statement.getRange()
+                        .map(r -> new LineSegment(r.begin.line, r.end.line))
+                        .orElse(new LineSegment(1, 1)));
+            }
+        }
+        return List.copyOf(lines);
+    }
+
+    /**
+     * The lines a statement occupies on its own, i.e. excluding nested statements. A loop spans its
+     * whole body, but the body's statements are separate entries with their own types, so charging
+     * the loop for all of them would make one sub-region swallow the others.
+     */
+    private static LineSegment ownLineSpan(Statement statement) {
+        int begin = statement.getRange().map(r -> r.begin.line).orElse(-1);
+        if (begin < 1) {
+            return new LineSegment(1, 1);
+        }
+        int end = statement.findAll(Statement.class).stream()
+                .filter(s -> s != statement && !(s instanceof BlockStmt))
+                .flatMap(s -> s.getRange().stream())
+                .mapToInt(r -> r.begin.line)
+                .min()
+                .orElse(Integer.MAX_VALUE);
+        int last = statement.getRange().map(r -> r.end.line).orElse(begin);
+        int stop = end == Integer.MAX_VALUE ? last : Math.max(begin, Math.min(last, end - 1));
+        return new LineSegment(begin, stop);
     }
 
     /** The line runs a set of statements occupies, coalesced. */
@@ -321,6 +368,7 @@ public class NextEvidenceExtractor {
 
         List<String> statementTexts = new ArrayList<>();
         List<String> normalizedStatementTexts = new ArrayList<>();
+        List<LineSegment> statementLines = new ArrayList<>();
         for (Statement statement : allStatements) {
             // OWN text (excluding nested statements) so a loop/if contributes only its header, not its
             // whole body -- otherwise the container's full text differs whenever anything inside it
@@ -328,6 +376,9 @@ public class NextEvidenceExtractor {
             String t1 = String.join(" ", ownTokens(statement, TokenView.T1));
             if (!t1.isBlank()) {
                 statementTexts.add(t1);
+                // Kept under the SAME condition as statementTexts, so index i always addresses the
+                // same statement in both lists. Sub-region typing depends on that correspondence.
+                statementLines.add(ownLineSpan(statement));
             }
             String t2 = String.join(" ", ownTokens(statement, TokenView.T2));
             if (!t2.isBlank()) {
@@ -346,7 +397,8 @@ public class NextEvidenceExtractor {
         return new CodeRegion(id, side, RegionKind.CALL_EXPANDED_REGION, "aligned region " + id,
                 beginLine, endLine, segments,
                 List.copyOf(rawTokens), List.copyOf(t1Tokens), List.copyOf(t2Tokens),
-                List.copyOf(statementTexts), List.copyOf(normalizedStatementTexts));
+                List.copyOf(statementTexts), List.copyOf(normalizedStatementTexts),
+                List.copyOf(statementLines));
     }
 
     private static List<Statement> outermostStatementsOverlapping(CompilationUnit cu, Set<Integer> lines) {

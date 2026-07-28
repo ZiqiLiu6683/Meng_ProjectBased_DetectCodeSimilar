@@ -23,10 +23,29 @@ public record CodeRegion(
         List<String> t1ComparableTokens,
         List<String> t2NormalizedTokens,
         List<String> statementTexts,
-        List<String> normalizedStatementTexts
+        List<String> normalizedStatementTexts,
+        /**
+         * Where each entry of {@code statementTexts} sits in the source, same order, same length.
+         *
+         * Sub-region typing aligns the two sides' {@code statementTexts} and then needs to say
+         * WHERE each aligned pair is. Empty when the producer did not record positions, in which
+         * case sub-regions are simply not derived.
+         */
+        List<LineSegment> statementLines
 ) {
     public CodeRegion {
         segments = segments == null ? List.of() : LineSegment.normalize(segments);
+        statementLines = statementLines == null ? List.of() : List.copyOf(statementLines);
+        // Not merely defensive. `statementTexts` and `normalizedStatementTexts` are filled behind
+        // two independent isBlank() filters, and this list behind a third; today they cannot
+        // disagree (the T1/T2 views select identical tokens and normalizeT2 never returns blank),
+        // but nothing enforces it. A silent off-by-one here would mislabel every later sub-region
+        // instead of failing, so it fails here.
+        if (!statementLines.isEmpty() && statementLines.size() != statementTexts.size()) {
+            throw new IllegalArgumentException(
+                    "statementLines/statementTexts out of step: " + statementLines.size()
+                            + " vs " + statementTexts.size() + " in " + regionId);
+        }
     }
 
     /**
@@ -42,7 +61,7 @@ public record CodeRegion(
                         ? List.of(new LineSegment(beginLine, endLine))
                         : List.of(),
                 rawTokens, t1ComparableTokens, t2NormalizedTokens,
-                statementTexts, normalizedStatementTexts);
+                statementTexts, normalizedStatementTexts, List.of());
     }
 
     public int tokenCount() {

@@ -23,6 +23,187 @@ correct:
 
 ---
 
+## 2026-07-27 — What NON_CLONE actually means, and the first negative stratum
+
+### Finding: NON_CLONE is "this proposed correspondence is not a clone", not "this code is original"
+
+**code-verified.** There is exactly one production site,
+`NextRegionTypeRecognizer.java:208`, and it is the **fall-through at the end of the cascade**: T1
+fails → T2 fails → T3 fails → no SMT/dynamic proof → no cross-method marker → NON_CLONE, with the
+path text *"T4 not approved: no independent semantic-equivalence proof or structural region evidence
+is attached to this candidate."*
+
+It is therefore a verdict **about a candidate pair Phase A already proposed**. Code that has no
+counterpart at all never forms a candidate and never enters the cascade, so it can never be labelled
+NON_CLONE. The system has no output that means "this run of statements is original work".
+
+Two consequences:
+
+- The donor block below could not have been matched however well the detector performed — the
+  reference asked for a label the output cannot express. That was a defect in the reference.
+- **NON_CLONE decisions are invisible in every run made so far.** `AcceptedRegionSelector` filters
+  them before selection and the JSON emits them only under `-Dcodesim.emitRejectedRegions=true`, so
+  the number of candidates rejected has never been recorded. Blind spot; the switch exists.
+
+### Retracted: "a run of unrelated code will make region growth stop"
+
+**measured on 20 pairs, hypothesis falsified.** A verified-portable donor block was spliced into B
+at a random in-method point, so those lines have no counterpart in A.
+
+| | without donor | with donor |
+| --- | ---: | ---: |
+| pairs yielding exactly one region | 82% | **85%** |
+| donor lines falling inside a predicted region | — | **20 / 20** |
+
+Growth does not stop, because the code on *both sides* of the donor still corresponds; the donor is
+simply passed over. Splitting a region needs the correspondence itself to break, which inserting
+unrelated code into one side does not achieve.
+
+**But the sub-region breakdown isolates it exactly.** For `R00000`, donor at right 5–10:
+`T1(4) T3(5-10) T1(11-13) T2(14-17) T1(18-27,29) T3(31)` — the donor is its own run, to the line.
+It is typed T3 because our rule types one-sided statements as T3, which cannot distinguish "one
+statement was edited here" from "these six lines are entirely new". That distinction is what a
+plagiarism reviewer most wants; it is not currently expressible. Open item.
+
+The donor path is kept, off by default, with this result recorded at the switch.
+
+### Decision: the negative stratum is pairs of unrelated files, verified rather than assumed
+
+100 pairs from different CodeNet problems, accepted only when the longest run of **consecutive**
+shared tokens stays under 30 — above the measured scaffolding ceiling (p90 = 27). Accepted pairs
+share median 15, max 28. 105 attempts produced 100 pairs; 3 were rejected for sharing ≥ 30.
+
+**measured**, all 100 completing the full pipeline (`SOURCE_PLUS_WALA_SMT`, zero fallback):
+
+| | value |
+| --- | ---: |
+| correct rejection (no region emitted) | **81 / 100** |
+| strict-product FP (any region emitted) | **19 / 100** |
+| **claimed a syntactic type (T1/T2/T3)** | **2 / 100** |
+
+Emitted on negatives: `POSSIBLE_T4_CANDIDATE` 21, T2 1, T3 1; median true coverage 11 lines.
+
+The 19% and the 2% answer different questions and both must be reported. Every one of the 21
+possible-T4 regions came from the same deliberate branch (`NextRegionTypeRecognizer.java:197`): a
+cross-method aligned region is a structural fact Phase A established and *"must not be silently
+dropped by a similarity number"*, so it is surfaced as a possible clone. On unrelated competition
+code the shared IO scaffolding is enough to align across methods. This is the cost of that rule, not
+a defect, and §7 already requires `POSSIBLE_T4_CANDIDATE` to be reported separately.
+
+### Retracted: "pairs sharing more scaffolding are the ones that produce false positives"
+
+**inferred, then measured and disproved.** Shared consecutive tokens: **16 median in the pairs that
+produced a false positive, 15 in those that did not.** Whether a pair misfires is not driven by how
+much boilerplate it shares but by whether that boilerplate happens to form a cross-method aligned
+region. Raising the token threshold when selecting negatives would therefore **not** reduce the
+false-positive rate — that lever does not work.
+
+---
+
+## 2026-07-27 — A region is not a contiguous span, and not one relationship
+
+Two additive changes to the region output. Neither alters a verdict: the full 100-pair corpus was
+re-run after each, and with the new field removed the results are **byte-identical to the previous
+run in all 100 pairs**. Tests stayed at 81/81 across every checkpoint.
+
+### Finding: `beginLine`/`endLine` is a bounding box, and 58% of regions are not contiguous
+
+**code-verified then measured.** A region is built from a SET of aligned lines
+(`NextEvidenceExtractor.alignedRegion` → `outermostStatementsOverlapping(cu, spanLines)`), and its
+span is `min`/`max` over the selected statements (`SourceSpan.union` is literally
+`min(begin), max(end)`). The tokens the clone type is decided on come from those statements only —
+never from whatever else falls inside the box.
+
+This resolved a contradiction that looked like a detector bug: `R00010` reported lines 12–100 as
+T1 "exact copy, 89 lines" while lines 48–50 inside it contained renamed identifiers. Both are true,
+because 48–50 was never in the region. Exposing the runs shows what it really is:
+
+| | value |
+| --- | ---: |
+| reported box | 12–100 (89 lines) |
+| actual content | 12–17, 22–23, 96–100 (**13 lines**) |
+| overstatement | **6.8×** |
+
+Across 156 emitted regions: bounding box median 36 lines, true coverage median 28, overstatement
+median 1.1× but **p90 2.0× and max 8.7×**, and **58% of regions consist of more than one run**.
+
+**Change:** `CodeRegion.segments` carries the runs; `beginLine`/`endLine` are unchanged and still
+the bounding box. Both serializers emit it, the SPA highlights by it, and the region label shows the
+true line count when it differs from the box. `AcceptedRegionSelector.overlapRatio` still computes
+suppression from bounding boxes — **deliberately not changed here**, because that would alter
+detector behaviour rather than reporting; 58.9% of accepted regions are suppressed, so the effect
+is worth measuring before deciding. Open item.
+
+**Consequence for scoring:** comparing a dense reference range against a sparse bounding box
+inflates coverage and deflates IoU at the same time. `score_regions.py` now scores the runs and
+reports the bounding-box computation beside it as a control:
+
+| | box | segments |
+| --- | ---: | ---: |
+| T2 detection | 97% | 93% |
+| T3 detection | 100% | 94% |
+| T2 median IoU | 0.133 | 0.189 |
+| T3 median IoU | 0.113 | 0.151 |
+| T3 conditional type accuracy | 94% | 100% |
+
+### Finding: one region routinely holds several relationships, and only the last one was reported
+
+**measured.** Of 156 emitted regions, **92 (59%) carried both rename evidence and statement edits**,
+and all 92 were reported as T3 alone. Region growth is maximal — it stops where the two sides stop
+corresponding, not where the KIND of difference changes — so a region spanning a renamed run, an
+inserted statement and 25 identical lines is genuinely T3 by the cascade, and the T1 and T2
+structure inside it had no way to surface.
+
+**Change:** `RegionDecision.subRegions` applies the **same** T1→T2→T3 cascade to one aligned
+statement pair at a time and coalesces neighbouring runs of the same type. No new classification
+rule is introduced, which matters for both the contract and the write-up:
+
+- the alignment is the existing LCS over `normalizedStatementTexts` that already produces the edit
+  script, so a statement whose identifiers were merely renamed is MATCHED — exactly why renaming
+  alone leaves the edit script empty and keeps a region at T2;
+- the per-pair test is the same pair of comparisons the region-level cascade makes;
+- a statement present on only one side is T3, since a statement-level edit is what separates T3
+  from T2;
+- sub-regions are statement runs inside a method, so the region-level contract still holds — no
+  syntactic type is scoped to a declaration.
+
+The region keeps its own type and it remains authoritative. **A count of clones must use one scale
+or the other**: a T3 region containing T3 sub-regions is one finding, not several.
+
+Result on the same corpus: every region now carries a breakdown, median 5 sub-regions (max 11), and
+**67% of regions contain more than one type inside**.
+
+| Scale | verdicts | T1 | T2 | T3 |
+| --- | ---: | ---: | ---: | ---: |
+| region | 156 | 50 | **11** | 94 |
+| sub-region | 636 | 392 | **150** | 94 |
+
+Renaming was being detected all along — `renameEvidence.detected` was true — but only 11 regions
+were ever typed T2. At statement scale there are 150. **The evidence existed; the granularity hid it.**
+
+**Naming, unresolved:** a region typed T2 means the whole region differs only by identifiers; a
+sub-region typed T2 means that run does, while the region around it may differ otherwise. The two
+must not share a word in the write-up. Deferred.
+
+### Defects found in my own work while making these changes
+
+Recorded because each would have produced a wrong result silently:
+
+- `mvn ... | tail` reports **tail's** exit status, so a failed compile still printed "OK". Every
+  build check now tests `$?` directly.
+- `statementLinesOf` first paired the *own* line span (nested statements excluded) with statement
+  texts built from `tokens()`, which *includes* nested statements. The three construction sites use
+  two different text conventions and each needs its matching span convention.
+- `statementTexts` and `normalizedStatementTexts` are filled behind two independent `isBlank`
+  filters and `statementLines` behind a third. Today they cannot disagree — the T1/T2 views select
+  identical tokens and `normalizeT2` never returns blank, both code-verified — but nothing enforces
+  it, so `CodeRegion` now throws on a length mismatch rather than mislabelling every later
+  sub-region.
+- `score_regions.py` had a module-level `lines_of(segments)` shadowed by a local `lines_of(path)`.
+  Correct by accident of scoping; renamed.
+
+---
+
 ## 2026-07-27 — Spoon operators, the negative stratum, and a valid timing baseline
 
 ### Decision: Spoon is a supplementary instrument; official MIF stays as E2

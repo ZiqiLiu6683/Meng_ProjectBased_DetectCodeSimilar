@@ -67,6 +67,37 @@ public final class RegionCorpusGenerator {
     private static final Pattern PUBLIC_TYPE = Pattern.compile(
             "public\\s+(?:final\\s+|abstract\\s+)*(?:class|interface|enum|record)\\s+(\\w+)");
 
+    /**
+     * Type-safe stand-ins for the MIF operator families, assigned round-robin so every one gets a
+     * comparable sample.
+     *
+     * The first corpus used "first applicable operator wins", which looked reasonable and produced
+     * 100 T3 references that were ALL {@code insert_statement}: delete and wrap were implemented,
+     * validated at ~100% survival, and never once selected. What was reported as T3 recall was
+     * insertion recall. Per-operator recall is a §6 requirement, so selection is now explicit.
+     */
+    private static final List<String> OPERATORS = List.of(
+            "t1_add_eol_comment",       // <- mCC_EOL
+            "t2_rename_local",          // <- mSRI, systematic renaming
+            "t3_insert_statement",      // <- mIL
+            "t1_add_blank_line",        // <- mCF_A
+            "t2_change_int_literal",    // <- mRL_N
+            "t3_delete_statement",      // <- mDL
+            "t1_add_block_comment",     // <- mCC_BT
+            "t2_change_string_literal", // <- mRL_S
+            "t3_wrap_statement",        // <- mML
+            "t1_reindent");             // <- mCW_A
+
+    /**
+     * T1 operators change layout and comments only, which Spoon's printer normalises away, so they
+     * are applied to the PRINTED text rather than to the model. Their target range has to be located
+     * in the printed right side, where a T3 insertion or deletion elsewhere may already have shifted
+     * the line numbers -- hence the diff mapping rather than reusing the left numbers.
+     */
+    private static boolean isTextOperator(String operator) {
+        return operator.startsWith("t1_");
+    }
+
     public static void main(String[] args) throws Exception {
         Path seedDir = Path.of(args[0]);
         Path out = Path.of(args[1]);
@@ -75,6 +106,29 @@ public final class RegionCorpusGenerator {
         int rangeLines = args.length > 4 ? Integer.parseInt(args[4]) : 6;
         int padLines = args.length > 5 ? Integer.parseInt(args[5]) : 3;
         long rngSeed = args.length > 6 ? Long.parseLong(args[6]) : 42L;
+        // Optional and off by default. It was added to try to make region growth STOP at a run of
+        // unrelated code, so a pair would yield several regions instead of one. Measured on 20
+        // pairs, it does not: 85% still produced exactly one region (vs 82% without it) and the
+        // donor lines fell inside a predicted region in 20 of 20 cases. Growth continues because
+        // the code on both sides of the donor still corresponds. The sub-region breakdown does
+        // isolate the block exactly, so the information is available at that scale instead.
+        // Kept switchable rather than removed, so the experiment is reproducible.
+        Path donorLib = args.length > 7 ? Path.of(args[7]) : null;
+
+        // Loaded once: the library is small and every block was already validated to compile at
+        // several unrelated destinations, so reuse across pairs is the intended usage.
+        List<String> donors = new ArrayList<>();
+        if (donorLib != null) {
+            try (var stream = Files.walk(donorLib.resolve("blocks"))) {
+                for (Path block : stream.filter(f -> f.toString().endsWith(".txt")).sorted().toList()) {
+                    donors.add(Files.readString(block, StandardCharsets.UTF_8));
+                }
+            }
+            if (donors.isEmpty()) {
+                throw new IllegalStateException("donor library has no blocks: " + donorLib);
+            }
+            System.out.printf("[gen] donor library: %d blocks%n", donors.size());
+        }
 
         List<Path> seeds;
         try (var stream = Files.walk(seedDir)) {
@@ -82,8 +136,22 @@ public final class RegionCorpusGenerator {
         }
         Collections.shuffle(seeds, new Random(rngSeed));
 
+        // A balanced schedule, shuffled once. Indexing OPERATORS by position instead gave
+        // slot0 = 2i and slot1 = 2i+1, so each operator was ALWAYS paired with the same partner --
+        // only five distinct combinations across the whole corpus. A region carries one type and
+        // contains both of a pair's mutations, so "the region-level type accuracy of operator X"
+        // was really measuring X's fixed partner: t2_change_int_literal scored 5% because it always
+        // sat beside t3_delete_statement, which pulled every shared region to T3.
+        List<String> schedule = new ArrayList<>();
+        int slots = wantedPairs * rangesPerPair;
+        while (schedule.size() < slots + OPERATORS.size()) {
+            schedule.addAll(OPERATORS);
+        }
+        Collections.shuffle(schedule, new Random(rngSeed ^ 0x5eed));
+
         Files.createDirectories(out.resolve("pairs"));
-        StringBuilder regions = new StringBuilder("pair_id,region_index,clone_type,operator,left_begin,left_end\n");
+        StringBuilder regions = new StringBuilder(
+                "pair_id,ref_index,kind,clone_type,operator,left_begin,left_end,right_begin,right_end\n");
         StringBuilder manifest = new StringBuilder("pair_id,seed_file,left_path,right_path\n");
         Map<String, Integer> drops = new LinkedHashMap<>();
 
@@ -97,7 +165,7 @@ public final class RegionCorpusGenerator {
             String reason;
             try {
                 reason = generate(seed, out, kept, rangesPerPair, rangeLines, padLines,
-                        rngSeed + attempted, regions, manifest);
+                        rngSeed + attempted, donors, schedule, regions, manifest);
             } catch (Throwable t) {
                 reason = "internal error: " + t.getClass().getSimpleName();
             }
@@ -124,7 +192,8 @@ public final class RegionCorpusGenerator {
 
     /** @return null on success, otherwise the drop reason. */
     private static String generate(Path seed, Path out, int index, int wantedRanges, int rangeLines,
-                                   int padLines, long rng, StringBuilder regions, StringBuilder manifest)
+                                   int padLines, long rng, List<String> donors,
+                                   List<String> schedule, StringBuilder regions, StringBuilder manifest)
             throws Exception {
         String leftText = printModel(build(seed).getModel());
         if (!compiles(leftText)) {
@@ -145,24 +214,91 @@ public final class RegionCorpusGenerator {
             return "seed offers fewer than " + wantedRanges + " padded ranges";
         }
 
-        // Assign a type per range, alternating so a pair carries more than one relationship.
+        // Round-robin over the catalogue, continuing across pairs so counts stay balanced even
+        // though each pair only carries a couple of ranges.
         List<String> applied = new ArrayList<>();
         Random random = new Random(rng);
         for (int i = 0; i < chosen.size(); i++) {
             Range range = chosen.get(i);
-            String operator = (i % 2 == 0) ? applyT2(model, range) : applyT3(model, range, launcher.getFactory(), random);
+            // Indexed by the KEPT pair, so a dropped attempt retries the same schedule slot with a
+            // different seed rather than consuming it -- balance survives the drop rate.
+            String wanted = schedule.get((index * chosen.size() + i) % schedule.size());
+            if (isTextOperator(wanted)) {
+                applied.add(wanted);   // applied after printing, below
+                continue;
+            }
+            String operator = applyOperator(wanted, model, range, launcher.getFactory(), random);
             if (operator == null) {
                 deleteTree(scratch);
-                return "no applicable operator in a chosen range";
+                return "operator " + wanted + " not applicable in a chosen range";
             }
             applied.add(operator);
         }
 
         String rightText = printModel(model);
+
+        // Layout/comment operators run here: bottom-up so an edit never moves a range still to be
+        // edited, and against ranges mapped through the diff because the Spoon edits above may
+        // already have shifted the right-hand line numbers.
+        for (int i = chosen.size() - 1; i >= 0; i--) {
+            if (!isTextOperator(applied.get(i))) {
+                continue;
+            }
+            int[] target = mapRange(leftText, rightText,
+                    chosen.get(i).beginLine, chosen.get(i).endLine);
+            if (target == null) {
+                deleteTree(scratch);
+                return "could not locate " + applied.get(i) + " range in the printed output";
+            }
+            String edited = applyTextOperator(applied.get(i), rightText, target[0], target[1], random);
+            if (edited == null) {
+                deleteTree(scratch);
+                return "operator " + applied.get(i) + " not applicable in a chosen range";
+            }
+            rightText = edited;
+        }
+
         if (rightText.equals(leftText)) {
             deleteTree(scratch);
             return "mutations produced no textual change";
         }
+
+        // Splice the donor as TEXT after printing, not as Spoon statements before it. The block has
+        // no counterpart in the seed, so its lines are the NON_CLONE reference and their positions
+        // must be exact; computing them here from the splice point is exact by construction, where
+        // recovering them from a diff would have to be told apart from the T3 insertion.
+        int donorBegin = 0;
+        int donorEnd = 0;
+        String donorId = "";
+        if (!donors.isEmpty()) {
+            // Separate stream from the operator RNG: reusing it would make donor choice depend on
+            // how many operator attempts happened, which is not a property we want to entangle.
+            Random donorRandom = new Random(rng * 31 + 7);
+            int pick = donorRandom.nextInt(donors.size());
+            String block = donors.get(pick).stripTrailing();
+            List<Integer> points = spliceCandidates(rightText);
+            if (points.isEmpty()) {
+                deleteTree(scratch);
+                return "no valid splice point for the donor block";
+            }
+            int at = points.get(donorRandom.nextInt(points.size()));
+            // Rename the donor's locals per pair: the library prefixes them already, but a pair that
+            // drew the same block twice, or a seed that happens to use the same name, would collide.
+            String tagged = block.replace("zz", "d" + Integer.toHexString((int) (rng & 0xfff)) + "z");
+            String[] lines = rightText.split("\n", -1);
+            StringBuilder merged = new StringBuilder();
+            for (int i = 0; i < lines.length; i++) {
+                merged.append(lines[i]).append('\n');
+                if (i + 1 == at) {
+                    donorBegin = i + 2;
+                    merged.append(tagged).append('\n');
+                    donorEnd = donorBegin + tagged.split("\n", -1).length - 1;
+                }
+            }
+            rightText = merged.toString();
+            donorId = String.format("D%04d", pick + 1);
+        }
+
         if (!compiles(rightText)) {
             deleteTree(scratch);
             return "mutant does not compile";
@@ -178,18 +314,84 @@ public final class RegionCorpusGenerator {
         Files.writeString(leftPath, leftText, StandardCharsets.UTF_8);
         Files.writeString(rightPath, rightText, StandardCharsets.UTF_8);
 
+        // Two reference kinds per §6. CLONE_INTERVAL is the block that corresponds and is scored
+        // against a region; MUTATION is the lines the operator actually touched and is scored
+        // against a sub-region. Conflating them is what made a 9-line "T3" reference out of a single
+        // inserted statement plus eight identical lines.
+        List<Opcode> opcodes = diff(leftText, rightText);
+        int refIndex = 0;
         for (int i = 0; i < chosen.size(); i++) {
             Range range = chosen.get(i);
             String operator = applied.get(i);
-            String type = operator.startsWith("rename") ? "T2" : "T3";
-            regions.append(pairId).append(',').append(i).append(',').append(type).append(',')
-                    .append(operator).append(',').append(range.beginLine).append(',')
-                    .append(range.endLine).append('\n');
+            // Derived from the operator name, so an operator that forgets its prefix fails loudly
+            // instead of being silently filed as T3 -- which is exactly what t2_rename_local did
+            // when it returned "rename_local_xN": every renamed range was labelled T3.
+            String type = cloneTypeOf(operator);
+            // No counterpart means no interval corresponds, so no CLONE_INTERVAL is emitted -- only
+            // the MUTATION below, which is what a deletion actually is. A half-empty clone interval
+            // would ask the scorer to match a region against nothing.
+            int[] mapped = mapRange(leftText, rightText, range.beginLine, range.endLine);
+            if (mapped != null) {
+                regions.append(pairId).append(',').append(refIndex++).append(",CLONE_INTERVAL,")
+                        .append(type).append(',').append(operator).append(',')
+                        .append(range.beginLine).append(',').append(range.endLine).append(',')
+                        .append(mapped[0]).append(',').append(mapped[1]).append('\n');
+            }
+
+            int[] mutation = mutationInterval(opcodes, range.beginLine, range.endLine);
+            if (mutation[1] >= mutation[0] && (mutation[1] > 0 || mutation[3] > 0)) {
+                regions.append(pairId).append(',').append(refIndex++).append(",MUTATION,")
+                        .append(type).append(',').append(operator).append(',')
+                        .append(mutation[0] == 0 ? "" : mutation[0]).append(',')
+                        .append(mutation[1] == 0 ? "" : mutation[1]).append(',')
+                        .append(mutation[2] == 0 ? "" : mutation[2]).append(',')
+                        .append(mutation[3] == 0 ? "" : mutation[3]).append('\n');
+            }
+        }
+        for (int[] run : untouchedRuns(opcodes, chosen)) {
+            regions.append(pairId).append(',').append(refIndex++).append(",UNTOUCHED,T1,none,")
+                    .append(run[0]).append(',').append(run[1]).append(',')
+                    .append(run[2]).append(',').append(run[3]).append('\n');
+        }
+        if (donorEnd >= donorBegin && donorBegin > 0) {
+            regions.append(pairId).append(',').append(chosen.size()).append(",NON_CLONE,donor_")
+                    .append(donorId).append(",,,").append(donorBegin).append(',')
+                    .append(donorEnd).append('\n');
         }
         manifest.append(pairId).append(',').append(seed.getFileName()).append(',')
                 .append(leftPath.toAbsolutePath()).append(',')
                 .append(rightPath.toAbsolutePath()).append('\n');
         return null;
+    }
+
+    /**
+     * Lines after which a statement may be spliced in: a line ending in {@code ;} or {@code \}} at a
+     * brace depth of two or more, i.e. inside a method body rather than at class level.
+     *
+     * Depth is counted on the text because the donor is spliced into printed output, and a splice
+     * after an unbraced {@code if} header or at class scope would not compile.
+     */
+    private static List<Integer> spliceCandidates(String text) {
+        List<Integer> points = new ArrayList<>();
+        String[] lines = text.split("\n", -1);
+        int depth = 0;
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            int before = depth;
+            for (char c : line.toCharArray()) {
+                if (c == '{') {
+                    depth++;
+                } else if (c == '}') {
+                    depth--;
+                }
+            }
+            String trimmed = line.strip();
+            boolean closesSomething = trimmed.equals("}") || trimmed.endsWith(";");
+            if (closesSomething && depth >= 2 && before >= 2) {
+                points.add(i + 1);
+            }
+        }
+        return points;
     }
 
     private record Range(CtBlock<?> body, List<CtStatement> statements, int beginLine, int endLine) { }
@@ -263,6 +465,339 @@ public final class RegionCorpusGenerator {
      * Rename only variables whose declaration AND every reference fall inside the range. A variable
      * used outside it would carry the edit into a neighbouring region and mislabel that region.
      */
+    /** The clone type an operator produces, from its name prefix. Unprefixed names are a bug. */
+    private static String cloneTypeOf(String operator) {
+        if (operator.startsWith("t1_")) {
+            return "T1";
+        }
+        if (operator.startsWith("t2_")) {
+            return "T2";
+        }
+        if (operator.startsWith("t3_")) {
+            return "T3";
+        }
+        throw new IllegalStateException("operator name carries no type prefix: " + operator);
+    }
+
+    /** One aligned block from an LCS line diff: left [i1,i2) and right [j1,j2), 0-based, half-open. */
+    private record Opcode(boolean equal, int i1, int i2, int j1, int j2) { }
+
+    /**
+     * Line-level LCS alignment of the two printed sides.
+     *
+     * This is a fact about the two texts, not an opinion of the detector, so using it to PLACE the
+     * references keeps the ground truth independent of the system under test. The TYPES never come
+     * from here -- they come from which operator the generator applied.
+     */
+    private static List<Opcode> diff(String leftText, String rightText) {
+        List<String> left = List.of(leftText.split("\n", -1));
+        List<String> right = List.of(rightText.split("\n", -1));
+        int[][] dp = new int[left.size() + 1][right.size() + 1];
+        for (int i = left.size() - 1; i >= 0; i--) {
+            for (int j = right.size() - 1; j >= 0; j--) {
+                dp[i][j] = left.get(i).equals(right.get(j))
+                        ? dp[i + 1][j + 1] + 1
+                        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+            }
+        }
+        List<Opcode> out = new ArrayList<>();
+        int i = 0;
+        int j = 0;
+        while (i < left.size() || j < right.size()) {
+            boolean equal = i < left.size() && j < right.size() && left.get(i).equals(right.get(j));
+            int si = i;
+            int sj = j;
+            if (equal) {
+                while (i < left.size() && j < right.size() && left.get(i).equals(right.get(j))) {
+                    i++;
+                    j++;
+                }
+            } else {
+                while (i < left.size() || j < right.size()) {
+                    if (i < left.size() && j < right.size() && left.get(i).equals(right.get(j))) {
+                        break;
+                    }
+                    if (j >= right.size() || (i < left.size() && dp[i + 1][j] >= dp[i][j + 1])) {
+                        i++;
+                    } else {
+                        j++;
+                    }
+                }
+            }
+            out.add(new Opcode(equal, si, i, sj, j));
+        }
+        return out;
+    }
+
+    /**
+     * The lines one operator actually changed, on each side, restricted to its own range.
+     *
+     * Exactly one operator acts in each range, so every difference inside that range is that
+     * operator's doing and no attribution is needed. Recorded because protocol §6 asks for the clone
+     * interval AND the mutation interval: the first says a block corresponds, the second says where
+     * the edit is. The earlier corpus conflated them into one label, which is why a 9-line "T3"
+     * reference contained a single inserted statement and eight identical lines.
+     *
+     * @return {leftBegin, leftEnd, rightBegin, rightEnd}; a zero means that side has no extent,
+     *         which is the normal case for a pure insertion or deletion.
+     */
+    private static int[] mutationInterval(List<Opcode> opcodes, int begin, int end) {
+        int lb = 0;
+        int le = 0;
+        int rb = 0;
+        int re = 0;
+        for (Opcode op : opcodes) {
+            if (op.equal()) {
+                continue;
+            }
+            int lo = Math.max(begin, op.i1() + 1);
+            int hi = Math.min(end, op.i2());
+            boolean touchesLeft = lo <= hi;
+            // A pure insertion has no left extent, so attribute it to the range whose lines surround
+            // the insertion point; otherwise every inserted statement would be unattributable.
+            boolean atBoundary = op.i1() + 1 >= begin && op.i1() <= end;
+            if (!touchesLeft && !atBoundary) {
+                continue;
+            }
+            if (touchesLeft) {
+                lb = lb == 0 ? lo : Math.min(lb, lo);
+                le = Math.max(le, hi);
+            }
+            if (op.j2() > op.j1()) {
+                rb = rb == 0 ? op.j1() + 1 : Math.min(rb, op.j1() + 1);
+                re = Math.max(re, op.j2());
+            }
+        }
+        return new int[]{lb, le, rb, re};
+    }
+
+    /**
+     * Runs of byte-identical lines inside the hosting method bodies, excluding the mutated ranges.
+     *
+     * Type-1 by construction. Without them T1 is never tested at all: the corpus would only ask
+     * about ranges that were deliberately changed, leaving "did it recognise the code that was NOT
+     * touched" unmeasured.
+     */
+    private static List<int[]> untouchedRuns(List<Opcode> opcodes, List<Range> ranges) {
+        List<int[]> runs = new ArrayList<>();
+        // Distinct bodies only. Two ranges commonly sit in the SAME method, and iterating per range
+        // emitted every untouched run of that body twice -- doubling the T1 references and with them
+        // any per-type count computed from this table.
+        List<int[]> bodies = new ArrayList<>();
+        for (Range host : ranges) {
+            int[] span = {host.body().getPosition().getLine(), host.body().getPosition().getEndLine()};
+            if (bodies.stream().noneMatch(x -> x[0] == span[0] && x[1] == span[1])) {
+                bodies.add(span);
+            }
+        }
+        for (Opcode op : opcodes) {
+            if (!op.equal()) {
+                continue;
+            }
+            for (int[] body : bodies) {
+                int bodyBegin = body[0];
+                int bodyEnd = body[1];
+                int lo = Math.max(op.i1() + 1, bodyBegin);
+                int hi = Math.min(op.i2(), bodyEnd);
+                for (int line = lo; line <= hi; line++) {
+                    boolean mutated = false;
+                    for (Range range : ranges) {
+                        if (line >= range.beginLine() && line <= range.endLine()) {
+                            mutated = true;
+                            break;
+                        }
+                    }
+                    if (mutated) {
+                        continue;
+                    }
+                    int right = op.j1() + (line - (op.i1() + 1)) + 1;
+                    int[] last = runs.isEmpty() ? null : runs.get(runs.size() - 1);
+                    if (last != null && last[1] == line - 1 && last[3] == right - 1) {
+                        last[1] = line;
+                        last[3] = right;
+                    } else {
+                        runs.add(new int[]{line, line, right, right});
+                    }
+                }
+            }
+        }
+        return runs;
+    }
+
+    /**
+     * Map a left line range onto the printed right side via an LCS line alignment.
+     *
+     * Needed because a T3 edit in one range shifts every line after it, so a T1 operator assigned to
+     * a later range can no longer be applied at the left-hand numbers. Returns null when the range
+     * has no unambiguous counterpart, which is treated as a drop rather than guessed at.
+     */
+    private static int[] mapRange(String leftText, String rightText, int begin, int end) {
+        int lo = -1;
+        int hi = -1;
+        for (Opcode op : diff(leftText, rightText)) {
+            int lineFrom = Math.max(begin, op.i1() + 1);
+            int lineTo = Math.min(end, op.i2());
+            if (lineFrom > lineTo) {
+                continue;
+            }
+            int rightFrom;
+            int rightTo;
+            if (op.equal()) {
+                rightFrom = op.j1() + (lineFrom - (op.i1() + 1)) + 1;
+                rightTo = op.j1() + (lineTo - (op.i1() + 1)) + 1;
+            } else {
+                // A changed block has no line-for-line counterpart, so the whole opposing extent is
+                // taken. Counting only the identical lines would collapse the mapped range: a
+                // renamed six-line block mapped to the single line the rename did not touch.
+                rightFrom = op.j1() + 1;
+                rightTo = op.j2();
+            }
+            if (rightTo < rightFrom) {
+                continue;
+            }
+            lo = lo < 0 ? rightFrom : Math.min(lo, rightFrom);
+            hi = hi < 0 ? rightTo : Math.max(hi, rightTo);
+        }
+        return lo < 0 ? null : new int[]{lo, hi};
+    }
+
+    /**
+     * Layout and comment edits, confined to {@code [begin,end]} of the printed right side. None of
+     * them can break compilation, and after removing layout and comments the range is unchanged --
+     * which is exactly what makes the range a Type-1 clone rather than a Type-2 one.
+     */
+    private static String applyTextOperator(String operator, String text, int begin, int end,
+                                            Random random) {
+        List<String> lines = new ArrayList<>(List.of(text.split("\n", -1)));
+        if (begin < 1 || end > lines.size() || end < begin) {
+            return null;
+        }
+        // Modify-in-place picks any line of the range. Insert-style operators must pick a GAP
+        // strictly inside it: inserting before the range's first line puts the new line outside the
+        // range it is supposed to belong to, which measured as 3 of 12 blank lines and 1 of 12 block
+        // comments landing outside their own reference.
+        int target = begin - 1 + random.nextInt(end - begin + 1);
+        int gap = end > begin ? begin + random.nextInt(end - begin) : begin;
+        switch (operator) {
+            case "t1_add_eol_comment" -> lines.set(target, lines.get(target) + " // note " + random.nextInt(97));
+            case "t1_add_blank_line" -> lines.add(gap, "");
+            case "t1_add_block_comment" -> {
+                String indent = lines.get(gap).replaceAll("\\S.*$", "");
+                lines.add(gap, indent + "/* note " + random.nextInt(97) + " */");
+            }
+            case "t1_reindent" -> {
+                // Extra leading whitespace only: no token gains, loses or changes text.
+                for (int k = begin - 1; k < end; k++) {
+                    if (!lines.get(k).isBlank()) {
+                        lines.set(k, "    " + lines.get(k));
+                    }
+                }
+            }
+            default -> throw new IllegalArgumentException("unknown text operator: " + operator);
+        }
+        return String.join("\n", lines);
+    }
+
+    /** Apply one named operator inside one range; null when it has nothing to work on there. */
+    private static String applyOperator(String operator, CtModel model, Range range,
+                                        Factory factory, Random random) {
+        return switch (operator) {
+            case "t2_rename_local" -> applyT2(model, range);
+            case "t2_change_int_literal" -> changeLiteral(range, factory, random, false);
+            case "t2_change_string_literal" -> changeLiteral(range, factory, random, true);
+            case "t3_insert_statement" -> insertStatement(range, factory, random);
+            case "t3_delete_statement" -> deleteStatement(range, random);
+            case "t3_wrap_statement" -> wrapStatement(range, factory, random);
+            default -> throw new IllegalArgumentException("unknown operator: " + operator);
+        };
+    }
+
+    /**
+     * Replace a literal's value, keeping its type so the result still compiles. Normalisation maps
+     * every literal of a kind to one placeholder, so this is a Type-2 change: the statement matches
+     * after normalisation and no statement was added or removed.
+     */
+    private static String changeLiteral(Range range, Factory factory, Random random, boolean strings) {
+        for (CtStatement statement : range.statements) {
+            for (CtLiteral<?> literal : statement.getElements(new TypeFilter<>(CtLiteral.class))) {
+                Object value = literal.getValue();
+                if (strings && value instanceof String text) {
+                    @SuppressWarnings("unchecked")
+                    CtLiteral<Object> target = (CtLiteral<Object>) literal;
+                    target.setValue(text + "_v" + random.nextInt(97));
+                    return "t2_change_string_literal";
+                }
+                if (!strings && value instanceof Integer number) {
+                    @SuppressWarnings("unchecked")
+                    CtLiteral<Object> target = (CtLiteral<Object>) literal;
+                    // A different value, never the same one: an unchanged literal is not a mutation.
+                    target.setValue(number + 1 + random.nextInt(7));
+                    return "t2_change_int_literal";
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String insertStatement(Range range, Factory factory, Random random) {
+        List<CtStatement> candidates = new ArrayList<>(range.statements);
+        Collections.shuffle(candidates, random);
+        for (CtStatement candidate : candidates) {
+            if (abrupt(candidate)) {
+                continue;
+            }
+            CtLocalVariable<Integer> fresh = factory.Code().createLocalVariable(
+                    factory.Type().integerPrimitiveType(),
+                    "rIns" + Math.abs(random.nextInt(9973)),
+                    factory.Code().createLiteral(random.nextInt(97)));
+            candidate.insertAfter(fresh);
+            return "t3_insert_statement";
+        }
+        return null;
+    }
+
+    /**
+     * Delete one SINGLE-LINE statement, mirroring mDL, which deletes a line.
+     *
+     * Allowing any deletable statement let it remove a whole {@code while} loop with its body: all
+     * 16 lines of the range vanished, leaving a "clone interval" with no counterpart at all. A
+     * multi-line deletion is a different edit from the operator it stands for.
+     */
+    private static String deleteStatement(Range range, Random random) {
+        List<CtStatement> candidates = new ArrayList<>(range.statements);
+        Collections.shuffle(candidates, random);
+        for (CtStatement candidate : candidates) {
+            if (!deletable(candidate) || candidate.getPosition() == null
+                    || !candidate.getPosition().isValidPosition()) {
+                continue;
+            }
+            if (candidate.getPosition().getEndLine() != candidate.getPosition().getLine()) {
+                continue;
+            }
+            candidate.delete();
+            return "t3_delete_statement";
+        }
+        return null;
+    }
+
+    private static String wrapStatement(Range range, Factory factory, Random random) {
+        List<CtStatement> candidates = new ArrayList<>(range.statements);
+        Collections.shuffle(candidates, random);
+        for (CtStatement candidate : candidates) {
+            if (candidate instanceof CtLocalVariable || containsAbrupt(candidate)) {
+                continue;
+            }
+            CtIf conditional = factory.Core().createIf();
+            conditional.setCondition(factory.Code().createLiteral(true));
+            CtBlock<?> then = factory.Core().createBlock();
+            then.addStatement(candidate.clone());
+            conditional.setThenStatement(then);
+            candidate.replace(conditional);
+            return "t3_wrap_statement";
+        }
+        return null;
+    }
+
     private static String applyT2(CtModel model, Range range) {
         int renamed = 0;
         for (CtStatement statement : range.statements) {
@@ -282,7 +817,7 @@ public final class RegionCorpusGenerator {
                 }
             }
         }
-        return renamed > 0 ? "rename_local_x" + renamed : null;
+        return renamed > 0 ? "t2_rename_local_x" + renamed : null;
     }
 
     private static boolean confinedTo(CtLocalVariable<?> declaration, Range range) {
@@ -306,43 +841,6 @@ public final class RegionCorpusGenerator {
             }
         }
         return true;
-    }
-
-    /** One statement-level edit inside the range, using the operators measured at ~100% survival. */
-    private static String applyT3(CtModel model, Range range, Factory factory, Random random) {
-        List<CtStatement> candidates = new ArrayList<>(range.statements);
-        Collections.shuffle(candidates, random);
-
-        for (CtStatement candidate : candidates) {
-            if (!abrupt(candidate)) {
-                CtLocalVariable<Integer> fresh = factory.Code().createLocalVariable(
-                        factory.Type().integerPrimitiveType(),
-                        "rIns" + Math.abs(random.nextInt(9973)),
-                        factory.Code().createLiteral(random.nextInt(97)));
-                candidate.insertAfter(fresh);
-                return "insert_statement";
-            }
-        }
-        for (CtStatement candidate : candidates) {
-            if (deletable(candidate)) {
-                candidate.delete();
-                return "delete_statement";
-            }
-        }
-        for (CtStatement candidate : candidates) {
-            if (candidate instanceof CtLocalVariable || containsAbrupt(candidate)) {
-                continue;
-            }
-            CtIf conditional = factory.Core().createIf();
-            CtLiteral<Boolean> alwaysTrue = factory.Code().createLiteral(true);
-            conditional.setCondition(alwaysTrue);
-            CtBlock<?> then = factory.Core().createBlock();
-            then.addStatement(candidate.clone());
-            conditional.setThenStatement(then);
-            candidate.replace(conditional);
-            return "wrap_statement";
-        }
-        return null;
     }
 
     private static boolean abrupt(CtStatement statement) {

@@ -212,6 +212,7 @@ public class NextJsonReportFormatter {
         }
         appendRegionEndpoint(out, level + 1, "left", decision.candidate().left(), true);
         appendRegionEndpoint(out, level + 1, "right", decision.candidate().right(), true);
+        appendSubRegions(out, level + 1, decision.subRegions());
         appendRegionDisplay(out, level + 1, decision, displayIndex, true);
         appendSources(out, level + 1, decision.candidate().sources(), true);
         appendStringArray(out, level + 1, "tags",
@@ -352,6 +353,39 @@ public class NextJsonReportFormatter {
             out.append(',');
         }
         out.append('\n');
+    }
+
+    /**
+     * Per-statement breakdown of one region. The region's own type is unchanged and stays
+     * authoritative; this says which runs inside it are identical, renamed, or edited.
+     */
+    private static void appendSubRegions(StringBuilder out, int level, List<SubRegion> subRegions) {
+        indent(out, level).append("\"subRegions\": [");
+        for (int i = 0; i < subRegions.size(); i++) {
+            SubRegion sub = subRegions.get(i);
+            out.append("{\"type\": \"").append(sub.type().name()).append("\", \"left\": ");
+            appendSegmentArray(out, sub.left());
+            out.append(", \"right\": ");
+            appendSegmentArray(out, sub.right());
+            out.append(", \"reason\": \"").append(escape(sub.reason())).append("\"}");
+            if (i < subRegions.size() - 1) {
+                out.append(", ");
+            }
+        }
+        out.append("],\n");
+    }
+
+    private static void appendSegmentArray(StringBuilder out, List<LineSegment> segments) {
+        out.append('[');
+        for (int i = 0; i < segments.size(); i++) {
+            LineSegment segment = segments.get(i);
+            if (i > 0) {
+                out.append(", ");
+            }
+            out.append("{\"begin\": ").append(segment.begin())
+                    .append(", \"end\": ").append(segment.end()).append('}');
+        }
+        out.append(']');
     }
 
     /** {@code "segments":[{"begin":12,"end":20},{"begin":95,"end":100}]} — no trailing comma. */

@@ -26,11 +26,19 @@ code-sim/results/mutation-*/run*/
 code-sim/results/mutation-*/*.jsonl
 code-sim/results/mutation-*/manifest.csv
 code-sim/results/mutation-*/exec_manifest*.csv
+# Generated pairs and raw run output, at any nesting depth: a corpus directory may hold
+# sub-strata (negatives/, preflight/) whose own pairs/ and run/ must be excluded too.
+code-sim/results/region-corpus-*/**/pairs/
+code-sim/results/region-corpus-*/**/run*/
 code-sim/results/region-corpus-*/pairs/
 code-sim/results/region-corpus-*/run*/
-code-sim/results/region-corpus-*/*.jsonl
-code-sim/results/region-corpus-*/manifest*.csv
-code-sim/results/region-corpus-*/exec_manifest*.csv
+code-sim/results/formal-*/**/pairs/
+code-sim/results/formal-*/**/run*/
+code-sim/results/formal-*/pairs/
+code-sim/results/formal-*/run*/
+code-sim/results/**/*.jsonl
+code-sim/results/**/manifest*.csv
+code-sim/results/**/exec_manifest*.csv
 code-sim/results/spoon-t2-probe/
 
 # Spoon mutant generator: standalone Maven project, build output only.

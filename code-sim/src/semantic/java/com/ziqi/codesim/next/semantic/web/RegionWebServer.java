@@ -10,6 +10,7 @@ import com.ziqi.codesim.next.NextPipelineResult;
 import com.ziqi.codesim.next.RegionCandidate;
 import com.ziqi.codesim.next.RegionDecision;
 import com.ziqi.codesim.next.RegionKind;
+import com.ziqi.codesim.next.SubRegion;
 import com.ziqi.codesim.next.semantic.PipelineExecution;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
@@ -154,9 +155,34 @@ public final class RegionWebServer {
                 + "\"right\":{\"begin\":" + right.beginLine() + ",\"end\":" + right.endLine()
                 + ",\"segments\":" + segmentsJson(right) + "},"
                 + "\"similarity\":" + similarity + ","
+                + "\"subRegions\":[" + String.join(",", subRegionsJson(decision)) + "],"
                 + "\"tags\":[" + String.join(",", tags) + "],"
                 + "\"path\":[" + String.join(",", path) + "]"
                 + "}";
+    }
+
+    /** Per-statement breakdown inside one region; the region's own type stays authoritative. */
+    private static List<String> subRegionsJson(RegionDecision decision) {
+        List<String> out = new ArrayList<>();
+        for (SubRegion sub : decision.subRegions()) {
+            out.add("{\"type\":\"" + sub.type().name() + "\""
+                    + ",\"left\":" + segmentListJson(sub.left())
+                    + ",\"right\":" + segmentListJson(sub.right())
+                    + ",\"reason\":\"" + esc(sub.reason()) + "\"}");
+        }
+        return out;
+    }
+
+    private static String segmentListJson(List<LineSegment> segments) {
+        StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < segments.size(); i++) {
+            if (i > 0) {
+                out.append(',');
+            }
+            out.append("{\"begin\":").append(segments.get(i).begin())
+                    .append(",\"end\":").append(segments.get(i).end()).append('}');
+        }
+        return out.append(']').toString();
     }
 
     private static String segmentsJson(CodeRegion region) {

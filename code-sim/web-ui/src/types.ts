@@ -36,6 +36,19 @@ export interface LineSpan {
   segments?: LineSegment[];
 }
 
+export interface SubRegionVerdict {
+  /**
+   * The same T1->T2->T3 cascade applied to one aligned statement pair instead of the whole region.
+   * A region typed T2 means the WHOLE region differs only by identifiers; a sub-region typed T2
+   * means that run does, while the region around it may differ in other ways. `left` is empty for
+   * a statement that exists only on the right (inserted), and vice versa.
+   */
+  type: CloneType;
+  left: LineSegment[];
+  right: LineSegment[];
+  reason: string;
+}
+
 export interface RegionVerdict {
   id: string;
   family: CloneFamily;
@@ -50,6 +63,12 @@ export interface RegionVerdict {
   tags: string[];
   /** The recognizer's decision trail — why this verdict. */
   path: string[];
+  /**
+   * Uniformly-typed runs inside this region. The region's own `type` stays authoritative; this is
+   * a finer view of the same evidence, so a count of clones must use one scale or the other, never
+   * both. Absent from a backend older than this field.
+   */
+  subRegions?: SubRegionVerdict[];
 }
 
 export interface FileSide {

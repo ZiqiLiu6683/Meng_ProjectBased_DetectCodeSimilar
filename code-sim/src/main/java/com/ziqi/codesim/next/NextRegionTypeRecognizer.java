@@ -227,7 +227,8 @@ public class NextRegionTypeRecognizer {
                 renameEvidence,
                 editScript,
                 Set.copyOf(tags),
-                List.copyOf(path)
+                List.copyOf(path),
+                subRegions(candidate.left(), candidate.right())
         );
     }
 
@@ -308,6 +309,99 @@ public class NextRegionTypeRecognizer {
         return candidate.sources().stream()
                 .map(CandidateSource::channel)
                 .anyMatch(channel -> !SOURCE_ONLY_CHANNELS.contains(channel));
+    }
+
+    /**
+     * The same T1 -> T2 -> T3 cascade, applied per aligned statement pair instead of per region.
+     *
+     * A grown region stops where the two sides stop corresponding, not where the KIND of difference
+     * changes, so one region routinely mixes identical, renamed and edited statements and the
+     * region-level verdict can only report the last of those. This recovers the breakdown WITHOUT
+     * introducing a second classification rule: the alignment is the same LCS over
+     * {@code normalizedStatementTexts} that produces the edit script, and the per-pair test is the
+     * same pair of comparisons the region-level cascade makes.
+     *
+     * <p>Alignment on the T2 view is deliberate and must match the region-level decision: a
+     * statement that only had identifiers renamed is MATCHED here (it is T2, not an edit), which is
+     * exactly why renaming alone leaves the edit script empty and keeps a region at T2.
+     *
+     * <p>Returns empty when positions are unavailable or the parallel lists disagree -- an
+     * off-by-one would attach real types to the wrong lines, which is worse than no breakdown.
+     */
+    static List<SubRegion> subRegions(CodeRegion left, CodeRegion right) {
+        List<String> leftKeys = left.normalizedStatementTexts();
+        List<String> rightKeys = right.normalizedStatementTexts();
+        if (leftKeys.size() != left.statementTexts().size()
+                || rightKeys.size() != right.statementTexts().size()
+                || left.statementLines().size() != leftKeys.size()
+                || right.statementLines().size() != rightKeys.size()
+                || leftKeys.isEmpty() || rightKeys.isEmpty()) {
+            return List.of();
+        }
+
+        List<SubRegion> items = new ArrayList<>();
+        int[][] dp = lcsTable(leftKeys, rightKeys, 0, leftKeys.size(), 0, rightKeys.size());
+        int i = 0;
+        int j = 0;
+        while (i < leftKeys.size() && j < rightKeys.size()) {
+            if (leftKeys.get(i).equals(rightKeys.get(j))) {
+                boolean identical = left.statementTexts().get(i).equals(right.statementTexts().get(j));
+                items.add(new SubRegion(
+                        identical ? CloneRegionType.T1 : CloneRegionType.T2,
+                        List.of(left.statementLines().get(i)),
+                        List.of(right.statementLines().get(j)),
+                        identical
+                                ? "T1: statement tokens are identical."
+                                : "T2: statement matches after identifier/literal normalization."));
+                i++;
+                j++;
+            } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+                items.add(new SubRegion(CloneRegionType.T3,
+                        List.of(left.statementLines().get(i)), List.of(),
+                        "T3: statement has no counterpart on the right (deleted)."));
+                i++;
+            } else {
+                items.add(new SubRegion(CloneRegionType.T3,
+                        List.of(), List.of(right.statementLines().get(j)),
+                        "T3: statement has no counterpart on the left (inserted)."));
+                j++;
+            }
+        }
+        while (i < leftKeys.size()) {
+            items.add(new SubRegion(CloneRegionType.T3,
+                    List.of(left.statementLines().get(i)), List.of(),
+                    "T3: statement has no counterpart on the right (deleted)."));
+            i++;
+        }
+        while (j < rightKeys.size()) {
+            items.add(new SubRegion(CloneRegionType.T3,
+                    List.of(), List.of(right.statementLines().get(j)),
+                    "T3: statement has no counterpart on the left (inserted)."));
+            j++;
+        }
+        return coalesce(items);
+    }
+
+    /** Merge neighbouring runs of the same type; separate entries would imply a boundary that is not there. */
+    private static List<SubRegion> coalesce(List<SubRegion> items) {
+        List<SubRegion> merged = new ArrayList<>();
+        for (SubRegion item : items) {
+            if (merged.isEmpty()) {
+                merged.add(item);
+                continue;
+            }
+            SubRegion last = merged.get(merged.size() - 1);
+            if (last.type() != item.type()) {
+                merged.add(item);
+                continue;
+            }
+            List<LineSegment> l = new ArrayList<>(last.left());
+            l.addAll(item.left());
+            List<LineSegment> r = new ArrayList<>(last.right());
+            r.addAll(item.right());
+            merged.set(merged.size() - 1, new SubRegion(item.type(), l, r, last.reason()));
+        }
+        return List.copyOf(merged);
     }
 
     private static void addStatementTags(Set<RegionTag> tags, StatementEditScript editScript) {
