@@ -36,8 +36,12 @@ code-sim/results/formal-*/**/pairs/
 code-sim/results/formal-*/**/run*/
 code-sim/results/formal-*/pairs/
 code-sim/results/formal-*/run*/
-code-sim/results/**/*.jsonl
-code-sim/results/**/manifest*.csv
+# The run/ directory above is working state. The raw product output is copied out of it into
+# raw/merged.jsonl.gz, which IS kept: protocol §10 records the scorer hash separately so a scoring
+# defect can be fixed and the raw outputs RESCORED without re-running the product, and that is
+# impossible if the raw output was discarded. One batch costs ~7 h of detector time to regenerate;
+# the corpus and ground truth beside it are deterministic from the frozen seed and cost minutes.
+code-sim/results/**/manifest.csv
 code-sim/results/**/exec_manifest*.csv
 code-sim/results/spoon-t2-probe/
 

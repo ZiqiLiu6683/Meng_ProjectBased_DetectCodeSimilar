@@ -1,0 +1,9 @@
+{
+  "cpu_model": null,
+  "dmi_product_name": null,
+  "logical_cpu_count": 8,
+  "machine": "arm64",
+  "memory_kib": null,
+  "os_release": {},
+  "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O"
+}

@@ -33,10 +33,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -130,9 +132,29 @@ public final class RegionCorpusGenerator {
             System.out.printf("[gen] donor library: %d blocks%n", donors.size());
         }
 
+        // -Dmutgen.excludeSeeds=<file> lists seed file NAMES already consumed by an earlier batch.
+        // Batches shuffle the same corpus with different RNG seeds, so without this a later batch
+        // silently reuses files an earlier one already used: the corpus would contain near-duplicate
+        // pairs and the statistics would treat them as independent. Names are unique across CodeNet
+        // Java250 (verified: zero duplicate basenames in 75,000 files).
+        Set<String> excluded = new HashSet<>();
+        String excludeFile = System.getProperty("mutgen.excludeSeeds", "").strip();
+        if (!excludeFile.isEmpty()) {
+            for (String line : Files.readAllLines(Path.of(excludeFile), StandardCharsets.UTF_8)) {
+                String name = line.strip();
+                if (!name.isEmpty()) {
+                    excluded.add(name);
+                }
+            }
+            System.out.printf("[gen] excluding %d seeds used by earlier batches%n", excluded.size());
+        }
+
         List<Path> seeds;
         try (var stream = Files.walk(seedDir)) {
-            seeds = new ArrayList<>(stream.filter(p -> p.toString().endsWith(".java")).sorted().toList());
+            seeds = new ArrayList<>(stream
+                    .filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> !excluded.contains(p.getFileName().toString()))
+                    .sorted().toList());
         }
         Collections.shuffle(seeds, new Random(rngSeed));
 
@@ -152,7 +174,11 @@ public final class RegionCorpusGenerator {
         Files.createDirectories(out.resolve("pairs"));
         StringBuilder regions = new StringBuilder(
                 "pair_id,ref_index,kind,clone_type,operator,left_begin,left_end,right_begin,right_end\n");
-        StringBuilder manifest = new StringBuilder("pair_id,seed_file,left_path,right_path\n");
+        // seed_problem is the CodeNet problem directory. Confidence intervals must cluster by problem
+        // (§7), and the seed's basename alone cannot say which problem it belongs to -- recovering it
+        // later means rescanning 75,000 files to build the mapping.
+        StringBuilder manifest = new StringBuilder(
+                "pair_id,seed_file,seed_problem,left_path,right_path\n");
         Map<String, Integer> drops = new LinkedHashMap<>();
 
         int attempted = 0;
@@ -359,6 +385,7 @@ public final class RegionCorpusGenerator {
                     .append(donorEnd).append('\n');
         }
         manifest.append(pairId).append(',').append(seed.getFileName()).append(',')
+                .append(seed.getParent() == null ? "" : seed.getParent().getFileName()).append(',')
                 .append(leftPath.toAbsolutePath()).append(',')
                 .append(rightPath.toAbsolutePath()).append('\n');
         return null;
