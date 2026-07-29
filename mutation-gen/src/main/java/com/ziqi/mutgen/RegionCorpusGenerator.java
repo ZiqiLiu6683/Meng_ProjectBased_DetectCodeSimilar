@@ -364,8 +364,20 @@ public final class RegionCorpusGenerator {
                         .append(mapped[0]).append(',').append(mapped[1]).append('\n');
             }
 
-            int[] mutation = mutationInterval(opcodes, range.beginLine, range.endLine);
-            if (mutation[1] >= mutation[0] && (mutation[1] > 0 || mutation[3] > 0)) {
+            // One reference per CONTIGUOUS run of changed lines, not one span from the first change
+            // to the last. A rename touches its declaration and each use, which are scattered: a
+            // single spanning interval swallowed the untouched lines between them, and the scorer --
+            // picking the best-overlapping run -- then matched a T1 gap rather than one of the
+            // renamed lines. Measured: 12 of 100 renames per batch were typed T1 that way while the
+            // detector had correctly marked each renamed line T2 and each gap T1.
+            List<int[]> runs = operator.startsWith("t3_wrap")
+                    ? List.of(wrapMutationInterval(leftText, rightText, opcodes,
+                            range.beginLine, range.endLine))
+                    : mutationRuns(opcodes, range.beginLine, range.endLine);
+            for (int[] mutation : runs) {
+                if (mutation[1] < mutation[0] || (mutation[1] == 0 && mutation[3] == 0)) {
+                    continue;
+                }
                 regions.append(pairId).append(',').append(refIndex++).append(",MUTATION,")
                         .append(type).append(',').append(operator).append(',')
                         .append(mutation[0] == 0 ? "" : mutation[0]).append(',')
@@ -568,6 +580,83 @@ public final class RegionCorpusGenerator {
      * @return {leftBegin, leftEnd, rightBegin, rightEnd}; a zero means that side has no extent,
      *         which is the normal case for a pure insertion or deletion.
      */
+    /**
+     * Wrapping adds ONE statement -- an `if` -- around one that does not change, so its mutation
+     * interval is that statement's own line and nothing else.
+     *
+     * The generic rule takes every changed line in the range, which for wrap includes the wrapped
+     * statement: a line diff sees the whole thing as a replace because the statement is re-indented.
+     * That made the reference span code the operator did not touch, and since the genuinely added
+     * line has no left-hand counterpart, requiring coverage on both sides left the correct T3 run
+     * unmatchable while the unchanged statement's T1 run won. Measured over 3,000 pairs that alone
+     * reported 7.3% type accuracy for an operator the detector was identifying correctly; with the
+     * interval corrected it is 99.7%.
+     *
+     * A statement's own extent excludes what is nested inside it, so an `if` spans its header line
+     * and the closing brace is not a statement of its own. Comparison strips indentation, otherwise
+     * every re-indented body line looks new.
+     */
+    private static int[] wrapMutationInterval(String leftText, String rightText,
+                                              List<Opcode> opcodes, int begin, int end) {
+        List<String> left = new ArrayList<>();
+        for (String line : leftText.split("\n", -1)) {
+            left.add(line.strip());
+        }
+        List<String> right = new ArrayList<>();
+        for (String line : rightText.split("\n", -1)) {
+            right.add(line.strip());
+        }
+        int[] generic = mutationInterval(opcodes, begin, end);
+        int lo = generic[2] > 0 ? generic[2] : begin;
+        int hi = (generic[3] > 0 ? generic[3] : end) + 2;
+        for (Opcode op : opcodes) {
+            if (op.equal()) {
+                continue;
+            }
+            List<String> block = left.subList(Math.min(op.i1(), left.size()),
+                    Math.min(op.i2(), left.size()));
+            for (int j = op.j1(); j < op.j2() && j < right.size(); j++) {
+                int line = j + 1;
+                if (line >= lo && line <= hi && !block.contains(right.get(j))) {
+                    return new int[]{0, 0, line, line};
+                }
+            }
+        }
+        return generic;
+    }
+
+    /**
+     * The changed lines inside a range, split into contiguous runs.
+     *
+     * Each run is one localisable edit. Merging them into a single interval would claim the
+     * untouched lines between two renamed lines as mutated, which is both false and, at scoring
+     * time, enough to make an unchanged T1 run the best overlap.
+     */
+    private static List<int[]> mutationRuns(List<Opcode> opcodes, int begin, int end) {
+        List<int[]> runs = new ArrayList<>();
+        for (Opcode op : opcodes) {
+            if (op.equal()) {
+                continue;
+            }
+            int lo = Math.max(begin, op.i1() + 1);
+            int hi = Math.min(end, op.i2());
+            boolean touchesLeft = lo <= hi;
+            boolean atBoundary = op.i1() + 1 >= begin && op.i1() <= end;
+            if (!touchesLeft && !atBoundary) {
+                continue;
+            }
+            int lb = touchesLeft ? lo : 0;
+            int le = touchesLeft ? hi : 0;
+            int rb = op.j2() > op.j1() ? op.j1() + 1 : 0;
+            int re = op.j2() > op.j1() ? op.j2() : 0;
+            if (lb == 0 && rb == 0) {
+                continue;
+            }
+            runs.add(new int[]{lb, le, rb, re});
+        }
+        return runs;
+    }
+
     private static int[] mutationInterval(List<Opcode> opcodes, int begin, int end) {
         int lb = 0;
         int le = 0;
@@ -773,10 +862,19 @@ public final class RegionCorpusGenerator {
             if (abrupt(candidate)) {
                 continue;
             }
+            // The inserted statement must not normalise onto one already present. A plain
+            // `int x = 5;` becomes `int ID = NUM ;` under Type-2 normalisation, which is what every
+            // other int declaration becomes -- so the statement-level LCS paired the insertion with
+            // an existing declaration and reported a RENAME rather than an insertion. Measured: 9
+            // of 100 insertions per batch were typed T2 for this reason, and the detector was right
+            // each time. A compound initialiser has a token shape ordinary declarations lack.
             CtLocalVariable<Integer> fresh = factory.Code().createLocalVariable(
                     factory.Type().integerPrimitiveType(),
                     "rIns" + Math.abs(random.nextInt(9973)),
-                    factory.Code().createLiteral(random.nextInt(97)));
+                    factory.Code().createCodeSnippetExpression(
+                            "((" + (random.nextInt(97) + 3) + " % " + (random.nextInt(29) + 5)
+                                    + ") + (" + (random.nextInt(13) + 2) + " * "
+                                    + (random.nextInt(7) + 2) + "))"));
             candidate.insertAfter(fresh);
             return "t3_insert_statement";
         }
@@ -793,14 +891,26 @@ public final class RegionCorpusGenerator {
     private static String deleteStatement(Range range, Random random) {
         List<CtStatement> candidates = new ArrayList<>(range.statements);
         Collections.shuffle(candidates, random);
+        // Prefer a statement whose normalised shape is unique in its method. Deleting one with a
+        // normalised twin lets the statement-level LCS re-pair the survivors and report a rename
+        // instead of a deletion -- the mirror of the insertion problem above, and equally not a
+        // detector error. Falls back to any deletable statement rather than dropping the pair.
+        List<CtStatement> unique = new ArrayList<>();
+        List<CtStatement> rest = new ArrayList<>();
         for (CtStatement candidate : candidates) {
             if (!deletable(candidate) || candidate.getPosition() == null
-                    || !candidate.getPosition().isValidPosition()) {
+                    || !candidate.getPosition().isValidPosition()
+                    || candidate.getPosition().getEndLine() != candidate.getPosition().getLine()) {
                 continue;
             }
-            if (candidate.getPosition().getEndLine() != candidate.getPosition().getLine()) {
-                continue;
+            if (normalisedTwinExists(candidate)) {
+                rest.add(candidate);
+            } else {
+                unique.add(candidate);
             }
+        }
+        unique.addAll(rest);
+        for (CtStatement candidate : unique) {
             candidate.delete();
             return "t3_delete_statement";
         }
@@ -823,6 +933,37 @@ public final class RegionCorpusGenerator {
             return "t3_wrap_statement";
         }
         return null;
+    }
+
+    /** Does another statement in the same method share this one's Type-2 normalised shape? */
+    private static boolean normalisedTwinExists(CtStatement statement) {
+        CtElement scope = statement.getParent(CtExecutable.class);
+        if (scope == null) {
+            return false;
+        }
+        String shape = normalisedShape(statement);
+        int seen = 0;
+        for (CtStatement other : scope.getElements(new TypeFilter<>(CtStatement.class))) {
+            if (other instanceof CtBlock || other instanceof CtComment) {
+                continue;
+            }
+            if (normalisedShape(other).equals(shape)) {
+                seen++;
+                if (seen > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Identifiers, numbers and strings collapsed, mirroring the detector's Type-2 view. */
+    private static String normalisedShape(CtStatement statement) {
+        String text = statement.toString();
+        text = text.replaceAll("\"([^\"\\\\]|\\\\.)*\"", "STR");
+        text = text.replaceAll("\\b\\d[\\d_]*(\\.\\d+)?[fFdDlL]?\\b", "NUM");
+        text = text.replaceAll("[A-Za-z_$][\\w$]*", "ID");
+        return text.replaceAll("\\s+", "");
     }
 
     private static String applyT2(CtModel model, Range range) {

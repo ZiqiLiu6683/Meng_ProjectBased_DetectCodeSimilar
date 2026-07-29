@@ -1,0 +1,62 @@
+# Region corpus scoring summary
+
+Clone intervals: c-match = minimum-side reference coverage >= 0.70, scored against REGIONS.
+Mutations and untouched runs: capture = any overlap (protocol §6), scored against SUB-REGIONS.
+Primary match chosen by boundary quality without consulting its type.
+
+
+## Clone intervals vs regions
+
+| Expected | Operator | N | Matched | Type correct | Conditional type accuracy | Median IoU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| T1 | t1_add_blank_line | 100 | 99.0% | 99.0% | 100.0% | 0.400 |
+| T1 | t1_add_block_comment | 100 | 95.0% | 95.0% | 100.0% | 0.412 |
+| T1 | t1_add_eol_comment | 101 | 95.0% | 95.0% | 100.0% | 0.372 |
+| T1 | t1_reindent | 98 | 95.9% | 95.9% | 100.0% | 0.375 |
+| T2 | t2_change_int_literal | 101 | 100.0% | 100.0% | 100.0% | 0.417 |
+| T2 | t2_change_string_literal | 100 | 100.0% | 100.0% | 100.0% | 0.447 |
+| T2 | t2_rename_local | 100 | 98.0% | 98.0% | 100.0% | 0.474 |
+| T3 | t3_delete_statement | 100 | 96.0% | 96.0% | 100.0% | 0.366 |
+| T3 | t3_insert_statement | 100 | 97.0% | 97.0% | 100.0% | 0.353 |
+| T3 | t3_wrap_statement | 100 | 96.0% | 96.0% | 100.0% | 0.400 |
+
+## Mutations vs sub-regions
+
+| Expected | Operator | N | Matched | Type correct | Conditional type accuracy | Median IoU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| T1 | t1_add_blank_line | 100 | 32.0% | 32.0% | 100.0% | 0.056 |
+| T1 | t1_add_block_comment | 100 | 19.0% | 19.0% | 100.0% | 0.062 |
+| T1 | t1_add_eol_comment | 101 | 76.2% | 76.2% | 100.0% | 0.062 |
+| T1 | t1_reindent | 98 | 100.0% | 100.0% | 100.0% | 0.333 |
+| T2 | t2_change_int_literal | 101 | 100.0% | 100.0% | 100.0% | 1.000 |
+| T2 | t2_change_string_literal | 100 | 100.0% | 100.0% | 100.0% | 1.000 |
+| T2 | t2_rename_local | 100 | 100.0% | 94.0% | 94.0% | 1.000 |
+| T3 | t3_delete_statement | 100 | 99.0% | 90.0% | 90.9% | 1.000 |
+| T3 | t3_insert_statement | 97 | 97.9% | 87.6% | 89.5% | 1.000 |
+| T3 | t3_wrap_statement | 100 | 100.0% | 100.0% | 100.0% | 1.000 |
+
+## Untouched runs vs sub-regions
+
+| Expected | Operator | N | Matched | Type correct | Conditional type accuracy | Median IoU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| T1 | none | 2004 | 98.4% | 98.4% | 100.0% | 0.333 |
+
+## Confusion (kind, expected -> primary matched prediction)
+
+| Kind | Expected | Predicted | N |
+| --- | --- | --- | ---: |
+| CLONE_INTERVAL | T1 | NOT_MATCHED | 15 |
+| CLONE_INTERVAL | T1 | T1 | 384 |
+| CLONE_INTERVAL | T2 | NOT_MATCHED | 2 |
+| CLONE_INTERVAL | T2 | T2 | 299 |
+| CLONE_INTERVAL | T3 | NOT_MATCHED | 11 |
+| CLONE_INTERVAL | T3 | T3 | 289 |
+| MUTATION | T1 | NOT_MATCHED | 173 |
+| MUTATION | T1 | T1 | 226 |
+| MUTATION | T2 | T1 | 6 |
+| MUTATION | T2 | T2 | 295 |
+| MUTATION | T3 | NOT_MATCHED | 3 |
+| MUTATION | T3 | T2 | 19 |
+| MUTATION | T3 | T3 | 275 |
+| UNTOUCHED | T1 | NOT_MATCHED | 33 |
+| UNTOUCHED | T1 | T1 | 1971 |
