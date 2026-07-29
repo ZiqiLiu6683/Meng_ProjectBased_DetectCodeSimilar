@@ -19,6 +19,31 @@ The generator and the system under test share this one commit, as §10 requires.
 stamps `code_commit` and `dirty_worktree` onto every result, so a run that drifts off this revision
 is visible in its own output rather than discovered later.
 
+### Amendment, 2026-07-29 — commit moved from `42e320d` to `fab519f`
+
+Batches 1 and 2 ran on `42e320d`; batch 3 onward run on `fab519f`. Recorded as a deviation rather
+than quietly accepted, because §10 requires the generator and the product to share one frozen commit.
+
+**The system under test is byte-identical across the two.** `git diff --name-only 42e320d fab519f --
+code-sim/src/` is empty: the change touched the generator (recording `seed_problem`, needed for the
+clustered intervals this freeze already commits to), `.gitignore` (preserving the raw product output,
+which §10 and §11 require and which was being discarded), and result files. All batches are therefore
+comparable and may be merged. Every record carries `codeCommit`, so a batch can be attributed to its
+revision without relying on this note.
+
+**Also recorded:** every batch stamps `dirtyWorktree=true`. Verified as untracked *result* files only
+— `git status --porcelain` filtered to source extensions is empty for every batch, and each batch's
+`codeCommit` matches the HEAD it ran on. The flag cannot distinguish "source changed" from "results
+written"; that is a limitation of the flag, not evidence of drift.
+
+### Amendment, 2026-07-29 — measured ICC replaces the assumption
+
+Sizing assumed ICC = 0.05. Measured over batches 1–3, clustered by CodeNet problem: 0.038 for clone
+intervals, 0.008 for mutations, 0.041 for untouched runs (DEFF 1.42 / 1.09 / 1.98). The assumption
+was conservative, so the realised intervals are narrower than planned and the per-operator target of
+±4 % at p = 0.9 is already met at 3,000 pairs rather than 5,000. Whether to continue to 5,000 is an
+open decision recorded in `RESULTS.md` §8.
+
 ## 2. Corpus
 
 | | |

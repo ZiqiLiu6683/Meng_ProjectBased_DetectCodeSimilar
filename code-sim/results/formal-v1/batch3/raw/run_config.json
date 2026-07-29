@@ -1,0 +1,175 @@
+{
+  "code_commit": "fab519f1b5d2dce0d77af4a5876aa7eefb569f37",
+  "config_id": "formal-v1-batch3",
+  "dataset_id": "formal-v1-batch3",
+  "dirty_worktree": "true",
+  "disable_stubs": false,
+  "environment_id": "mac-m-local-8gb",
+  "execution_manifest_schema": "execution-1.1",
+  "java": "/opt/homebrew/opt/openjdk@17/bin/java",
+  "java_options": [
+    "-Dcodesim.compileCache=/tmp/cache-batch3"
+  ],
+  "java_version": "openjdk version \"17.0.18\" 2026-01-20",
+  "limit_per_shard": 0,
+  "manifest_sha256": "ca12dac754692509bd76f754891e086778025dc82064b766e0d9e180a1794f88",
+  "max_attempts": 1,
+  "runtime_classpath_entries": [
+    {
+      "kind": "directory",
+      "path": "/Users/liuziqi/Documents/\u897f\u5927Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/target/classes",
+      "sha256": "31bdec083bdff9192cc503e0f838bb5d6703157bc8168f0be644a98e5e8ddc74"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar",
+      "sha256": "b58e459509e190bed737f3592bc1950485322846cf10e78ded1d065153012d70"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/jupiter/junit-jupiter/5.10.2/junit-jupiter-5.10.2.jar",
+      "sha256": "263e43447f4b40f126ad6b1dcbd7df379448413bdedb8e0d240c5bcbba7c7a4f"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar",
+      "sha256": "afff77c186cd317275803872fa5133aa801fd6ac40bd91c78a6cf8009b4b17cc"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar",
+      "sha256": "48e2df636cab6563ced64dcdff8abb2355627cb236ef0bf37598682ddf742f1b"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar",
+      "sha256": "b56a5ec000a479df4973b18bba24c98fe0db8faa14c8907d3ef451d8c71fd8ae"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar",
+      "sha256": "b509448ac506d607319f182537f0b35d71007582ec741832a1f111e5b5b70b38"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar",
+      "sha256": "edb1e43ff0b8067626ffb55e5e9eeca1d9ab2478141a7c7f253d115b29cc7cf2"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar",
+      "sha256": "b6df35da750a546ae932376f11b3c0df841f0c90c7cb2944cd39adb432886e4b"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar",
+      "sha256": "905cba9b4998ccc29d1239085a7fb1fe0e28024d7526152356d810edec0a49a3"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/github/javaparser/javaparser-core/3.25.10/javaparser-core-3.25.10.jar",
+      "sha256": "9e80a37f92dd777d715c413a9a227e27a369d4a389ddbf2292cd74faec7e77d0"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/eu/mihosoft/ext/apted/apted/0.1/apted-0.1.jar",
+      "sha256": "635bd9db15095be1c29eceff945f030c235efe656ce63c6b3273c116e3817069"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/ibm/wala/com.ibm.wala.core/1.7.1/com.ibm.wala.core-1.7.1.jar",
+      "sha256": "970f3958cdf287981c0751f76ed80a10c26beeb4e02c44cba0d03da4b9ed2de4"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.jar",
+      "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/code/gson/gson/2.13.2/gson-2.13.2.jar",
+      "sha256": "dd0ce1b55a3ed2080cb70f9c655850cda86c206862310009dcb5e5c95265a5e0"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/errorprone/error_prone_annotations/2.41.0/error_prone_annotations-2.41.0.jar",
+      "sha256": "a56e782b5b50811ac204073a355a21d915a2107fce13ec711331ad036f660fcc"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/ibm/wala/com.ibm.wala.util/1.7.1/com.ibm.wala.util-1.7.1.jar",
+      "sha256": "d914a652a1a6f6eda23873776e5fc366240c889eb8f931faac34b4b88a0f851d"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/json/json/20251224/json-20251224.jar",
+      "sha256": "2a3438fbf9293174ea82bdfa35e83d8b965cfe6bddc034a1ac5d60107174c209"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/ibm/wala/com.ibm.wala.shrike/1.7.1/com.ibm.wala.shrike-1.7.1.jar",
+      "sha256": "ae18a1ec5d7a11919a441737a997695701178a2226b9c05930bd1a293da25486"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/sosy-lab/java-smt/6.0.0/java-smt-6.0.0.jar",
+      "sha256": "2df7c337ef63b20c95299896910aa966891722c063d678714a955af08a0e9b36"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/sosy-lab/common/0.3000-609-g90a352c/common-0.3000-609-g90a352c.jar",
+      "sha256": "a843ebb1b73fa655ac09e61a7156acfc722795d9067fa4c9caa9460c0173e43a"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/guava/guava/33.4.8-jre/guava-33.4.8-jre.jar",
+      "sha256": "f3d7f57f67fd622f4d468dfdd692b3a5e3909246c28017ac3263405f0fe617ed"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar",
+      "sha256": "cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e246b59cb"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar",
+      "sha256": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/j2objc/j2objc-annotations/3.0.0/j2objc-annotations-3.0.0.jar",
+      "sha256": "88241573467ddca44ffd4d74aa04c2bbfd11bf7c17e0c342c94c9de7a70a7c64"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/checkerframework/checker-qual/3.49.5/checker-qual-3.49.5.jar",
+      "sha256": "508c83c62c344f6f7ee28f47b88a8797d6116d043bfd1ca0576c828dd1df2880"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/github/spotbugs/spotbugs-annotations/4.9.4/spotbugs-annotations-4.9.4.jar",
+      "sha256": "85973144dd267fbeb15721cf99febb75c662c18e01b1a794cd6b4860a810f90b"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar",
+      "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/org/codehaus/mojo/animal-sniffer-annotations/1.18/animal-sniffer-annotations-1.18.jar",
+      "sha256": "47f05852b48ee9baefef80fa3d8cea60efa4753c0013121dd7fe5eef2e5c729d"
+    },
+    {
+      "kind": "file",
+      "path": "/Users/liuziqi/.m2/repository/de/uni-freiburg/informatik/ultimate/smtinterpol/2.5-1242-g5c50fb6d/smtinterpol-2.5-1242-g5c50fb6d.jar",
+      "sha256": "52962161ca148720a0dd3ed557ce64b885320890223f5fae2f02a5fa1d819b2b"
+    }
+  ],
+  "runtime_classpath_sha256": "1ce167cb80eae545f7d2c3b052725643e30854fb4e57112dc2119149d446df9c",
+  "schema_version": "1.0",
+  "shards": 8,
+  "skip_dynamic": true,
+  "workers": 2,
+  "xmx": "1600m"
+}
