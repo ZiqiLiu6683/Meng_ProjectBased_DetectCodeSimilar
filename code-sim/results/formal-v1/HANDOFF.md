@@ -10,8 +10,8 @@ configuration), then `RESULTS.md` (results as of batches 1–3, **now partly sup
 
 | | |
 | --- | --- |
-| **batch4** | 563 / 1000, started 2026-07-29T15:09:55Z, ~4 h remaining at 53 s/pair |
-| chain | none pending after batch4. batch5 is **not** chained. |
+| **batch4** | 619 / 1000 at 23:21Z, ~5 h remaining. Mean 95.2 s/pair — inflated by my own concurrent work again, same as batch 2. |
+| chain | `chain_batch5.sh` is running: waits for 4000 used seeds, applies the two ground-truth corrections to batch 4, writes `ANALYSIS.md` for batches 1–4, then starts batch 5. |
 | used seeds | 3000 (batches 1–3). batch4's are appended only when it verifies complete. |
 | host state | 2 JVMs × `-Xmx1600m`, ~1 GB RAM free, 49 GiB disk |
 
@@ -60,6 +60,30 @@ python3 -m unittest scripts.experiments.tests.test_score_region_corpus  # 14 tes
 
 `chain_next_batch.sh` carries `EXPECT=3000` inline; edit it to the target used-seed count before
 chaining. §9 still describes the batch sequence in case any of it needs rebuilding.
+
+## 2a. Batch 5 is a SEPARATE ARM — do not merge it with batches 1–4
+
+The insert and delete operator fixes (§5 round 2) change the **corpus**, not the reference, and they
+landed after batch 4 was generated. So:
+
+| | batches 1–4 | batch 5 onward |
+| --- | --- | --- |
+| insert | `int x = 95;` | `int x = ((37 % 8) + (5 * 3));` |
+| delete | any single-line deletable statement | prefers one with no Type-2-normalised twin |
+
+Those are different operator definitions. Averaging them into one per-operator recall figure would
+mix two definitions. `analyze_region_corpus.py` takes `--batches` for exactly this reason and its
+output states the caveat.
+
+Batch 5's real value is as that separate arm: it turns "the residual insert/delete errors are a
+corpus artefact, not a detector limitation" from an argument into a measurement. Predicted: insert
+and delete rise from ~88–90 % to ~99 %.
+
+**After the round-1 and round-3 reference corrections, the only remaining type errors across
+batches 1–3 are exactly those two artefacts** — `t3_delete_statement`→T2 33 and
+`t3_insert_statement`→T2 26, 59 cases in 3,291 (1.8 %). Nothing else is mistyped. That is the
+strongest statement available about the cascade's type attribution, and batch 5 is what would close
+it.
 
 ## 3. What the experiment is
 
