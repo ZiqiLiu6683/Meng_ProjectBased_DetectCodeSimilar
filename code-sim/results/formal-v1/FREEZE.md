@@ -232,3 +232,47 @@ the reference derivation, so each round's references and scores are preserved si
 (`regions_left*.csv`, `scored*/`) and the raw detector output was never regenerated. **`scored_v4/`
 is the version to quote.**
 
+### Amendment, 2026-07-30 — the negative stratum is rebuilt as HARD negatives
+
+§3 sized the negative stratum at 1,000 pairs but the builder that produced the 100-pair pilot did
+not meet E5, which asks for different-problem negatives **matched by token length and basic
+structural complexity**. It sampled uniformly. Measured over 50 pilot-style pairs, the two sides'
+token counts differed by a median of **38 %**, and 16 of 50 differed by more than half. Specificity
+measured on programs of wildly different size overstates what the detector does on the cases that
+matter, so the stratum is rebuilt rather than reported as-is.
+
+| | |
+| --- | --- |
+| builder SHA-256 | `6144ae7c79bf904e2c75224263467d545ded783f516e7a5148806765def17dfc` |
+| pairs | 1,000 |
+| matching | token-length gap ≤ 0.15 AND structural-complexity gap ≤ 0.30, different problems |
+| realised length gap | median **0.000**, max 0.032 |
+| shared consecutive tokens | < 30 (unchanged); realised median 16, max 29 |
+| program reuse | none — each program used at most once |
+| seed overlap | the 5,000 files spent as mutation seeds are excluded, so the strata share no program |
+| manifest | records problem id AND source program id for both sides, per E5 |
+| generation drops | complexity gap 6,682 · same problem 1,767 · shared tokens 173 · no partner 2 · does not compile 2 |
+
+**Known property, stated rather than discovered later:** requiring near-exact length matches skews
+slightly toward smaller programs — accepted-pair token count median 160 against 190 for uniform
+sampling, range 59–943. The corpus is harder and slightly smaller, not truncated.
+
+### Amendment, 2026-07-30 — negative scoring script and its tests
+
+| | |
+| --- | --- |
+| script | `scripts/experiments/score_negatives.py` |
+| SHA-256 | `208374b6bd965553f884a5802a88e5de2baa7fbc51eec1743e2c4498f6d107d8` |
+| tests | `scripts/experiments/tests/test_score_negatives.py` |
+| tests SHA-256 | `48d39382559034a887896ba95053a4f0eaf4cd47548d0b48cacd826712649a68` |
+| test count | 15, all passing |
+
+Implements both §4.1 definitions separately, as §4.1 requires, plus the syntactic-claim cut that the
+pilot showed dominates. Minimum clone size 6 lines on the **smaller** side. Mutation-tested: four
+rules were deliberately broken — ignoring `segments`, requiring 70 % coverage on one side instead of
+both, counting `POSSIBLE_T4_CANDIDATE` as a syntactic claim, and taking the larger side for the size
+floor — and each break failed its own test and only its own.
+
+**Every defect available here moves specificity upward**, which is the direction nobody questions.
+That is why the tests exist before the numbers do.
+
