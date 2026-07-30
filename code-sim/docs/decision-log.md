@@ -23,6 +23,78 @@ correct:
 
 ---
 
+## 2026-07-29 — GT round 4 applied, and two layout operators declared untestable
+
+### Round 4: split a mutation reference only when the operator's effect is scattered
+
+**Decision (user-sanctioned).** `split_mutation_runs.py` now splits a mutation reference into
+contiguous runs only for operators whose effect is intrinsically scattered — `t2_rename*` alone at
+present. Every other operator keeps a single interval, wrap included, since
+`correct_wrap_intervals.py` has already reduced that one to the added statement's own line.
+
+**Why round 3 was wrong.** Round 3 split *every* operator. A rename touches its declaration and each
+use, so the unsplit interval also claimed the untouched lines between them and the scorer matched a
+T1 gap — that part was right, 88.3 % → 99.3 %. But re-indentation shifts one continuous span, and
+the line diff breaks at unchanged lines inside it (blank lines), so splitting fragmented a single
+edit into pieces, some landing where the detector correctly sees no change. Cost: `t1_reindent`
+99.3 % → 94.8 %.
+
+**The justification is the operator's nature, not the resulting number.** This was stated explicitly
+when putting the rule to the user, because three GT rounds had already moved figures and a fourth
+that happens to raise one is exactly the shape of a result-fitted rule. The rename/reindent
+distinction exists in the operator definition, independent of any score.
+
+**measured.** Applied to all four batches (64 / 45 / 55 / 59 references split), rescored from the
+preserved raw output into `scored_v4/`. `t1_reindent` **94.8 % → 98.7 %** [97.0, 99.5]; **no other
+operator's figure moved.** That one-sided effect is itself the check: a rule that improved several
+numbers at once would have been suspect.
+
+Batches 1–4 mutation scale, `scored_v4/`, N = 4336, DEFF 1.10:
+
+| ✅ 98.3–99.8 %, IoU 1.000 | Explained low figures |
+| --- | --- |
+| `t3_wrap_statement` 99.8 %, `t2_change_string_literal` 99.7 %, `t2_rename_local` 99.5 %, `t1_reindent` 98.7 %, `t2_change_int_literal` 98.3 % | `t3_delete_statement` 89.0 % / `t3_insert_statement` 88.8 % (corpus artefact, fixed in generator, batch 5 validates); `t1_add_eol_comment` 78.2 %, `t1_add_blank_line` 24.9 %, `t1_add_block_comment` 24.0 % (untestable, below) |
+
+Failures decompose as *never captured* 16.6 % vs *captured, typed wrongly* 1.8 %, and 691 of the 718
+misses are the two untestable layout operators.
+
+### Blank lines and block comments are untestable at sub-region scale, not poorly detected
+
+**measured, and it falsifies my own earlier framing.** `FREEZE.md` §10 called layout mutations "only
+partly measurable" and left ~24 % looking like a weak detection rate. The actual measurement: of 798
+blank-line and block-comment references, 195 matched, and **195/195 (100 %) were covered
+incidentally** by a sub-region spanning ≥ 3 lines (median 8, p90 12). Not one match came from an
+element that pointed at the inserted line.
+
+The mechanism is structural. Sub-regions are derived from statement extents; a blank line or a
+comment-only line belongs to no statement, so no sub-region can ever correspond to one. The 24 % is
+the probability that the insertion happened to land inside some multi-line statement — a property of
+the corpus, carrying no information about the detector.
+
+**Consequence for the write-up:** report these two beside `mARI` and `mSIL` as untestable on a
+compilation-based detector. Their percentages must not appear as detection rates. It is also correct
+product behaviour — adding only a blank line or a comment highlights nothing, because no code
+changed. `t1_add_eol_comment` (78.2 %) is the partly escaping case: the comment attaches to a real
+statement, whose extent usually covers it.
+
+### Retracted: "`t3_wrap_statement` is captured but rarely typed T3"
+
+Carried in `FREEZE.md` §10 as a known limitation. **False.** 99.8 % type correct over 402
+references. The original 7.3 % was a ground-truth defect in three successive forms (§ round 1 in
+`HANDOFF.md`), including one correction that made things *worse* (57.5 %) because `max(added)` was
+the closing brace past the whole loop. The detector was right the entire time. Amended in
+`FREEZE.md` rather than edited away, so the wrong claim and its correction sit together.
+
+### Where the four GT versions live
+
+`regions_left.csv` (as generated) → `_v2.csv` (round 1, wrap) → `_v3.csv` (round 4, rename runs;
+file name kept, content re-derived from `_v2`), scored into `scored/`, `scored_v2/`, `scored_v3/`
+(round 3), `scored_v4/` (round 4). **Quote `scored_v4/`.** Raw detector output was never regenerated
+for any round — §10/§11 require rescoring the preserved output, and keeping the scorer hash separate
+from the code commit is what makes that possible.
+
+---
+
 ## 2026-07-27 — What NON_CLONE actually means, and the first negative stratum
 
 ### Finding: NON_CLONE is "this proposed correspondence is not a clone", not "this code is original"

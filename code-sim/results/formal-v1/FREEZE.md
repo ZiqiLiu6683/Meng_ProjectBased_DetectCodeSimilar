@@ -209,3 +209,26 @@ Stated here so they are not discovered as surprises in the results:
 - **The two scales share vocabulary.** A region typed T2 and a sub-region typed T2 do not mean the
   same thing. Naming is unresolved and must be settled before write-up.
 - **ICC is assumed at 0.05** for sizing, and measured afterwards.
+
+### Amendment, 2026-07-29 — two §10 limitations are now measured, and one is falsified
+
+§10 was written before the mutation-scale results existed. Two of its entries must be read against
+the measurement rather than as stated:
+
+- **"`t3_wrap_statement` is captured but rarely typed T3" is FALSIFIED.** It measures **99.8 %** type
+  correct over 402 references. The original 7.3 % was a ground-truth defect: the reference claimed
+  the wrapped statement's own line, which is genuinely unchanged. `HANDOFF.md` §5 round 1 has the
+  full history including two wrong corrections before the right one. The detector was right
+  throughout; the limitation as written was an artefact of how it was being scored.
+- **"Layout mutations are only partly measurable" is now quantified as NOT measurable.** Over 798
+  blank-line and block-comment references, 195 matched and **195/195 were incidental** coverage by
+  sub-regions spanning ≥ 3 lines (median 8, p90 12) — zero came from an element pointing at the
+  inserted line. These two operators join `mARI` and `mSIL` as untestable on this detector, and
+  their ~24 % is not reportable as a detection rate. `t1_add_eol_comment` (78.2 %) is the partly
+  escaping case, since the comment attaches to a real statement.
+
+The ground-truth definition changed four times over the run; §7's scorer hash covers the scorer, not
+the reference derivation, so each round's references and scores are preserved side by side
+(`regions_left*.csv`, `scored*/`) and the raw detector output was never regenerated. **`scored_v4/`
+is the version to quote.**
+

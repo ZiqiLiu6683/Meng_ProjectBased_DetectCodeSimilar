@@ -1,4 +1,18 @@
-"""Split each mutation reference into contiguous runs of changed lines, offline.
+"""Split a mutation reference into contiguous runs -- but only for operators whose effect is
+scattered, which means renaming and nothing else.
+
+Splitting EVERY operator was wrong and cost `t1_reindent` 4.5 points. Re-indentation changes one
+continuous span, but a line diff breaks that span at any line inside it that did not change -- a
+blank line, say -- so splitting manufactured fragments, and some landed where the detector correctly
+sees no change.
+
+The rule follows the operator's nature, not the resulting number: an operator whose effect is
+intrinsically scattered gets one reference per run; one whose effect is intrinsically a single
+continuous span keeps one reference. Only renaming is in the first group.
+
+Original note follows.
+
+Split each mutation reference into contiguous runs of changed lines, offline.
 
 The generator recorded one interval spanning the first change to the last. A rename touches its
 declaration and every use, which are scattered, so that interval also claimed the untouched lines
@@ -31,7 +45,9 @@ ranges = {r["pair_id"]: (int(r["left_begin"]), int(r["left_end"]))
 out = []
 split = 0
 for row in rows:
-    if row["kind"] != "MUTATION" or row["operator"].startswith("t3_wrap"):
+    # Scattered-effect operators only. Everything else keeps its single interval, wrap included --
+    # correct_wrap_intervals.py has already reduced that one to the added statement's own line.
+    if row["kind"] != "MUTATION" or not row["operator"].startswith("t2_rename"):
         out.append(row); continue
     pid = row["pair_id"]
     if pid not in man or pid not in ranges:

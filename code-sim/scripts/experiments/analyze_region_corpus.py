@@ -159,12 +159,21 @@ def main() -> None:
                 + ", ".join(f"`{o}`→{p} {n}" for (o, p), n in
                             Counter((r["operator"], r["predicted_type"]) for r in wrong).most_common())]
 
-    out += ["", "## Caveats carried from the ground-truth corrections", "",
-            "- `t1_reindent` is scored under the round-3 rule, which splits a mutation reference at "
-            "every break in the diff. Re-indentation is a single contiguous edit, so splitting "
-            "fragments it and some fragments land where the detector sees no change. **Its figure "
-            "here is an artefact of that rule, not a measurement of the detector**, pending the "
-            "round-4 decision recorded in `HANDOFF.md` §5.",
+    out += ["", "## How to read the three low figures", "",
+            "- **`t1_add_blank_line` and `t1_add_block_comment` are NOT MEASURABLE at this scale, "
+            "and their percentages should not be quoted as detection rates.** Sub-regions are built "
+            "from statement extents, and a blank line or a comment-only line belongs to no "
+            "statement, so no sub-region can correspond to it. Measured over 798 such references: "
+            "of the 195 that matched, **100 % were covered incidentally** by a sub-region spanning "
+            "three lines or more (median 8, p90 12) — none by an element pointing at the inserted "
+            "line. The 24 % is therefore the probability that an insertion happened to land inside "
+            "some multi-line statement, which says nothing about detection. Report as untestable, "
+            "in the same way as `mARI` and `mSIL`. It is also a real product observation: adding "
+            "only a blank line or a comment produces no highlight, which is semantically right "
+            "since no code changed.",
+            "- `t1_add_eol_comment` at ~78 % is the same mechanism, partially escaped: an "
+            "end-of-line comment attaches to an existing statement, so that statement\'s extent "
+            "usually does cover it.",
             "- Batches 1–4 carry the original insert and delete operators. A plain `int x = 5;` "
             "normalises to what every int declaration normalises to, so the statement-level LCS "
             "pairs the insertion with an existing declaration and reports a rename; deletion has "

@@ -116,24 +116,35 @@ here is the conditional type accuracy, not the 97 %.**
 
 ### Mutations vs sub-regions — the discriminating measurement
 
-Three GT-correction rounds have been applied (§5). Current per-operator figures, from
-`scored_v3/`:
+**Superseded by the batches 1–4 table below.** Kept only so the effect of each GT round stays
+auditable; do not quote from it.
 
-| Operator | Captured | Type correct (v3) | Type correct (original) | Median IoU |
-| --- | ---: | ---: | ---: | ---: |
-| `t2_change_string_literal` | 99.7 % | 99.7 % | 99.7 % | 1.000 |
-| `t3_wrap_statement` | 99.7 % | **99.7 %** | 7.3 % | — |
-| `t2_rename_local` | 99.0 % | **99.3 %** | 88.3 % | — |
-| `t1_reindent` | 99.3 % | **94.8 %** | 99.3 % | — |
-| `t2_change_int_literal` | 98.0 % | 98.0 % | 98.0 % | 1.000 |
-| `t3_insert_statement` | 98.6 % | 89.8 % | 89.8 % | 1.000 |
-| `t3_delete_statement` | 99.0 % | 88.0 % | 88.0 % | 1.000 |
-| `t1_add_eol_comment` | 79.8 % | 79.8 % | 79.8 % | 0.062 |
-| `t1_add_blank_line` | 26.4 % | 26.4 % | 26.4 % | 0.059 |
-| `t1_add_block_comment` | 23.1 % | 23.1 % | 23.1 % | 0.062 |
-| **all** | **82.2 %** | **81.6 %** | 69.9 % | |
+## 4a. Results as of batches 1–4 (4,000 pairs, 249 problems, `scored_v4/`) — QUOTE THESE
 
-Literal changes and statement insert/delete localise **to the line** (IoU 1.000).
+All four GT rounds applied (§5). `N = 4336 · matched 83.4 % · type correct 81.6 % [80.4, 82.8] ·
+ICC 0.0061 · cluster 18.0 · DEFF 1.10`.
+
+| Operator | Captured | Type correct | 95 % CI | Median IoU | Reading |
+| --- | ---: | ---: | --- | ---: | --- |
+| `t3_wrap_statement` | 99.8 % | **99.8 %** | [98.5, 100] | 1.000 | ✅ (was 7.3 % under the original GT) |
+| `t2_change_string_literal` | 99.7 % | **99.7 %** | [98.5, 100] | 1.000 | ✅ |
+| `t2_rename_local` | 99.5 % | **99.5 %** | [98.6, 99.8] | 1.000 | ✅ (was 88.3 %) |
+| `t1_reindent` | 98.7 % | **98.7 %** | [97.0, 99.5] | 0.357 | ✅ (94.8 % under round 3) |
+| `t2_change_int_literal` | 98.5 % | **98.3 %** | [96.3, 99.2] | 1.000 | ✅ |
+| `t3_delete_statement` | 98.7 % | 89.0 % | [85.3, 91.8] | 1.000 | corpus artifact, §5 round 2 |
+| `t3_insert_statement` | 98.7 % | 88.8 % | [85.1, 91.7] | 1.000 | corpus artifact, §5 round 2 |
+| `t1_add_eol_comment` | 78.2 % | 78.2 % | [73.6, 82.1] | 0.062 | representational, §6.9 |
+| `t1_add_blank_line` | 24.9 % | 24.9 % | [20.7, 29.6] | 0.059 | **not measurable**, §6.9 |
+| `t1_add_block_comment` | 24.0 % | 24.0 % | [19.9, 28.7] | 0.059 | **not measurable**, §6.9 |
+
+**Five operators sit at 98.3–99.8 % with IoU 1.000 — the mutated line is identified exactly, and the
+right clone type assigned to it.** The three remaining low figures each have a documented cause
+outside the detector: insert/delete is the corpus artifact fixed in the generator (batch 5 validates
+it), and blank-line/block-comment is a scale mismatch that makes the operator untestable rather than
+undetected.
+
+Every failure decomposes to *never captured* 16.6 % vs *captured, typed wrongly* 1.8 %, and 691 of
+the 718 misses are the two untestable layout operators.
 
 ### Untouched runs
 
@@ -226,24 +237,25 @@ Evidence `R00365`: GT left 23-30 (8 lines). Sub-regions: `T2(23) T1(24-26) T2(27
 the detector marked every renamed line T2 and every gap T1, exactly right. Now one reference per
 contiguous run.
 
-### Round 4 — PROPOSED, NOT DONE, needs a decision
+### Round 4 — APPLIED 2026-07-29, sanctioned by the user; split only scattered-effect operators
 
 Round 3 dropped `t1_reindent` from 99.3 % to **94.8 %** and grew its references from 297 to 346.
 Re-indentation changes a contiguous span, but the diff breaks at unchanged lines inside it (blank
 lines), so splitting produced fragments, some landing where the detector sees no change.
 
-**Proposal:** split by operator — discrete-effect operators (rename) split into runs; contiguous
-effect operators (reindent, literals, insert, delete, wrap) stay single.
+**Rule now in force** (`split_mutation_runs.py`): split into contiguous runs **only** when the
+operator's effect is intrinsically scattered — currently `t2_rename*` alone. Every other operator
+keeps its single interval, wrap included, since `correct_wrap_intervals.py` has already reduced that
+one to the added statement's own line.
 
-**I asked the user to sanction this and the answer has not been given.** The concern is explicit and
-should be carried forward: three GT rounds have already moved the numbers, and a fourth rule that
-happens to raise a figure needs a justification from the operator's nature, not from the result. My
-argument is that a rename intrinsically affects scattered positions while re-indentation
-intrinsically affects one continuous span, so the interval's shape should follow what the operator
-does — but this needs a human decision, not my own.
+The justification is the operator's nature, not the resulting number: a rename touches a declaration
+and each use, which are separate positions by definition, whereas re-indentation shifts one
+continuous span. The interval's shape follows what the operator does. This was put to the user with
+the concern stated explicitly — three GT rounds had already moved figures, so a fourth that happens
+to raise one needed a human decision — and the user sanctioned it.
 
-**Until it is decided, `t1_reindent` at 94.8 % in `scored_v3` is an artifact of the round-3 rule, not
-a measurement of the detector.**
+Applied to all four batches: 64 / 45 / 55 / 59 references split. **`t1_reindent` recovered to
+98.7 %** and no other operator's figure changed. Scored into `scored_v4/`.
 
 ### Where each GT version lives
 
@@ -251,8 +263,12 @@ a measurement of the detector.**
 | --- | --- |
 | `batchN/regions_left.csv` | as generated (original intervals) |
 | `batchN/regions_left_v2.csv` | round 1 — wrap corrected |
-| `batchN/regions_left_v3.csv` | round 3 — plus mutation runs split |
-| `batchN/scored/`, `scored_v2/`, `scored_v3/` | scoring of each, same raw output |
+| `batchN/regions_left_v3.csv` | round 4 — plus rename runs split (in place; round 3 re-derived) |
+| `batchN/scored/`, `scored_v2/`, `scored_v3/`, `scored_v4/` | scoring of each, same raw output |
+
+`regions_left_v3.csv` currently holds the round-4 definition — the file name was kept and the
+content re-derived from `regions_left_v2.csv`, so `scored_v3/` (round 3) and `scored_v4/` (round 4)
+are the two that can be compared. **Quote `scored_v4/`.**
 
 ## 6. Findings that are settled and should reach the paper
 
@@ -281,10 +297,22 @@ a measurement of the detector.**
    negatives would not help.
 8. **Timing here is planning data, not performance evidence.** §9 requires a fixed CPU allocation,
    one measured worker and warm-up; none applies. Batch 2's 1.66× cost was host contention.
+9. **`t1_add_blank_line` and `t1_add_block_comment` are untestable at sub-region scale — their ~24 %
+   is not a detection rate and must not be quoted as one.** Measured, not argued: of 798 such
+   references, 195 matched, and **195/195 (100 %) were covered incidentally** by a sub-region
+   spanning ≥ 3 lines (median 8, p90 12). Not one match came from an element pointing at the inserted
+   line. Sub-regions are built from statement extents and a blank or comment-only line belongs to no
+   statement, so no sub-region can ever correspond to one; the 24 % is simply the chance the
+   insertion landed inside some multi-line statement. Report alongside `mARI` and `mSIL` as
+   untestable on a compilation-based detector. It is also correct product behaviour: adding only a
+   blank line or a comment highlights nothing, because no code changed. `t1_add_eol_comment` at
+   78.2 % is the same mechanism partly escaped — an end-of-line comment rides on a real statement,
+   whose extent usually covers it.
 
 ## 7. Open items
 
-1. **Round-4 GT rule — needs the user's decision** (§5). Blocks final mutation-scale numbers.
+1. ~~Round-4 GT rule~~ **CLOSED 2026-07-29** — sanctioned by the user, applied to all four batches,
+   scored into `scored_v4/`. `t1_reindent` 94.8 % → 98.7 %.
 2. **Insert/delete operator fixes are unvalidated.** `/tmp/rc-verify` (150 pairs) is generated and
    waiting for a free machine.
 3. **`t2_rename_local`, one reference** whose normalised text did not match during GT verification —
@@ -299,11 +327,13 @@ a measurement of the detector.**
    `-Dcodesim.emitRejectedRegions=true`. The number of rejected candidates has never been recorded.
 7. **No output means "original work."** The distinction a plagiarism reviewer most wants — edited
    versus newly written — is not expressible. Would need a new output concept.
-8. **Sample size decision.** Precision target met at 3,000. Batches 4–5 take per-operator from
+8. **Layout operators, decided not open:** blank-line and block-comment are recorded as untestable
+   (§6.9), not as an accuracy gap. No further work; the measurement that settled it is in §6.9.
+9. **Sample size decision.** Precision target met at 3,000. Batches 4–5 take per-operator from
    ±4 % to ±3 % for ~14 h, while the two-range and negative strata still have no data at scale. I
    recommended stopping the main stratum and spending the time on those two; **the user said to keep
    going with the original plan, so batch 4 is running and batch 5 is not yet chained.**
-9. **`dirtyWorktree=true` on every record.** Verified as untracked *result* files only; source diff
+10. **`dirtyWorktree=true` on every record.** Verified as untracked *result* files only; source diff
    empty for every batch. The flag cannot distinguish the two cases.
 
 ## 8. Remaining work under the current plan
