@@ -117,11 +117,40 @@ def table(out: list[str], rows: list[dict], kind: str, title: str) -> None:
                    f"| [{l:.1f}, {h:.1f}] |")
 
 
+def arms(out: list[str], rows: list[dict], operators: tuple[str, ...],
+         old: list[str], new: list[str]) -> None:
+    """Report an operator whose DEFINITION changed, as two arms rather than one pooled figure.
+
+    Only `insertStatement` and `deleteStatement` differ between the two generator revisions (every
+    other operator method hashes identically), so only these are held out of the pooled table. The
+    comparison is the point: if the residual errors were a corpus artefact, the corrected arm rises
+    and the intervals separate; if they were a detector limitation, it does not move.
+    """
+    group = [r for r in rows if r["kind"] == "MUTATION" and r["operator"].startswith(operators)]
+    if not group:
+        return
+    out += ["", "## Redefined operators — two arms, never pooled", "",
+            f"Old arm: {', '.join(old)}. New arm: {', '.join(new)}.", "",
+            "| Operator | Arm | N | Type correct | 95 % CI |", "| --- | --- | ---: | ---: | --- |"]
+    for operator in sorted({r["operator"] for r in group}):
+        for label, batches in (("old", old), ("new", new)):
+            subset = [r for r in group
+                      if r["operator"] == operator and r["batch"] in batches]
+            if not subset:
+                continue
+            c = sum(1 for r in subset if r["type_correct"] == "True")
+            lo, hi = wilson(c, len(subset))
+            out.append(f"| `{operator}` | {label} | {len(subset)} | "
+                       f"{c / len(subset) * 100:.1f} % | [{lo:.1f}, {hi:.1f}] |")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--batches", default="batch1,batch2,batch3,batch4")
     parser.add_argument("--scored", default="scored_v3")
     parser.add_argument("--out", type=Path, default=ROOT / "ANALYSIS.md")
+    parser.add_argument("--old-arm", default="", help="batches with the original insert/delete")
+    parser.add_argument("--new-arm", default="", help="batches with the corrected insert/delete")
     args = parser.parse_args()
 
     batches = [b.strip() for b in args.batches.split(",") if b.strip()]
@@ -140,11 +169,24 @@ def main() -> None:
            "prediction roughly 2.5x the size of the six-line reference encloses it. The informative "
            "figure on those rows is the conditional type accuracy."]
 
-    table(out, rows, "CLONE_INTERVAL", "Clone intervals vs regions")
-    table(out, rows, "MUTATION", "Mutations vs sub-regions")
-    table(out, rows, "UNTOUCHED", "Untouched runs vs sub-regions")
+    old = [b.strip() for b in args.old_arm.split(",") if b.strip()]
+    new = [b.strip() for b in args.new_arm.split(",") if b.strip()]
+    redefined = ("t3_insert_statement", "t3_delete_statement")
 
-    mutations = [r for r in rows if r["kind"] == "MUTATION"]
+    # Operators with one definition across every batch pool freely; the two redefined ones are held
+    # out and reported as arms, so no pooled cell ever mixes two operator definitions.
+    poolable = rows if not new else [r for r in rows
+                                     if not (r["kind"] == "MUTATION"
+                                             and r["operator"].startswith(redefined))]
+
+    table(out, poolable, "CLONE_INTERVAL", "Clone intervals vs regions")
+    table(out, poolable, "MUTATION",
+          "Mutations vs sub-regions" + (" (operators with one definition)" if new else ""))
+    table(out, poolable, "UNTOUCHED", "Untouched runs vs sub-regions")
+    if new:
+        arms(out, rows, redefined, old, new)
+
+    mutations = [r for r in poolable if r["kind"] == "MUTATION"]
     if mutations:
         misses = [r for r in mutations if r["matched"] != "True"]
         wrong = [r for r in mutations if r["matched"] == "True" and r["type_correct"] != "True"]
@@ -174,11 +216,23 @@ def main() -> None:
             "- `t1_add_eol_comment` at ~78 % is the same mechanism, partially escaped: an "
             "end-of-line comment attaches to an existing statement, so that statement\'s extent "
             "usually does cover it.",
-            "- Batches 1–4 carry the original insert and delete operators. A plain `int x = 5;` "
-            "normalises to what every int declaration normalises to, so the statement-level LCS "
-            "pairs the insertion with an existing declaration and reports a rename; deletion has "
-            "the mirror problem. Both are corpus artefacts and the detector is right in each case. "
-            "Batch 5 onward use corrected operators and form a **separate arm**."]
+            "- **Insert: the corpus-artefact hypothesis is confirmed.** The corrected operator "
+            "measures 100.0 % [96.2, 100.0] against 88.8 % [85.3, 91.5] for the original — "
+            "non-overlapping intervals. A plain `int x = 5;` normalises to what every int "
+            "declaration normalises to, so the statement-level LCS paired the insertion with an "
+            "existing declaration and reported a rename. The detector was right; the corpus was "
+            "ambiguous.",
+            "- **Delete: the fix did not take, and the reason is measured.** The corrected arm is "
+            "85.0 % [76.7, 90.7] against 89.0 % [85.5, 91.7] — no separation. `deleteStatement` "
+            "prefers a statement whose Type-2-normalised shape is unique in its method but "
+            "**falls back to a twinned one rather than dropping the pair**, and the fallback fires "
+            "often. Stratified over batch 5: deletions of a unique-shape statement are **65 / 65 "
+            "correct (100 %)**, deletions of a twinned statement 18 / 32 (56 %), and **all 14 "
+            "measurable failures are twinned, none unique**. So the operator is right when it "
+            "applies and reintroduces the original artefact when it cannot. Report delete "
+            "stratified by whether a normalised twin existed; the twinned cases ask the detector "
+            "to say which of two indistinguishable statements was removed, which the ground truth "
+            "cannot settle either."]
 
     args.out.write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out))

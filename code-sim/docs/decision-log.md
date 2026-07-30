@@ -23,6 +23,83 @@ correct:
 
 ---
 
+## 2026-07-30 — Batch 5 closes the corpus at 5,000 pairs; insert confirmed, delete falsified
+
+### Batch 5 pools with batches 1–4 for 8 of 10 operators
+
+**code-verified, by hashing method bodies rather than reading the diff.** Across the two generator
+revisions (`fab519f` → `4e99a5d`) exactly three method bodies changed: `insertStatement`,
+`deleteStatement`, and `generate`. `generate`'s change only affects how references are written out,
+not the Java produced. `wrapStatement` and every other operator hash identically. So the earlier
+instruction to keep batch 5 wholly separate was stricter than the evidence requires: the 8 unchanged
+operators pool across all 5 batches (5,000 pairs, ~500 references each) and only insert and delete
+are held out as arms. `analyze_region_corpus.py --old-arm/--new-arm` enforces it structurally.
+
+**A precondition, and it mattered measurably.** Batch 5's generator emits `mutationRuns()` directly
+— the round-3 rule, splitting every operator, which was measured and rejected the day before. As
+generated its `t1_reindent` had 128 references against batch 1–4's 101. `coalesce_mutation_runs.py`
+walks batch 5 back to one interval per operator, then `split_mutation_runs.py` re-splits rename, so
+both arms' references come from the same code. Leaving batch 5's rename runs as the Java splitter
+emitted them scored `t2_rename_local` at **96.6 %**; through the shared pipeline, **97.5 %**. Same
+detector output, same pairs — the reference derivation alone moved it a point. **Two
+implementations of the same intent are not the same reference definition.**
+
+The coalescer is round-tripped, not trusted: `--selftest` coalesces batch 4's split references and
+requires them to reproduce the unsplit file row for row (4,100 → 4,006, exact). It also refuses to
+run on a multi-range corpus, where `(pair_id, operator)` stops being a unique key — the planned
+two-range stratum would otherwise have had two separate edits silently merged into one interval
+spanning the untouched code between them.
+
+### Insert: the corpus-artefact claim is now a measurement
+
+**measured.** 88.8 % [85.3, 91.5] → **100.0 % [96.2, 100.0]**, non-overlapping. A plain
+`int x = 5;` normalises to what every int declaration normalises to, so the statement-level LCS
+paired the insertion with an existing declaration and reported a rename. Give the inserted statement
+a token shape ordinary declarations lack and the operator is perfect. The detector was right
+throughout; the corpus was ambiguous.
+
+### Delete: the fix did NOT take, and the reason is measured
+
+**measured, and it contradicts what I predicted.** 89.0 % [85.5, 91.7] → 85.0 % [76.7, 90.7]. No
+separation. `deleteStatement` prefers a statement with no Type-2-normalised twin but
+`unique.addAll(rest)` then **falls back to a twinned one rather than dropping the pair**, and the
+fallback fires on about a third of ranges.
+
+Stratified over batch 5's 100 deletions:
+
+| deleted statement | N | type correct |
+| --- | ---: | ---: |
+| no normalised twin | 65 | **100 %** |
+| has a normalised twin | 32 | 56 % |
+
+**All 14 measurable failures deleted a twinned statement; zero deleted a unique one.** The operator
+is right whenever it can apply and reintroduces the original artefact exactly when it cannot.
+
+The twinned cases are not a detector error either. Deleting one of two indistinguishable statements
+leaves a file whose history the ground truth cannot uniquely recover, so the LCS re-pairing the
+survivors and reporting a rename is defensible. **Report delete stratified by twin presence.**
+Dropping those pairs at generation would be a §8-legal generation-side drop reported per reason, but
+it needs a fresh batch and the stratified figure already carries the finding.
+
+### Spoon removes the import when the statement using it is deleted
+
+**measured, and quantified rather than left as a worry.** Deleting `Arrays.sort(arr);` also removes
+`import java.util.Arrays;`, so the pair differs by two lines where the reference records one;
+occasionally a leading block comment is dropped too. Batch 5 delete line-count deltas: −1 in 74
+cases, −2 in 21, −3 in 4, −15 in 1. Any unexpected delta: batch 1 2.45 %, batch 4 3.11 %, batch 5
+3.46 % — steady across the arms, so it biases no comparison.
+
+**It intersects a reference interval in only 1–2 pairs per 1,000** — imports sit above every
+reference — which is below the resolution of every figure reported. Documented, not fixed.
+
+I first flagged this pair (`R00956`) as a reference defect after a positional line-by-line check
+said the reindent interval was wrong. That check compares `L[i]` to `R[i]`, which is meaningless
+when the files differ in length; the reference was correct and my check was not. Recorded because
+the failure mode — a verification method silently invalid on the very cases it flags — is the one
+worth catching.
+
+---
+
 ## 2026-07-29 — GT round 4 applied, and two layout operators declared untestable
 
 ### Round 4: split a mutation reference only when the operator's effect is scattered

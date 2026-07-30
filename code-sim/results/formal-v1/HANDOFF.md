@@ -10,10 +10,9 @@ configuration), then `RESULTS.md` (results as of batches 1–3, **now partly sup
 
 | | |
 | --- | --- |
-| **batch4** | 619 / 1000 at 23:21Z, ~5 h remaining. Mean 95.2 s/pair — inflated by my own concurrent work again, same as batch 2. |
-| chain | `chain_batch5.sh` is running: waits for 4000 used seeds, applies the two ground-truth corrections to batch 4, writes `ANALYSIS.md` for batches 1–4, then starts batch 5. |
-| used seeds | 3000 (batches 1–3). batch4's are appended only when it verifies complete. |
-| host state | 2 JVMs × `-Xmx1600m`, ~1 GB RAM free, 49 GiB disk |
+| **nothing is running** | batch 5 finished 2026-07-30: 1000/1000, 8 shards × 125, `status=ok` ×1000, `SOURCE_PLUS_WALA_SMT` ×1000, **zero fallback**. |
+| corpus complete | **5,000 pairs, 20,462 references, 250 CodeNet problems.** The main positive stratum is done. |
+| still empty | two-range stratum (600 pairs) has no data; negatives have only the 100-pair pilot, not the planned 1,000. |
 
 **Do not run anything heavy on this machine while a batch is running.** Batch 2 took 13 h 50 m
 instead of ~8 h purely because other work (corpus scans, generation, git) was competing for an 8 GB
@@ -61,7 +60,40 @@ python3 -m unittest scripts.experiments.tests.test_score_region_corpus  # 14 tes
 `chain_next_batch.sh` carries `EXPECT=3000` inline; edit it to the target used-seed count before
 chaining. §9 still describes the batch sequence in case any of it needs rebuilding.
 
-## 2a. Batch 5 is a SEPARATE ARM — do not merge it with batches 1–4
+## 2a. Batch 5 pools for 8 of 10 operators; only insert and delete are held out
+
+**Revised 2026-07-30 after verifying which code actually changed.** The earlier instruction was to
+keep batch 5 wholly separate. That was more conservative than the evidence requires. Hashing every
+method body across the two generator revisions (`fab519f` → `4e99a5d`) shows exactly three bodies
+changed: `insertStatement`, `deleteStatement`, and `generate` — and `generate`'s change only affects
+how references are written out, not the Java that is produced. `wrapStatement` and the other
+operators hash identically.
+
+So the rule is per operator, not per batch:
+
+| | how to report |
+| --- | --- |
+| the 8 unchanged operators | **pool batches 1–5**: 5,000 pairs, ~500 references each |
+| `t3_insert_statement`, `t3_delete_statement` | two arms, never pooled |
+
+`analyze_region_corpus.py --old-arm ... --new-arm ...` enforces this: the redefined operators are
+removed from the pooled table and given their own, so no pooled cell can mix two definitions.
+
+**One precondition had to be met first.** Batch 5's generator emits `mutationRuns()` directly, which
+splits every operator — the round-3 rule that was measured and rejected. As generated, batch 5's
+`t1_reindent` had 128 references against batch 1–4's 101. `coalesce_mutation_runs.py` walks it back
+to one interval per operator (the `_v2` slot), after which `split_mutation_runs.py` re-splits rename
+exactly as it did for batches 1–4. The whole reference pipeline is then the same code for both arms.
+
+That mattered measurably, not theoretically: leaving batch 5's rename runs as the Java splitter
+emitted them scored `t2_rename_local` at **96.6 %**, against **97.5 %** once both arms went through
+the Python splitter. Same detector output, same pairs — only the reference derivation differed.
+
+The coalescer is round-tripped rather than trusted: `--selftest` coalesces batch 4's split
+references and requires them to reproduce the unsplit file row for row (4,100 → 4,006, exact). It
+also refuses to run on a multi-range corpus, where `(pair_id, operator)` would stop being unique.
+
+### The original text, kept because the operator definitions really do differ
 
 The insert and delete operator fixes (§5 round 2) change the **corpus**, not the reference, and they
 landed after batch 4 was generated. So:
@@ -119,56 +151,57 @@ here is the conditional type accuracy, not the 97 %.**
 **Superseded by the batches 1–4 table below.** Kept only so the effect of each GT round stays
 auditable; do not quote from it.
 
-## 4a. Results as of batches 1–4 (4,000 pairs, 249 problems, `scored_v4/`) — QUOTE THESE
+## 4a. FINAL results — 5,000 pairs, 250 problems, `scored_v4/` — QUOTE THESE
 
-All four GT rounds applied (§5). `N = 4336 · matched 83.4 % · type correct 81.6 % [80.4, 82.8] ·
-ICC 0.0061 · cluster 18.0 · DEFF 1.10`.
+All four GT rounds applied, and batch 5's references brought through the same pipeline (§2a).
+20,462 references. Every batch: zero fallback, `SOURCE_PLUS_WALA_SMT` throughout.
 
-| Operator | Captured | Type correct | 95 % CI | Median IoU | Reading |
-| --- | ---: | ---: | --- | ---: | --- |
-| `t3_wrap_statement` | 99.8 % | **99.8 %** | [98.5, 100] | 1.000 | ✅ (was 7.3 % under the original GT) |
-| `t2_change_string_literal` | 99.7 % | **99.7 %** | [98.5, 100] | 1.000 | ✅ |
-| `t2_rename_local` | 99.5 % | **99.5 %** | [98.6, 99.8] | 1.000 | ✅ (was 88.3 %) |
-| `t1_reindent` | 98.7 % | **98.7 %** | [97.0, 99.5] | 0.357 | ✅ (94.8 % under round 3) |
-| `t2_change_int_literal` | 98.5 % | **98.3 %** | [96.3, 99.2] | 1.000 | ✅ |
-| `t3_delete_statement` | 98.7 % | 89.0 % | [85.3, 91.8] | 1.000 | corpus artifact, §5 round 2 |
-| `t3_insert_statement` | 98.7 % | 88.8 % | [85.1, 91.7] | 1.000 | corpus artifact, §5 round 2 |
-| `t1_add_eol_comment` | 78.2 % | 78.2 % | [73.6, 82.1] | 0.062 | representational, §6.9 |
-| `t1_add_blank_line` | 24.9 % | 24.9 % | [20.7, 29.6] | 0.059 | **not measurable**, §6.9 |
-| `t1_add_block_comment` | 24.0 % | 24.0 % | [19.9, 28.7] | 0.059 | **not measurable**, §6.9 |
+### Mutations vs sub-regions — the 8 operators with one definition (N = 4,449, DEFF 1.19)
 
-**Five operators sit at 98.3–99.8 % with IoU 1.000 — the mutated line is identified exactly, and the
-right clone type assigned to it.** The three remaining low figures each have a documented cause
-outside the detector: insert/delete is the corpus artifact fixed in the generator (batch 5 validates
-it), and blank-line/block-comment is a scale mismatch that makes the operator untestable rather than
-undetected.
+| Operator | N | Captured | Type correct | 95 % CI | Median IoU | Reading |
+| --- | ---: | ---: | ---: | --- | ---: | --- |
+| `t2_change_string_literal` | 499 | 99.8 % | **99.8 %** | [98.7, 100] | 1.000 | ✅ |
+| `t3_wrap_statement` | 501 | 99.6 % | **99.6 %** | [98.4, 99.9] | 1.000 | ✅ (7.3 % under the original GT) |
+| `t2_rename_local` | 948 | 99.1 % | **99.1 %** | [98.1, 99.5] | 1.000 | ✅ (88.3 % originally) |
+| `t1_reindent` | 499 | 99.0 % | **99.0 %** | [97.5, 99.6] | 0.357 | ✅ (94.8 % under round 3) |
+| `t2_change_int_literal` | 501 | 98.6 % | **98.4 %** | [96.7, 99.2] | 1.000 | ✅ |
+| `t1_add_eol_comment` | 503 | 78.9 % | 78.9 % | [74.8, 82.5] | 0.062 | representational, §6.9 |
+| `t1_add_block_comment` | 500 | 24.4 % | 24.4 % | [20.5, 28.7] | 0.056 | **not measurable**, §6.9 |
+| `t1_add_blank_line` | 498 | 24.1 % | 24.1 % | [20.2, 28.4] | 0.059 | **not measurable**, §6.9 |
 
-Every failure decomposes to *never captured* 16.6 % vs *captured, typed wrongly* 1.8 %, and 691 of
-the 718 misses are the two untestable layout operators.
+**Five operators at 98.4–99.8 % with IoU 1.000** — the mutated line identified exactly and given the
+right clone type. The three low figures are all the layout-scale limit of §6.9, not detection.
 
-### Untouched runs
+### The two redefined operators — arms, never pooled
 
-6,011 references, 98.3 % matched, 98.2 % typed T1, one misclassification. T1 had never been
-measured before this corpus.
+| Operator | Arm | N | Type correct | 95 % CI |
+| --- | --- | ---: | ---: | --- |
+| `t3_insert_statement` | old (b1–4) | 392 | 88.8 % | [85.3, 91.5] |
+| `t3_insert_statement` | **new (b5)** | 96 | **100.0 %** | [96.2, 100.0] |
+| `t3_delete_statement` | old (b1–4) | 399 | 89.0 % | [85.5, 91.7] |
+| `t3_delete_statement` | new (b5) | 100 | 85.0 % | [76.7, 90.7] |
 
-### Negatives (100-pair pilot only; final scale 1,000 not yet run)
+**Insert: hypothesis confirmed.** Non-overlapping intervals. The residual ~11 % was a corpus
+ambiguity — a plain `int x = 5;` normalises to what every int declaration normalises to — and the
+detector was right to call it a rename. With a distinctive token shape, it is perfect.
 
-81 / 100 correct rejection. 19 / 100 emitted something. **2 / 100 claimed a syntactic type.**
-Emitted: `POSSIBLE_T4_CANDIDATE` 21, T2 1, T3 1. All 21 came from
-`NextRegionTypeRecognizer.java:197` — a cross-method aligned region is a structural fact Phase A
-established and *must not be silently dropped by a similarity number*, so it is surfaced as a
-possible clone; unrelated competition code shares enough IO scaffolding to align across methods.
+**Delete: the fix did not take, and §6.10 says why.**
 
-### Measured ICC (replaces the assumed 0.05)
+### Clone intervals vs regions (N = 5,000)
 
-| Reference kind | ICC | Refs per problem | DEFF |
-| --- | ---: | ---: | ---: |
-| clone interval | 0.038 | 12.3 | 1.42 |
-| mutation | 0.008 | 12.3 | 1.09 |
-| untouched | 0.041 | 24.6 | 1.98 |
+97.1 % matched, 97.0 % type correct [96.4, 97.6]. **Near-trivial by construction — do not quote as
+detection accuracy.** B is A with one small change, so the whole file corresponds; median boundary
+precision 0.400 means the prediction is ~2.5× the six-line reference. The informative figure is the
+conditional type accuracy.
 
-Wilson intervals on the corrected sample size: aggregates ±0.5–1.5 %, per-operator ±3–5 %.
-**The freeze's ±4 % per-operator target is met at 3,000 pairs, not 5,000.**
+### Untouched runs (N = 10,026)
+
+98.1 % matched, 98.1 % typed T1 [97.6, 98.5]. T1 had never been measured before this corpus.
+
+### Measured ICC
+
+Clone interval 0.038 (DEFF 1.73) · mutation 0.011 (DEFF 1.19) · untouched 0.038 (DEFF 2.47).
+The sizing assumption of 0.05 was conservative; the ±4 % per-operator target is comfortably met.
 
 ## 5. Ground-truth corrections — full history, because this is the risk area
 
@@ -309,12 +342,32 @@ are the two that can be compared. **Quote `scored_v4/`.**
    78.2 % is the same mechanism partly escaped — an end-of-line comment rides on a real statement,
    whose extent usually covers it.
 
+10. **The delete operator's fallback reintroduces the very artefact it was meant to remove —
+   measured, batch 5.** `deleteStatement` prefers a statement whose Type-2-normalised shape is
+   unique in its method, but when the range holds no such statement it falls back to a twinned one
+   rather than dropping the pair. Stratified over batch 5's 100 deletions: **unique-shape 65/65
+   correct (100 %)**, twinned 18/32 (56 %), and **all 14 measurable failures are twinned, none
+   unique.** So the operator is right whenever it can apply and fails exactly when it cannot. The
+   twinned cases are not a detector error either: deleting one of two indistinguishable statements
+   leaves a file the ground truth itself cannot uniquely explain, and the LCS re-pairing the
+   survivors is a defensible reading. **Report delete stratified by whether a twin existed.**
+   Fixing the generator to drop those pairs would be a §8-legal generation-side drop, reported per
+   reason — but it needs a fresh batch, and the stratified figure already carries the finding.
+11. **Spoon removes an import when the statement using it is deleted.** So a delete pair differs by
+   two lines, not one, and occasionally a leading block comment is dropped as well (batch 5 line
+   counts: −1 in 74 cases, −2 in 21, −3 in 4, −15 in 1). Prevalence of any unexpected line-count
+   change: batch 1 2.45 %, batch 4 3.11 %, batch 5 3.46 % — even across the arms, so it biases no
+   comparison. **It touches a reference interval in only 1–2 pairs per 1,000** (imports sit above
+   every reference), which is below the resolution of every reported figure. Documented rather than
+   fixed.
+
 ## 7. Open items
 
 1. ~~Round-4 GT rule~~ **CLOSED 2026-07-29** — sanctioned by the user, applied to all four batches,
    scored into `scored_v4/`. `t1_reindent` 94.8 % → 98.7 %.
-2. **Insert/delete operator fixes are unvalidated.** `/tmp/rc-verify` (150 pairs) is generated and
-   waiting for a free machine.
+2. ~~Insert/delete operator fixes are unvalidated~~ **CLOSED 2026-07-30 by batch 5.** Insert
+   confirmed (88.8 % → 100.0 %, intervals separate). Delete falsified — the fix does not take, cause
+   measured in §6.10. `/tmp/rc-verify` is now redundant.
 3. **`t2_rename_local`, one reference** whose normalised text did not match during GT verification —
    found long ago, never explained.
 4. **Naming.** A region typed T2 and a sub-region typed T2 mean different things. The write-up
