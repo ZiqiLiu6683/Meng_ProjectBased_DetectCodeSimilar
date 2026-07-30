@@ -173,7 +173,8 @@ public final class RegionCorpusGenerator {
 
         Files.createDirectories(out.resolve("pairs"));
         StringBuilder regions = new StringBuilder(
-                "pair_id,ref_index,kind,clone_type,operator,left_begin,left_end,right_begin,right_end\n");
+                "pair_id,ref_index,range_index,kind,clone_type,operator,"
+                        + "left_begin,left_end,right_begin,right_end\n");
         // seed_problem is the CodeNet problem directory. Confidence intervals must cluster by problem
         // (§7), and the seed's basename alone cannot say which problem it belongs to -- recovering it
         // later means rescanning 75,000 files to build the mapping.
@@ -358,7 +359,8 @@ public final class RegionCorpusGenerator {
             // would ask the scorer to match a region against nothing.
             int[] mapped = mapRange(leftText, rightText, range.beginLine, range.endLine);
             if (mapped != null) {
-                regions.append(pairId).append(',').append(refIndex++).append(",CLONE_INTERVAL,")
+                regions.append(pairId).append(',').append(refIndex++).append(',').append(i)
+                        .append(",CLONE_INTERVAL,")
                         .append(type).append(',').append(operator).append(',')
                         .append(range.beginLine).append(',').append(range.endLine).append(',')
                         .append(mapped[0]).append(',').append(mapped[1]).append('\n');
@@ -378,7 +380,8 @@ public final class RegionCorpusGenerator {
                 if (mutation[1] < mutation[0] || (mutation[1] == 0 && mutation[3] == 0)) {
                     continue;
                 }
-                regions.append(pairId).append(',').append(refIndex++).append(",MUTATION,")
+                regions.append(pairId).append(',').append(refIndex++).append(',').append(i)
+                        .append(",MUTATION,")
                         .append(type).append(',').append(operator).append(',')
                         .append(mutation[0] == 0 ? "" : mutation[0]).append(',')
                         .append(mutation[1] == 0 ? "" : mutation[1]).append(',')
@@ -387,12 +390,13 @@ public final class RegionCorpusGenerator {
             }
         }
         for (int[] run : untouchedRuns(opcodes, chosen)) {
-            regions.append(pairId).append(',').append(refIndex++).append(",UNTOUCHED,T1,none,")
+            regions.append(pairId).append(',').append(refIndex++)
+                    .append(",-1,UNTOUCHED,T1,none,")
                     .append(run[0]).append(',').append(run[1]).append(',')
                     .append(run[2]).append(',').append(run[3]).append('\n');
         }
         if (donorEnd >= donorBegin && donorBegin > 0) {
-            regions.append(pairId).append(',').append(chosen.size()).append(",NON_CLONE,donor_")
+            regions.append(pairId).append(',').append(refIndex++).append(",-1,NON_CLONE,donor_")
                     .append(donorId).append(",,,").append(donorBegin).append(',')
                     .append(donorEnd).append('\n');
         }

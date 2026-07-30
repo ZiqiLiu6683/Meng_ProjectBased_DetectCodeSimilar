@@ -33,8 +33,10 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path("results/formal-v1")
-FIELDS = ["pair_id", "ref_index", "kind", "clone_type", "operator",
-          "left_begin", "left_end", "right_begin", "right_end"]
+# Columns are taken from the file rather than hardcoded, so a corpus carrying `range_index`
+# keeps it. A fixed list would silently drop the one column that makes a multi-range corpus
+# scoreable.
+FIELDS: list[str] = []
 
 # Operators whose effect is intrinsically scattered stay split (round 4). Everything else is one
 # contiguous edit and must be one interval.
@@ -67,6 +69,8 @@ def assert_single_range(rows: list[dict]) -> None:
     direction that flatters the boundary numbers. One CLONE_INTERVAL per pair is the marker of a
     single-range batch, so that is the gate.
     """
+    if rows and "range_index" in rows[0]:
+        return          # the range is identified explicitly, so the grouping key is unambiguous
     per_pair: dict[str, int] = defaultdict(int)
     for row in rows:
         if row["kind"] == "CLONE_INTERVAL":
@@ -91,7 +95,7 @@ def coalesce(rows: list[dict]) -> list[dict]:
         if row["kind"] != "MUTATION" or row["operator"].startswith(KEEP_SPLIT):
             out.append(row)
             continue
-        key = (row["pair_id"], row["operator"])
+        key = (row["pair_id"], row["operator"], row.get("range_index", ""))
         if key not in groups:
             order.append(key)
         groups[key].append(row)
@@ -113,7 +117,8 @@ def _read(path: Path) -> list[dict]:
 
 def _key(row: dict) -> tuple:
     """Identity of a reference for comparison: everything but ref_index, which renumbers."""
-    return (row["pair_id"], row["kind"], row["clone_type"], row["operator"],
+    return (row["pair_id"], row.get("range_index", ""), row["kind"], row["clone_type"],
+            row["operator"],
             row["left_begin"].strip(), row["left_end"].strip(),
             row["right_begin"].strip(), row["right_end"].strip())
 
@@ -122,6 +127,8 @@ def selftest() -> int:
     """Coalescing batch 4's split references must reproduce its unsplit ones exactly."""
     base = ROOT / "batch4"
     split, unsplit = _read(base / "regions_left_v3.csv"), _read(base / "regions_left_v2.csv")
+    global FIELDS
+    FIELDS = list(split[0].keys())
 
     # v3 keeps rename split by the round-4 rule, so for the round trip coalesce everything.
     global KEEP_SPLIT
@@ -163,6 +170,8 @@ def main() -> None:
 
     base = ROOT / args.batch
     rows = _read(base / "regions_left.csv")
+    global FIELDS
+    FIELDS = list(rows[0].keys())
 
     # Coalesce EVERY operator, rename included, and write the v2 slot. `split_mutation_runs.py` then
     # re-splits from there, exactly as it did for batches 1-4. Leaving batch 5's rename runs as the
