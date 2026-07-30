@@ -10,9 +10,32 @@ configuration), then `RESULTS.md` (results as of batches 1–3, **now partly sup
 
 | | |
 | --- | --- |
-| **nothing is running** | batch 5 finished 2026-07-30: 1000/1000, 8 shards × 125, `status=ok` ×1000, `SOURCE_PLUS_WALA_SMT` ×1000, **zero fallback**. |
-| corpus complete | **5,000 pairs, 20,462 references, 250 CodeNet problems.** The main positive stratum is done. |
-| still empty | two-range stratum (600 pairs) has no data; negatives have only the 100-pair pilot, not the planned 1,000. |
+| main positive stratum | **DONE.** 5,000 pairs, 20,462 references, 250 problems. Batch 5 closed it 2026-07-30 with zero fallback. |
+| **negatives, running** | 1,000 hard negatives, rebuilt to meet E5 (§2b). Watch: `cat results/formal-v1/negatives/run/shard_00*.jsonl \| grep -c '^{"schemaVersion"'` |
+| **two-range, chained** | `chain_two_range.sh` waits for the negatives to reach 1000 records, scores them, then generates and runs 600 two-range pairs. Log `/tmp/chain-tworange.log`. |
+| never concurrent | the two strata are deliberately serialised — this host loses 1.66× to contention, measured. |
+
+## 2b. The negative stratum was rebuilt, and why
+
+The pilot builder sampled different-problem pairs uniformly. E5 asks for negatives **matched by token
+length and basic structural complexity**, which is not the same thing and the gap was measurable:
+over 50 uniformly sampled pairs the sides' token counts differed by a median of **38 %**, and 16 of
+50 by more than half. Specificity measured on programs of wildly different size overstates what the
+detector does where it matters.
+
+Rebuilt: token-length gap ≤ 0.15 and complexity gap ≤ 0.30 (realised length gap **median 0.000**,
+max 0.032), each program used at most once, the 5,000 spent mutation seeds excluded so the strata
+share no program, and the manifest now records the source program id beside the problem id. Full
+config and generation drops in `FREEZE.md`.
+
+Known property: near-exact length matching skews slightly small — accepted median 160 tokens against
+190 under uniform sampling, range 59–943.
+
+`score_negatives.py` implements both §4.1 definitions **separately**, as §4.1 requires, plus a third
+cut the pilot showed dominates: whether the emission claims a syntactic type or only
+`POSSIBLE_T4_CANDIDATE`. 15 tests, mutation-tested. Note the pilot's old "19 emitted, 2 syntactic"
+was computed **without** the preregistered minimum clone size; with the 6-line floor applied the same
+data reads 15 and 1.
 
 **Do not run anything heavy on this machine while a batch is running.** Batch 2 took 13 h 50 m
 instead of ~8 h purely because other work (corpus scans, generation, git) was competing for an 8 GB
