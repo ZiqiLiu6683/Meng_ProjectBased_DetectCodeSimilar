@@ -90,7 +90,9 @@ def main() -> None:
 
     out = [f"# Two-range stratum — {pairs} pairs", "",
            f"Pooled from {', '.join(f'`{d}`' for d in dirs)}, scored from `{args.scored}/`. "
-           f"{len(rows)} references over {len({r['problem'] for r in rows})} CodeNet problems.", "",
+           f"**{len(rows)} references enter the tables below**"
+           + ("" if args.keep_layout else " (the layout operators excluded here are not counted)")
+           + f", over {len({r['problem'] for r in rows})} CodeNet problems.", "",
            f"**{len(mixed)} of {pairs} pairs drew DIFFERENT clone types for their two ranges** "
            f"({len(mixed) / pairs * 100:.0f} %). That split is the experiment.", ""]
     if not args.keep_layout:

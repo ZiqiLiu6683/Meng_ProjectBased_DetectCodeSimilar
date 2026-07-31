@@ -1,6 +1,6 @@
 # Two-range stratum — 615 pairs
 
-Pooled from `tworange`, `tworange2`, scored from `scored_v4/`. 4147 references over 176 CodeNet problems.
+Pooled from `tworange`, `tworange2`, scored from `scored_v4/`. **4147 references enter the tables below** (the layout operators excluded here are not counted), over 176 CodeNet problems.
 
 **398 of 615 pairs drew DIFFERENT clone types for their two ranges** (65 %). That split is the experiment.
 
