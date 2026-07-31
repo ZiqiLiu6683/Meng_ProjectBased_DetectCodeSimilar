@@ -55,31 +55,37 @@ Note the pilot's 15 %/1 % came from 100 EASY negatives. On hard negatives the sa
 18 % and 3 %, and the largest spurious region grows from a median of 8 lines to **17** (p90 47, max
 84). The rebuild was worth doing.
 
-## 4d. Two-range stratum — 497 pairs, and the strongest result for the sub-region design
+## 4d. Two-range stratum — 615 pairs, and the strongest result for the sub-region design
 
-600 were requested; **497 were produced**. Generation-side drops, reported per §8: an operator was
-inapplicable in one of the two chosen ranges, or the mutant failed to compile. Requiring two
-disjoint, separated, padded ranges inside one seed is what caps supply — `FREEZE.md` §3 already
-called this stratum supply-capped.
+`TWO_RANGE.md`, pooled from `tworange` (497) + `tworange2` (118), 4,147 references, 176 problems.
+The freeze asked for 600 and the geometry was never relaxed to get there — `FREEZE.md`'s 2026-07-30
+amendment records the supply ceiling (91 % of CodeNet cannot host two padded ranges) and the seed
+recycling that closed the gap.
 
-322 of the 497 pairs drew **different clone types for their two ranges**. That split is the
+**398 of 615 pairs (65 %) drew different clone types for their two ranges.** That split is the
 experiment:
 
-| Two edits in one pair | Region-level type | Sub-region type |
+| Two edits in one pair | Region level | Sub-region level |
 | --- | ---: | ---: |
-| different types | **59.4 %** | **90.4 %** |
-| same type | 91.5 % | 91.5 % |
+| **different types** | **57.7 %** [53.9, 61.4] | **89.8 %** [87.4, 91.9] |
+| same type | 91.3 % [87.7, 93.8] | 91.0 % [87.7, 93.5] |
+| **degradation** | **−33.6 points** | **−1.2 points** |
 
-(Excluding the two layout operators §6.9 shows are untestable.)
+(Excluding the two layout operators §6.9 shows are untestable; `--keep-layout` shows them.)
 
-**Region-level typing loses 32 points when a pair carries two kinds of relationship; sub-region
-typing loses nothing.** All 72 `T2 → T3` region errors come from mixed-type pairs, and none from
-same-type pairs. One region carries one type, so when a T2 edit and a T3 edit fall inside the same
-grown region the cascade reports the later type for both.
+**All 219 region-level type errors come from mixed-type pairs. Zero come from same-type pairs.**
+The error shapes are exactly what a one-type-per-region model predicts: `T2 → T3` 86, `T1 → T2` 72,
+`T1 → T3` 58 — always the later type in the cascade winning the whole region.
 
-This is the direct, measured justification for `RegionDecision.subRegions` — the change was made on
-the argument that a region is not one relationship, and this stratum is where that argument becomes
-a number.
+A region carries one type, so when a T2 edit and a T3 edit land inside the same grown region the
+cascade can only report one. `RegionDecision.subRegions` applies the same T1→T2→T3 cascade per
+aligned statement pair, and it does not degrade.
+
+**This is the measured justification for the sub-region change.** It was made on an argument — that
+a region is not one relationship — raised by the user against a system that reported one type per
+region. This stratum turns that argument into a 33-point gap. Without sub-regions the system would
+be wrong about the type of one edit in roughly 4 of every 10 realistic multi-edit pairs; with them
+it is as accurate on mixed pairs as on uniform ones.
 
 ## 2b. The negative stratum was rebuilt, and why
 
