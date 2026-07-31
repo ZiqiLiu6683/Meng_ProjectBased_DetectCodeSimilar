@@ -321,10 +321,24 @@ was redefined mid-run; the corpus, not the detector, produced the earlier errors
 Insert confirms the corpus-artifact explanation with non-overlapping intervals: a
 plain `int x = 5;` normalises to what every int declaration normalises to, so the
 statement-level LCS paired it with an existing declaration and reported a rename —
-correctly. Delete's fix did **not** take, and the reason is measured: the operator
-falls back to deleting a statement that has a Type-2-normalised twin when no
-unique-shaped statement exists. Stratified, deletions of a unique-shaped statement
-are **65/65 correct**, and all 14 measurable failures are twinned deletions.
+correctly.
+
+Delete's fix did **not** take, and **the delete figure should be read stratified
+rather than as a single number**. Splitting all five batches by whether the
+deleted statement had a Type-2-normalised twin in its file:
+
+| Deleted statement | N | Type correct | 95 % CI |
+| --- | ---: | ---: | --- |
+| **no normalised twin** | **327** | **99.4 %** | [97.8, 99.8] |
+| has a normalised twin | 158 | 65.8 % | — |
+
+The old arm's no-twin share is 67 % and the corrected arm's is 68 %, so the
+"prefer a unique-shaped statement" change moves the mix hardly at all — that,
+rather than an occasional fallback, is why neither arm's headline number moved.
+Deleting one of two statements that normalise identically leaves a file whose
+history the ground truth cannot uniquely recover, so the twinned stratum is a
+limit of the corpus, not a detector error. **Quote 99.4 % with the twinned
+stratum and its share reported beside it.**
 
 **Specificity, 1,000 hard negatives** (different problems, matched on token length
 and structural complexity, sharing under 30 consecutive tokens). Protocol §4.1

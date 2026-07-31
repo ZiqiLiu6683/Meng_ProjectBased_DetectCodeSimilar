@@ -437,8 +437,18 @@ are the two that can be compared. **Quote `scored_v4/`.**
    78.2 % is the same mechanism partly escaped — an end-of-line comment rides on a real statement,
    whose extent usually covers it.
 
-10. **The delete operator's fallback reintroduces the very artefact it was meant to remove —
-   measured, batch 5.** `deleteStatement` prefers a statement whose Type-2-normalised shape is
+10. **The delete operator's fallback reintroduces the very artefact it was meant to remove, and
+   the preference it was supposed to enforce has almost no effect in practice — measured over all
+   five batches. DECIDED 2026-07-31 (user-sanctioned): report stratified, do not re-run.**
+   Stratified by whether the deleted statement had a Type-2-normalised twin: **no twin 325/327 =
+   99.4 % [97.8, 99.8]**, twinned 104/158 = 65.8 %. The old arm's no-twin share is 67 % (261/388)
+   and the corrected arm's is 68 % (66/97) — **essentially identical**, so `normalisedTwinExists()`
+   changes the mix hardly at all and `unique.addAll(rest)` falls back almost always. That, not
+   "the fallback fires often", is why neither arm's headline moved. The two arms pool inside the
+   no-twin stratum because a deletion the old operator happened to make on a unique-shaped
+   statement is indistinguishable from one the new operator made deliberately. Quote 99.4 % with
+   the twinned stratum and its share reported beside it.
+11. ~~superseded numbering~~ `deleteStatement` prefers a statement whose Type-2-normalised shape is
    unique in its method, but when the range holds no such statement it falls back to a twinned one
    rather than dropping the pair. Stratified over batch 5's 100 deletions: **unique-shape 65/65
    correct (100 %)**, twinned 18/32 (56 %), and **all 14 measurable failures are twinned, none

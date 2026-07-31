@@ -23,6 +23,43 @@ correct:
 
 ---
 
+## 2026-07-31 — The delete operator is reported stratified, not re-run
+
+**Decision (user-sanctioned).** `t3_delete_statement` is reported split by whether the deleted
+statement had a Type-2-normalised twin in its file, rather than as one number, and no further batch
+is generated to remove the twinned cases.
+
+**measured, over all five batches** (normalisation approximated in Python, the same way on both
+arms, so the comparison holds even where the definition differs slightly from Spoon's):
+
+| Arm | Deleted statement | N | Type correct | 95 % CI |
+| --- | --- | ---: | ---: | --- |
+| old (b1–4) | no twin | 261 | 99.2 % | [97.2, 99.8] |
+| old (b1–4) | twinned | 127 | 68.5 % | [60.0, 75.9] |
+| new (b5) | no twin | 66 | 100.0 % | [94.5, 100] |
+| new (b5) | twinned | 31 | 54.8 % | [37.8, 70.8] |
+| **pooled** | **no twin** | **327** | **99.4 %** | **[97.8, 99.8]** |
+
+**This corrects my own earlier diagnosis.** I wrote that the fix failed because `unique.addAll(rest)`
+"falls back often". The stratified data says something sharper: the old arm's no-twin share is
+**67 %** (261/388) and the corrected arm's is **68 %** (66/97) — **essentially identical**. So
+`normalisedTwinExists()` changes the corpus mix hardly at all; the preference it was meant to
+enforce is almost never the one that decides. That is why neither arm's headline moved.
+
+**Why the arms pool inside the no-twin stratum:** the old operator picked any deletable statement,
+and when it happened to pick a unique-shaped one the resulting corpus item is indistinguishable from
+one the new operator picked deliberately. Within that stratum the two arms produce the same thing.
+
+**Why stratify rather than re-run.** Dropping twinned candidates at generation would be a §8-legal
+generation-side drop and would yield a clean ~99 % single figure for about seven hours of compute.
+It would also hide two things the stratified table states: that the detector is right whenever the
+operator applies, and that the twinned cases are a limit of the ground truth rather than an error —
+deleting one of two statements that normalise identically leaves a file whose history the reference
+cannot uniquely recover, so the LCS re-pairing the survivors and reporting a rename is defensible.
+The stratified figure carries more information than the clean one would.
+
+---
+
 ## 2026-07-30 — Batch 5 closes the corpus at 5,000 pairs; insert confirmed, delete falsified
 
 ### Batch 5 pools with batches 1–4 for 8 of 10 operators
