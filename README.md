@@ -79,6 +79,39 @@ region to a clone type. The modern web interface deliberately avoids a single
 file-level clone label because different parts of a file pair can have different
 relationships.
 
+## Output Granularity
+
+The pipeline emits clone types at **two** scales, and they do not mean the same
+thing. Anything that counts clones must pick one.
+
+| Scale | Field | What carries the type | Contiguous? |
+| --- | --- | --- | --- |
+| Region | `RegionDecision.type` | one grown region of aligned statements | no — see `segments` |
+| **Sub-region** | `SubRegion.type` | one run of aligned **statement pairs** inside a region | no — runs on each side |
+
+A region carries exactly **one** type, produced by the strict T1→T2→T3→T4
+cascade. Sub-regions apply the same cascade per aligned statement pair and
+coalesce the results into uniformly-typed runs, so one region may expose several.
+
+**The sub-region scale is the one to quote for type accuracy, and it is measured.**
+When a single file pair contains two edits of different kinds — the normal case
+in real plagiarism — region-level typing measures **57.7 %** correct while
+sub-region typing measures **89.8 %** (615 pairs, see the evaluation snapshot).
+The reason is structural rather than a tuning problem: one region holds one type,
+so a T2 edit and a T3 edit falling inside the same grown region can only be
+reported as one of them.
+
+Note the two scales currently disagree about which is authoritative:
+
+- the **web interface** already colours each line by its **sub-region** type,
+  falling back to the region type only where no breakdown exists;
+- `FileLevelAggregator` still aggregates `regionTypeCounts`, per-type coverage and
+  `dominantType` from the **region** type.
+
+So what a user sees is sub-region granularity while the summary counts are region
+granularity. Reconciling the two changes detector output and would need its own
+measurement; it has deliberately not been done inside the frozen evaluation.
+
 ## Requirements
 
 - JDK 17 exactly (the Maven build rejects other major versions)
@@ -244,11 +277,104 @@ similarity score. It is not equivalent to the Java detector.
 
 ## Evaluation Snapshot
 
-### BigCloneBench smoke set
+### Formal region-corpus run (`code-sim/results/formal-v1/`) — the current headline results
 
-The current local smoke run contains 140 pairs: 20 each for T1, T2, VST3, ST3,
-and MT3, plus 40 negative pairs. Scoring uses a BigCloneEval-style 70% region
-coverage rule.
+6,615 pairs over three strata, built by known mutation injection into IBM Project
+CodeNet Java250 so that ground truth is exact to the line. **Every pair ran the
+compiled Phase A/B path**: `status=ok`, `analysisMode=SOURCE_PLUS_WALA_SMT`,
+**zero fallback**, `stubs=0`.
+
+**Sub-region type accuracy, 5,000 single-edit pairs** (Wilson intervals on the
+design-effect-corrected sample, clustered by CodeNet problem):
+
+| Operator | N | Type correct | 95 % CI | Median IoU |
+| --- | ---: | ---: | --- | ---: |
+| `t2_change_string_literal` | 499 | 99.8 % | [98.7, 100] | 1.000 |
+| `t3_wrap_statement` | 501 | 99.6 % | [98.4, 99.9] | 1.000 |
+| `t2_rename_local` | 948 | 99.1 % | [98.1, 99.5] | 1.000 |
+| `t1_reindent` | 499 | 99.0 % | [97.5, 99.6] | 0.357 |
+| `t2_change_int_literal` | 501 | 98.4 % | [96.7, 99.2] | 1.000 |
+| `t1_add_eol_comment` | 503 | 78.9 % | [74.8, 82.5] | 0.062 |
+| `t1_add_block_comment` | 500 | 24.4 % | [20.5, 28.7] | 0.056 |
+| `t1_add_blank_line` | 498 | 24.1 % | [20.2, 28.4] | 0.059 |
+
+An IoU of 1.000 means the mutated line was identified **exactly**, not merely
+overlapped. Unchanged code is recognised as T1 in 98.1 % of 10,026 references.
+
+**`t1_add_blank_line` and `t1_add_block_comment` are untestable at this scale and
+their percentages are not detection rates.** Sub-regions are built from statement
+extents, and a blank or comment-only line belongs to no statement, so no
+sub-region can correspond to one. Of 798 such references, 195 matched and
+**195/195 were incidental** coverage by a sub-region spanning three lines or more.
+Report them beside `mARI` and `mSIL` as untestable, not as a weakness.
+
+**Statement insert/delete are reported as two arms** because the operator itself
+was redefined mid-run; the corpus, not the detector, produced the earlier errors:
+
+| Operator | Arm | N | Type correct |
+| --- | --- | ---: | ---: |
+| `t3_insert_statement` | original | 392 | 88.8 % |
+| `t3_insert_statement` | **corrected** | 96 | **100.0 %** |
+| `t3_delete_statement` | original | 399 | 89.0 % |
+| `t3_delete_statement` | corrected | 100 | 85.0 % |
+
+Insert confirms the corpus-artifact explanation with non-overlapping intervals: a
+plain `int x = 5;` normalises to what every int declaration normalises to, so the
+statement-level LCS paired it with an existing declaration and reported a rename —
+correctly. Delete's fix did **not** take, and the reason is measured: the operator
+falls back to deleting a statement that has a Type-2-normalised twin when no
+unique-shaped statement exists. Stratified, deletions of a unique-shaped statement
+are **65/65 correct**, and all 14 measurable failures are twinned deletions.
+
+**Specificity, 1,000 hard negatives** (different problems, matched on token length
+and structural complexity, sharing under 30 consecutive tokens). Protocol §4.1
+requires both false-positive definitions to be reported separately:
+
+| Definition | FP | Specificity |
+| --- | ---: | ---: |
+| reference-range (covers ≥ 70 % of both files) | 2 / 1000 | **99.8 %** |
+| strict product (any region ≥ 6 lines) | 180 / 1000 | 82.0 % |
+| — of which claim a syntactic type T1/T2/T3 | 30 / 1000 | 97.0 % |
+
+With the positives: sensitivity 100 %, balanced accuracy 91 %, **MCC 0.890**.
+Precision is tabulated only at stated clone prevalences, never from the corpus
+mixture.
+
+**The 18 % strict figure is an upper bound.** At least 20 of those 180 emit a
+region holding the same competitive-programming fast-I/O template on both sides —
+real code two authors copied from a shared source. One case is an SMT-proved
+match between two Fisher–Yates shuffle methods differing only in variable names.
+That case also proves a corpus limitation: the builder rejects pairs sharing ≥ 30
+consecutive tokens and this pair shares 15, so **no token-identity filter can
+produce a clone-free negative stratum** — renaming breaks token identity while
+leaving the clone intact.
+
+**Two edits per pair, 615 pairs** — the measurement that motivates the sub-region
+scale:
+
+| Two edits in one pair | Region level | Sub-region level |
+| --- | ---: | ---: |
+| different clone types (398 pairs) | **57.7 %** | **89.8 %** |
+| same clone type (217 pairs) | 91.3 % | 91.0 % |
+
+All 219 region-level type errors come from mixed-type pairs; none from same-type
+pairs, with error shapes exactly as a one-type-per-region model predicts
+(`T2 → T3` 86, `T1 → T2` 72, `T1 → T3` 58 — always the later cascade type taking
+the whole region).
+
+Full method, every decision with its evidence, all four ground-truth correction
+rounds including the wrong attempts, and every retracted conclusion:
+[`完整实验报告.md`](code-sim/results/formal-v1/完整实验报告.md). Frozen configuration
+in [`FREEZE.md`](code-sim/results/formal-v1/FREEZE.md).
+
+### BigCloneBench smoke set — superseded, kept for the record
+
+The 140-pair smoke run below **did not test the semantic pipeline** and its
+numbers must not be quoted. Only 22 of 140 pairs completed the full semantic
+path; 118 used the source-only fallback, and the scorer had no notion of fallback
+mode, so the table describes the fallback path far more than the compiled one.
+This is the specific failure the formal run above was built to avoid, which is
+why every one of its 6,615 pairs records `analysisMode`.
 
 | Category | Detection | Correct type / rejection |
 | --- | ---: | ---: |
@@ -258,10 +384,6 @@ coverage rule.
 | ST3 | 100% | 100% |
 | MT3 | 15% | 15% |
 | Negative | — | 100% rejection |
-
-Only 22 of the 140 pairs completed the full semantic path; 118 used the
-source-only fallback. The generated artifacts are under
-`code-sim/results/bcb_smoke/` and are tracked in Git.
 
 **Treat the fallback rate as a property of this dataset, not of the detector.**
 These pairs are synthetic wrappers: each BigCloneBench fragment was pasted into
@@ -330,12 +452,39 @@ use the explicit semantic main classes shown above for the current detector.
 - Region growth and classification thresholds are research heuristics rather
   than a learned calibration model.
 - BigCloneBench moderately and strongly modified T3 cases remain the weakest
-  evaluated category.
+  evaluated category — but see the evaluation snapshot: that measurement ran
+  overwhelmingly on the source-only fallback and does not describe the semantic
+  pipeline.
+- **The two output scales disagree about which is authoritative.** The web
+  interface colours by sub-region while `FileLevelAggregator` counts by region.
+  See *Output Granularity*.
+- **Region suppression compares bounding boxes.** `AcceptedRegionSelector`
+  computes containment from `beginLine`/`endLine`, 58 % of regions consist of more
+  than one run, and 58.9 % of accepted regions are suppressed — so some
+  suppressions rest on an overlap that does not exist in the content. Left
+  unchanged during the frozen evaluation because fixing it changes detector
+  behaviour.
+- **`NON_CLONE` cannot mean "original work".** It is the cascade's fall-through
+  for a candidate Phase A already proposed; code with no counterpart never becomes
+  a candidate. There is no output meaning "this run of statements is new", so the
+  distinction a reviewer most wants — edited versus newly written — is not
+  expressible today.
+- **`NON_CLONE` decisions are invisible** unless `-Dcodesim.emitRejectedRegions=true`
+  is set, so the number of rejected candidates is not recorded by default.
+- Blank-line and comment-only insertions cannot be attributed to a sub-region at
+  all, because such a line belongs to no statement. This is a scale limit, not a
+  detection failure; see the evaluation snapshot.
 - The report and May 2026 progress slides are not yet synchronized with every
   part of the current semantic implementation.
 
 ## Documentation and Data
 
+- [`Full experiment report`](code-sim/results/formal-v1/完整实验报告.md) — the formal run end to
+  end: design and why, frozen configuration, every fault hit, all four ground-truth correction
+  rounds with the wrong attempts kept in, results for all three strata, limitations, and retracted
+  conclusions. Written long on purpose so a figure can be re-derived without re-running anything.
+- [`Frozen configuration`](code-sim/results/formal-v1/FREEZE.md) — code revision, corpus hash,
+  thresholds, runner settings, scorer hashes, and six amendments.
 - [`Decision and evidence log`](code-sim/docs/decision-log.md) — what was decided, what was
   measured, and which earlier conclusions were retracted once data arrived. Read this first when
   asking why something is the way it is.
