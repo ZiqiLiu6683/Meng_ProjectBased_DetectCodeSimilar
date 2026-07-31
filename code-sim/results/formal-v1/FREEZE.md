@@ -276,3 +276,42 @@ floor — and each break failed its own test and only its own.
 **Every defect available here moves specificity upward**, which is the direction nobody questions.
 That is why the tests exist before the numbers do.
 
+### Amendment, 2026-07-30 — the two-range stratum's supply ceiling, measured
+
+§3 listed the two-range stratum as "supply-capped" without a number. It now has one. Scanning the
+**entire** remaining corpus (70,000 files, every seed not already spent) at the frozen geometry
+produced **497 pairs, a 0.7 % yield**, and the binding constraint is stated in the generator's own
+drop accounting:
+
+| drop reason | seeds |
+| --- | ---: |
+| **seed offers fewer than 2 padded ranges** | **63,918** |
+| seed does not compile | 3,031 |
+| an operator was inapplicable in one of the two ranges | 2,533 |
+| mutant does not compile | 21 |
+
+**91 % of CodeNet Java250 cannot host two mutable ranges at all.** Two 6-line ranges each padded by
+3 untouched lines, disjoint and separated so they do not merge into one region, need roughly 24
+lines of statement-dense code; these are competition solutions with a median of 49 lines total and
+one method. This is a property of the corpus against the frozen geometry, not a generator defect,
+and it is why this stratum is smaller than the main one by design.
+
+**Reaching 600 without touching the geometry.** The 5,000 files spent as single-range mutation seeds
+were excluded from the two-range scan. Recycling them yields **118 further pairs at 2.4 %** — a
+higher rate because those files were selected for offering at least one padded range, so they skew
+large. That selection cannot bias the ≥ 2-range subpopulation, since ≥ 2 implies ≥ 1, and the
+measurement agrees: left-file line counts are median 49 / p10 33 / p90 186 for the original 497
+against 52 / 32 / 184 for the 118.
+
+| | |
+| --- | --- |
+| `tworange` | 497 pairs, seeds drawn from the 70,000 unspent files, rng 20260803 |
+| `tworange2` | 118 pairs, seeds recycled from the 5,000 mutation seeds, rng 20260804 |
+| seed overlap between them | **0**, verified |
+| pooled | **615 pairs**, above the 600 the freeze asked for |
+
+Range size, padding, separation, operator set and schedule are **identical** across the two, so they
+pool as one stratum. A program may now appear both here and in the main stratum; E5 requires each
+program to be used at most once *within* a stratum, which still holds, and no statistic pools the
+two strata together.
+
