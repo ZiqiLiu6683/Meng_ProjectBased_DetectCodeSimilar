@@ -1,0 +1,63 @@
+stratum,pair_id,status,analysis_mode,regions_emitted,regions_at_min_size,fp_reference_range,fp_strict_product,claims_syntactic_type,types,largest_region_lines,left_problem,right_problem,left_program,right_program,shared_tokens
+claims syntactic type,N00012,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,71,p03293,p03075,s751275780.java,s367853044.java,21
+claims syntactic type,N00120,ok,SOURCE_PLUS_WALA_SMT,2,1,False,True,True,T3,62,p03239,p03220,s623235619.java,s030769932.java,23
+claims syntactic type,N00380,ok,SOURCE_PLUS_WALA_SMT,3,1,False,True,True,T3,53,p03289,p03261,s029903838.java,s405819765.java,21
+claims syntactic type,N00913,ok,SOURCE_PLUS_WALA_SMT,3,3,False,True,True,POSSIBLE_T4_CANDIDATE|T2|T3,52,p02881,p02819,s751169795.java,s098057265.java,21
+claims syntactic type,N00656,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,18,p03161,p03160,s220004284.java,s795788745.java,23
+claims syntactic type,N00466,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,17,p02700,p02693,s664101860.java,s859471756.java,17
+claims syntactic type,N00446,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,14,p02887,p02897,s984596022.java,s530756847.java,17
+claims syntactic type,N00480,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,13,p02779,p03001,s880751987.java,s032320593.java,19
+claims syntactic type,N00743,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,13,p02405,p02404,s182351905.java,s459205327.java,21
+claims syntactic type,N00107,ok,SOURCE_PLUS_WALA_SMT,5,2,False,True,True,POSSIBLE_T4_CANDIDATE|T3,12,p02553,p04030,s431429342.java,s919950923.java,22
+claims syntactic type,N00169,ok,SOURCE_PLUS_WALA_SMT,2,2,False,True,True,POSSIBLE_T4_CANDIDATE|T3,12,p02713,p02687,s475851659.java,s793675754.java,16
+claims syntactic type,N00063,ok,SOURCE_PLUS_WALA_SMT,4,3,False,True,True,POSSIBLE_T4_CANDIDATE|T3,11,p02688,p02699,s352632620.java,s063894826.java,17
+claims syntactic type,N00821,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,11,p02784,p02779,s285647997.java,s484227026.java,27
+claims syntactic type,N00144,ok,SOURCE_PLUS_WALA_SMT,3,2,False,True,True,POSSIBLE_T4_CANDIDATE|T3,10,p02831,p02772,s955024782.java,s461400119.java,16
+claims syntactic type,N00570,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,10,p02832,p02860,s174326939.java,s179774822.java,23
+claims syntactic type,N00993,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,10,p02946,p02951,s453604408.java,s067012110.java,21
+claims syntactic type,N00111,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,9,p02391,p02392,s868786358.java,s805408265.java,13
+claims syntactic type,N00491,ok,SOURCE_PLUS_WALA_SMT,3,1,False,True,True,T3,9,p02578,p02576,s746147316.java,s901903910.java,18
+claims syntactic type,N00603,ok,SOURCE_PLUS_WALA_SMT,2,1,False,True,True,T3,9,p02658,p02640,s274123786.java,s374767445.java,16
+claims syntactic type,N00251,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,True,T3,8,p02687,p02681,s493894925.java,s941243651.java,17
+"emits region, no syntactic claim",N00693,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,84,p02831,p03013,s627837336.java,s951107030.java,26
+"emits region, no syntactic claim",N00741,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,84,p02773,p02688,s064656376.java,s707899448.java,14
+"emits region, no syntactic claim",N00658,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,74,p03060,p03106,s750260229.java,s488110891.java,16
+"emits region, no syntactic claim",N00807,ok,SOURCE_PLUS_WALA_SMT,2,2,False,True,False,POSSIBLE_T4_CANDIDATE,71,p03107,p02730,s787135240.java,s610681407.java,9
+"emits region, no syntactic claim",N00118,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,69,p02879,p02777,s767139097.java,s556399651.java,17
+"emits region, no syntactic claim",N00771,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,69,p03695,p02629,s154645388.java,s334034944.java,10
+"emits region, no syntactic claim",N00965,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,67,p02922,p03075,s625193083.java,s314371979.java,10
+"emits region, no syntactic claim",N00514,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,61,p02553,p03281,s439301051.java,s349565109.java,25
+"emits region, no syntactic claim",N00443,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,59,p02791,p02830,s097229140.java,s937285427.java,28
+"emits region, no syntactic claim",N00826,ok,SOURCE_PLUS_WALA_SMT,2,1,False,True,False,POSSIBLE_T4_CANDIDATE,59,p03775,p02705,s402149367.java,s191415575.java,18
+"emits region, no syntactic claim",N00550,ok,SOURCE_PLUS_WALA_SMT,3,3,False,True,False,POSSIBLE_T4_CANDIDATE,56,p03035,p02947,s960632334.java,s039021223.java,16
+"emits region, no syntactic claim",N00452,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,50,p03087,p03060,s598585705.java,s223374270.java,26
+"emits region, no syntactic claim",N00019,ok,SOURCE_PLUS_WALA_SMT,7,2,False,True,False,POSSIBLE_T4_CANDIDATE,47,p03695,p02576,s448428678.java,s958976979.java,16
+"emits region, no syntactic claim",N00073,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,47,p02725,p02547,s741328709.java,s476598313.java,18
+"emits region, no syntactic claim",N00055,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,45,p02659,p03545,s762747894.java,s904803212.java,11
+"emits region, no syntactic claim",N00971,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,45,p03087,p03308,s964538310.java,s007321375.java,19
+"emits region, no syntactic claim",N00406,ok,SOURCE_PLUS_WALA_SMT,1,1,False,True,False,POSSIBLE_T4_CANDIDATE,44,p02829,p02778,s449024502.java,s611529512.java,24
+"emits region, no syntactic claim",N00054,ok,SOURCE_PLUS_WALA_SMT,3,1,False,True,False,POSSIBLE_T4_CANDIDATE,39,p02719,p02622,s573993837.java,s952727666.java,20
+"emits region, no syntactic claim",N00868,ok,SOURCE_PLUS_WALA_SMT,6,4,False,True,False,POSSIBLE_T4_CANDIDATE,39,p03494,p02621,s000070940.java,s577365744.java,16
+"emits region, no syntactic claim",N00494,ok,SOURCE_PLUS_WALA_SMT,2,1,False,True,False,POSSIBLE_T4_CANDIDATE,35,p02959,p02773,s230757054.java,s096779347.java,17
+covers >= 70 % of both files,N00989,ok,SOURCE_PLUS_WALA_SMT,1,1,True,True,False,POSSIBLE_T4_CANDIDATE,21,p02773,p02767,s698897601.java,s371209653.java,11
+covers >= 70 % of both files,N00042,ok,SOURCE_PLUS_WALA_SMT,1,1,True,True,False,POSSIBLE_T4_CANDIDATE,19,p03161,p03160,s124067484.java,s465279637.java,23
+clean,N00037,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02730,p02771,s467135734.java,s332343959.java,29
+clean,N00066,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02570,p02571,s380885512.java,s706290736.java,27
+clean,N00087,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p03126,p03102,s562327845.java,s095348744.java,26
+clean,N00098,ok,SOURCE_PLUS_WALA_SMT,2,0,False,False,False,,5,p03281,p03289,s620854251.java,s973326695.java,10
+clean,N00143,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02414,p02268,s065962788.java,s972241357.java,22
+clean,N00187,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02981,p03041,s646205292.java,s319198441.java,13
+clean,N00190,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p03308,p03075,s000761991.java,s313168316.java,15
+clean,N00463,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02971,p03126,s603388624.java,s910494713.java,19
+clean,N00518,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02951,p02945,s580786736.java,s954937641.java,28
+clean,N00699,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02766,p02755,s579259826.java,s509127167.java,10
+clean,N00712,ok,SOURCE_PLUS_WALA_SMT,2,0,False,False,False,,5,p02578,p02571,s663826745.java,s360376412.java,23
+clean,N00738,ok,SOURCE_PLUS_WALA_SMT,4,0,False,False,False,,5,p04044,p02759,s319414787.java,s111700726.java,11
+clean,N00772,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p03455,p03456,s819173853.java,s028309580.java,23
+clean,N00792,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02831,p02836,s932294774.java,s087064143.java,14
+clean,N00795,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02396,p03545,s358079641.java,s256016363.java,10
+clean,N00851,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02880,p02772,s114283456.java,s307014296.java,17
+clean,N00887,ok,SOURCE_PLUS_WALA_SMT,3,0,False,False,False,,5,p02982,p02989,s623245408.java,s096395712.java,16
+clean,N00960,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,5,p02753,p02723,s264253922.java,s982483725.java,26
+clean,N00003,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,4,p03035,p03043,s637974557.java,s427612013.java,6
+clean,N00242,ok,SOURCE_PLUS_WALA_SMT,1,0,False,False,False,,4,p03469,p03493,s854303322.java,s420796151.java,21

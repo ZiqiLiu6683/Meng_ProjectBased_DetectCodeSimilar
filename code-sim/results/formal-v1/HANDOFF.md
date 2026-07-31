@@ -10,10 +10,76 @@ configuration), then `RESULTS.md` (results as of batches 1–3, **now partly sup
 
 | | |
 | --- | --- |
-| main positive stratum | **DONE.** 5,000 pairs, 20,462 references, 250 problems. Batch 5 closed it 2026-07-30 with zero fallback. |
-| **negatives, running** | 1,000 hard negatives, rebuilt to meet E5 (§2b). Watch: `cat results/formal-v1/negatives/run/shard_00*.jsonl \| grep -c '^{"schemaVersion"'` |
-| **two-range, chained** | `chain_two_range.sh` waits for the negatives to reach 1000 records, scores them, then generates and runs 600 two-range pairs. Log `/tmp/chain-tworange.log`. |
-| never concurrent | the two strata are deliberately serialised — this host loses 1.66× to contention, measured. |
+| **ALL THREE STRATA ARE DONE.** | Nothing is running. |
+| positive, main | 5,000 pairs, 20,462 references, 250 problems |
+| negative | 1,000 hard negatives — §4c |
+| positive, two-range | **497** of the 600 planned; supply-capped, see §4d |
+| health | every stratum: `status=ok` on every pair, `SOURCE_PLUS_WALA_SMT` throughout, **zero fallback** |
+
+## 4c. Negative stratum — 1,000 hard negatives
+
+`negatives/scored/SUMMARY.md`. Clustered by problem PAIR: ICC 0.184, DEFF 1.31.
+
+| §4.1 definition | FP | Specificity | 95 % CI |
+| --- | ---: | ---: | --- |
+| reference-range (≥ 70 % of both files) | 2 / 1000 | **99.8 %** | [99.1, 100] |
+| strict product (any region ≥ 6 lines) | 180 / 1000 | 82.0 % | [79.1, 84.6] |
+| — claiming a syntactic type T1/T2/T3 | 30 / 1000 | 97.0 % | [95.5, 98.0] |
+
+Emitted types: `POSSIBLE_T4_CANDIDATE` 155, `T3` 30, `T4_CONFIRMED` 1, `T2` 1. Combined with the
+5,000 positives: sensitivity 100 %, specificity 82 %, balanced accuracy 91 %, **MCC 0.890**.
+Precision is tabulated at stated prevalences only, never from the corpus mixture (§4.1).
+
+**The 18 % strict figure is an UPPER BOUND, and the audit §4.1 demands shows why.** At least
+**20 of the 180 (11 %)** emit a region that contains the same competitive-programming fast-I/O
+template — `StringTokenizer` + `hasMoreTokens` reader loops — **on both sides**. That is code two
+authors copied from a common source. It is real cloned code inside a pair the label calls non-clone,
+which is exactly the case §4.1 anticipates. Verified by a syntactic marker, not a similarity score.
+
+`N00593` is the clearest single case: an SMT proof (`SEMANTIC_EQUIV_SCAN`, not the dynamic tier,
+which stays disabled) matched two Fisher–Yates shuffle methods differing only in variable names and
+array rank. A genuine Type-2 clone of a utility method.
+
+**Corpus limitation, now proven rather than suspected: a token-identity filter cannot exclude
+renamed clones.** The builder rejects pairs sharing ≥ 30 consecutive tokens, yet `N00593` shares
+only **15** — renaming breaks token identity while leaving the clone intact. Every negative corpus
+built this way admits Type-2 and Type-3 clones. State it as a limitation; do not claim the stratum
+is clone-free.
+
+**Retracted:** an automated triage I wrote to size the real-clone fraction scored the manually
+confirmed `N00593` at 0.571, below its own 0.70 threshold, and would have reported "only 4.4 % are
+real clones". Line-level comparison collapses when line structure differs. The number is withdrawn;
+only the 20 template matches, which rest on a checkable marker, are reported.
+
+Note the pilot's 15 %/1 % came from 100 EASY negatives. On hard negatives the same measurements are
+18 % and 3 %, and the largest spurious region grows from a median of 8 lines to **17** (p90 47, max
+84). The rebuild was worth doing.
+
+## 4d. Two-range stratum — 497 pairs, and the strongest result for the sub-region design
+
+600 were requested; **497 were produced**. Generation-side drops, reported per §8: an operator was
+inapplicable in one of the two chosen ranges, or the mutant failed to compile. Requiring two
+disjoint, separated, padded ranges inside one seed is what caps supply — `FREEZE.md` §3 already
+called this stratum supply-capped.
+
+322 of the 497 pairs drew **different clone types for their two ranges**. That split is the
+experiment:
+
+| Two edits in one pair | Region-level type | Sub-region type |
+| --- | ---: | ---: |
+| different types | **59.4 %** | **90.4 %** |
+| same type | 91.5 % | 91.5 % |
+
+(Excluding the two layout operators §6.9 shows are untestable.)
+
+**Region-level typing loses 32 points when a pair carries two kinds of relationship; sub-region
+typing loses nothing.** All 72 `T2 → T3` region errors come from mixed-type pairs, and none from
+same-type pairs. One region carries one type, so when a T2 edit and a T3 edit fall inside the same
+grown region the cascade reports the later type for both.
+
+This is the direct, measured justification for `RegionDecision.subRegions` — the change was made on
+the argument that a region is not one relationship, and this stratum is where that argument becomes
+a number.
 
 ## 2b. The negative stratum was rebuilt, and why
 
