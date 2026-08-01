@@ -1,0 +1,334 @@
+{"kind":"deck","id":"pr/qne6qu","name":"Deck"}
+{"kind":"layout","layoutId":"5445ca09-bfb3-48bf-b21f-079631f305df","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"9ae78798-f2ef-4470-b306-156848b7359b","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/dc073q","slide":1,"title":"M.ENG. PROJECT UPDATE","textShapes":5}
+{"kind":"textbox","id":"sh/al43e9kf","slide":1,"name":"cover-kicker","text":"M.ENG. PROJECT UPDATE","textPreview":"M.ENG. PROJECT UPDATE","textChars":21,"textLines":1,"bbox":[42,42,420,34]}
+{"kind":"textbox","id":"sh/xovmpoj6","slide":1,"name":"cover-title","text":"Testing an Evidence-First\nCode Clone Detector","textPreview":"Testing an Evidence-First | Code Clone Detector","textChars":45,"textLines":2,"bbox":[42,188,960,214]}
+{"kind":"textbox","id":"sh/wnmlgj2l","slide":1,"name":"cover-subtitle","text":"Design decisions, validity trade-offs, and current evidence","textPreview":"Design decisions, validity trade-offs, and current evidence","textChars":59,"textLines":1,"bbox":[46,432,830,54]}
+{"kind":"shape","id":"sh/jax4ry1c","slide":1,"name":"cover-accent","bbox":[1005,0,275,720]}
+{"kind":"shape","id":"sh/ipo3itkr","slide":1,"name":"cover-t1","bbox":[1050,180,140,14]}
+{"kind":"shape","id":"sh/5cfmt8j2","slide":1,"name":"cover-t2","bbox":[1050,236,92,14]}
+{"kind":"shape","id":"sh/kb6lk32h","slide":1,"name":"cover-t3","bbox":[1050,292,176,14]}
+{"kind":"shape","id":"sh/7ex4vy18","slide":1,"name":"cover-t4","bbox":[1050,348,58,14]}
+{"kind":"textbox","id":"sh/6do3mtkn","slide":1,"name":"cover-meta","text":"Research progress meeting\n29 July 2026","textPreview":"Research progress meeting | 29 July 2026","textChars":38,"textLines":2,"bbox":[46,605,360,56]}
+{"kind":"textbox","id":"sh/cf61s325","slide":1,"name":"cover-page","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"notes","id":"nt/dc073q","slide":1,"text":"Open with the evaluation question, not the implementation details. The deck is a draft structure for a professor progress discussion.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/README.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/5df3ql","slide":2,"title":"THE TESTING CLAIM","textShapes":6}
+{"kind":"textbox","id":"sh/7a9ofqtk","slide":2,"name":"claim-kicker","text":"THE TESTING CLAIM","textPreview":"THE TESTING CLAIM","textChars":17,"textLines":1,"bbox":[42,42,420,30]}
+{"kind":"textbox","id":"sh/sv2povu5","slide":2,"name":"claim-main","text":"The goal is not one accuracy number.","textPreview":"The goal is not one accuracy number.","textChars":36,"textLines":1,"bbox":[42,188,1040,100]}
+{"kind":"textbox","id":"sh/twb6h0bq","slide":2,"name":"claim-body","text":"A defensible evaluation must separate detection, localization, type attribution, and semantic evidence strength.","textPreview":"A defensible evaluation must separate detection, localization, type attribution, and semantic evidence strength.","textChars":112,"textLines":1,"bbox":[42,338,990,116]}
+{"kind":"shape","id":"sh/uxk7qlcb","slide":2,"bbox":[42,548,1196,0]}
+{"kind":"textbox","id":"sh/fytojqtw","slide":2,"name":"claim-bottom","text":"This separation drove every dataset, scoring, and execution decision.","textPreview":"This separation drove every dataset, scoring, and execution decision.","textChars":69,"textLines":1,"bbox":[42,578,980,52]}
+{"kind":"textbox","id":"sh/gz2psvuh","slide":2,"name":"slide-2-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/h0b6l0bm","slide":2,"name":"slide-2-footer-page","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"notes","id":"nt/5df3ql","slide":2,"text":"This is the thesis of the testing work: accuracy alone collapses distinct questions and can hide both useful evidence and invalid claims.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/t7d9s6","slide":3,"title":"What the evaluated product actually returns","textShapes":12}
+{"kind":"textbox","id":"sh/but07q5g","slide":3,"name":"slide-3-title","text":"What the evaluated product actually returns","textPreview":"What the evaluated product actually returns","textChars":43,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/cv210v61","slide":3,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/dwbi90n6","slide":3,"name":"slide-3-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/yxkj25or","slide":3,"name":"slide-3-footer-page","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/zyt0bq5c","slide":3,"name":"flow-arrow-0","bbox":[300,329,80,34]}
+{"kind":"shape","id":"sh/0j214v6x","slide":3,"name":"flow-arrow-1","bbox":[577,329,80,34]}
+{"kind":"shape","id":"sh/lkvid0ni","slide":3,"name":"flow-arrow-2","bbox":[854,329,80,34]}
+{"kind":"shape","id":"sh/ml4j65o3","slide":3,"name":"flow-node-0","bbox":[54,225,245,250]}
+{"kind":"textbox","id":"sh/nmd0fa5o","slide":3,"name":"flow-head-0","text":"Two Java files","textPreview":"Two Java files","textChars":14,"textLines":1,"bbox":[76,259,201,58]}
+{"kind":"textbox","id":"sh/vmxcnqt4","slide":3,"name":"flow-body-0","text":"Pairwise input\n—not a repository search","textPreview":"Pairwise input | —not a repository search","textChars":39,"textLines":2,"bbox":[76,338,201,92]}
+{"kind":"shape","id":"sh/ul4bulsj","slide":3,"name":"flow-node-1","bbox":[333,225,245,250]}
+{"kind":"textbox","id":"sh/hofupgbu","slide":3,"name":"flow-head-1","text":"Compilation context","textPreview":"Compilation context","textChars":19,"textLines":1,"bbox":[355,259,201,58]}
+{"kind":"textbox","id":"sh/wn6dwba9","slide":3,"name":"flow-body-1","text":"real project → sourcepath\n→ stubs → fallback","textPreview":"real project → sourcepath | → stubs → fallback","textChars":44,"textLines":2,"bbox":[355,338,201,92]}
+{"kind":"shape","id":"sh/7ydcj6ts","slide":3,"name":"flow-node-2","bbox":[610,225,245,250]}
+{"kind":"textbox","id":"sh/mx4bq1s7","slide":3,"name":"flow-head-2","text":"Region evidence","textPreview":"Region evidence","textChars":15,"textLines":1,"bbox":[632,259,201,58]}
+{"kind":"textbox","id":"sh/9kvulgby","slide":3,"name":"flow-body-2","text":"WALA/SDG alignment\n+ source reconstruction","textPreview":"WALA/SDG alignment | + source reconstruction","textChars":42,"textLines":2,"bbox":[632,338,201,92]}
+{"kind":"shape","id":"sh/8jmtsbad","slide":3,"name":"flow-node-3","bbox":[887,225,245,250]}
+{"kind":"textbox","id":"sh/ruhcvatc","slide":3,"name":"flow-head-3","text":"Tiered result","textPreview":"Tiered result","textChars":13,"textLines":1,"bbox":[909,259,201,58]}
+{"kind":"textbox","id":"sh/qt8v25sr","slide":3,"name":"flow-body-3","text":"T1 · T2 · T3\nT4 proof / evidence / candidate","textPreview":"T1 · T2 · T3 | T4 proof / evidence / candidate","textChars":44,"textLines":2,"bbox":[909,338,201,92]}
+{"kind":"textbox","id":"sh/29sfu9cz","slide":3,"name":"flow-note","text":"The evaluation therefore scores region coverage and labels—not only a file-level decision.","textPreview":"The evaluation therefore scores region coverage and labels—not only a file-level decision.","textChars":90,"textLines":1,"bbox":[54,523,1100,46]}
+{"kind":"notes","id":"nt/t7d9s6","slide":3,"text":"Clarify product scope. The detector receives a pair of files and emits zero or more matched region pairs with evidence labels.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/README.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/q05swl","slide":4,"title":"Four questions replace a single ‘accuracy’ score","textShapes":15}
+{"kind":"textbox","id":"sh/o7ax4nul","slide":4,"name":"slide-4-title","text":"Four questions replace a single ‘accuracy’ score","textPreview":"Four questions replace a single ‘accuracy’ score","textChars":48,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/n61gvit0","slide":4,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/25sf2dcf","slide":4,"name":"slide-4-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/xc3y1cbi","slide":4,"name":"slide-4-footer-page","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/cbux87ux","slide":4,"name":"lens-num-0","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[42,170,94,64]}
+{"kind":"shape","id":"sh/balgz2tc","slide":4,"bbox":[42,245,250,0]}
+{"kind":"textbox","id":"sh/a9cf6xcr","slide":4,"name":"lens-head-0","text":"Detection","textPreview":"Detection","textChars":9,"textLines":1,"bbox":[42,270,250,52]}
+{"kind":"textbox","id":"sh/dgzyp8by","slide":4,"name":"lens-body-0","text":"Did any predicted region cover at least 70% of both reference sides?","textPreview":"Did any predicted region cover at least 70% of both reference sides?","textChars":68,"textLines":1,"bbox":[42,345,250,152]}
+{"kind":"textbox","id":"sh/sfqxw3ud","slide":4,"name":"lens-num-1","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[341,170,94,64]}
+{"kind":"shape","id":"sh/25s7el4j","slide":4,"bbox":[341,245,250,0]}
+{"kind":"textbox","id":"sh/361onql4","slide":4,"name":"lens-head-1","text":"Localization","textPreview":"Localization","textChars":12,"textLines":1,"bbox":[341,270,250,52]}
+{"kind":"textbox","id":"sh/o7upgv2p","slide":4,"name":"lens-body-1","text":"How much extra code did the prediction include? Report precision and IoU.","textPreview":"How much extra code did the prediction include? Report precision and IoU.","textChars":73,"textLines":1,"bbox":[341,345,250,152]}
+{"kind":"textbox","id":"sh/p836p03u","slide":4,"name":"lens-num-2","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[640,170,94,64]}
+{"kind":"shape","id":"sh/q9c7i5kf","slide":4,"bbox":[640,245,250,0]}
+{"kind":"textbox","id":"sh/balorql0","slide":4,"name":"lens-head-2","text":"Type","textPreview":"Type","textChars":4,"textLines":1,"bbox":[640,270,250,52]}
+{"kind":"textbox","id":"sh/cbupkv2l","slide":4,"name":"lens-body-2","text":"Given a match, was the region correctly attributed to T1, T2, or T3?","textPreview":"Given a match, was the region correctly attributed to T1, T2, or T3?","textChars":68,"textLines":1,"bbox":[640,345,250,152]}
+{"kind":"textbox","id":"sh/dc3qt036","slide":4,"name":"lens-num-3","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[939,170,94,64]}
+{"kind":"shape","id":"sh/ydc7m5kr","slide":4,"bbox":[939,245,250,0]}
+{"kind":"textbox","id":"sh/zel8valc","slide":4,"name":"lens-head-3","text":"Semantics","textPreview":"Semantics","textChars":9,"textLines":1,"bbox":[939,270,250,52]}
+{"kind":"textbox","id":"sh/v25o3a14","slide":4,"name":"lens-body-3","text":"Was T4 proved by SMT, observed dynamically, or only structurally suggested?","textPreview":"Was T4 proved by SMT, observed dynamically, or only structurally suggested?","textChars":75,"textLines":1,"bbox":[939,345,250,152]}
+{"kind":"notes","id":"nt/q05swl","slide":4,"text":"The 70% rule follows BigCloneEval-style c-match. Boundary precision and IoU prevent whole-file predictions from looking precise. T4 evidence tiers remain separate.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/qs71zn","slide":5,"title":"Evidence—not preference—drove the test design","textShapes":15}
+{"kind":"textbox","id":"sh/ilkrul8n","slide":5,"name":"slide-5-title","text":"Evidence—not preference—drove the test design","textPreview":"Evidence—not preference—drove the test design","textChars":45,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/58va507e","slide":5,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/47m9wv6t","slide":5,"name":"slide-5-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/vitszqpc","slide":5,"name":"slide-5-footer-page","text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/uhkrql8r","slide":5,"bbox":[92,354,1088,0]}
+{"kind":"shape","id":"sh/hkba1g7i","slide":5,"name":"timeline-dot-0","bbox":[100,345,18,18]}
+{"kind":"textbox","id":"sh/wj29svqx","slide":5,"name":"timeline-label-0","text":"PILOT","textPreview":"PILOT","textChars":5,"textLines":1,"bbox":[100,278,165,30]}
+{"kind":"textbox","id":"sh/fedsbapg","slide":5,"name":"timeline-head-0","text":"BCB wrappers","textPreview":"BCB wrappers","textChars":12,"textLines":1,"bbox":[100,390,210,42]}
+{"kind":"textbox","id":"sh/ed4b25ov","slide":5,"name":"timeline-body-0","text":"Fast signal,\ninvalid compile context","textPreview":"Fast signal, | invalid compile context","textChars":36,"textLines":2,"bbox":[100,447,220,76]}
+{"kind":"shape","id":"sh/0futwvyh","slide":5,"name":"timeline-dot-1","bbox":[380,345,18,18]}
+{"kind":"textbox","id":"sh/1g3u50zm","slide":5,"name":"timeline-label-1","text":"DIAGNOSIS","textPreview":"DIAGNOSIS","textChars":9,"textLines":1,"bbox":[380,278,165,30]}
+{"kind":"textbox","id":"sh/edcbulgb","slide":5,"name":"timeline-head-1","text":"MIF + WALA","textPreview":"MIF + WALA","textChars":10,"textLines":1,"bbox":[380,390,210,42]}
+{"kind":"textbox","id":"sh/felc3qhw","slide":5,"name":"timeline-body-1","text":"Compilation is a\nhard eligibility gate","textPreview":"Compilation is a | hard eligibility gate","textChars":38,"textLines":2,"bbox":[380,447,220,76]}
+{"kind":"shape","id":"sh/sratsby5","slide":5,"name":"timeline-dot-2","bbox":[660,345,18,18]}
+{"kind":"textbox","id":"sh/ds3u1gzq","slide":5,"name":"timeline-label-2","text":"REDESIGN","textPreview":"REDESIGN","textChars":8,"textLines":1,"bbox":[660,278,165,30]}
+{"kind":"textbox","id":"sh/6psbqlgz","slide":5,"name":"timeline-head-2","text":"Spoon + CodeNet","textPreview":"Spoon + CodeNet","textChars":15,"textLines":1,"bbox":[660,390,210,42]}
+{"kind":"textbox","id":"sh/rq1czqhk","slide":5,"name":"timeline-body-2","text":"Type-safe edits and\nexplicit references","textPreview":"Type-safe edits and | explicit references","textChars":39,"textLines":2,"bbox":[660,447,220,76]}
+{"kind":"shape","id":"sh/4natoby9","slide":5,"name":"timeline-dot-3","bbox":[940,345,18,18]}
+{"kind":"textbox","id":"sh/5ojuxgzu","slide":5,"name":"timeline-label-3","text":"FREEZE","textPreview":"FREEZE","textChars":6,"textLines":1,"bbox":[940,278,165,30]}
+{"kind":"textbox","id":"sh/l8ri58n6","slide":5,"name":"timeline-head-3","text":"Formal v1","textPreview":"Formal v1","textChars":9,"textLines":1,"bbox":[940,390,210,42]}
+{"kind":"textbox","id":"sh/k7i1c3ml","slide":5,"name":"timeline-body-3","text":"Locked inputs, raw output,\nscorer and provenance","textPreview":"Locked inputs, raw output, | scorer and provenance","textChars":48,"textLines":2,"bbox":[940,447,220,76]}
+{"kind":"notes","id":"nt/qs71zn","slide":5,"text":"Use this slide as the narrative spine. Each redesign follows an observed validity failure: wrappers, compilation-ineligible operators, then ground-truth granularity.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/docs/decision-log.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/FREEZE.md\n[/Sources]"}
+{"kind":"slide","id":"sl/r8qcu2","slide":6,"title":"BCB smoke: weak MT3, invalid context","textShapes":7}
+{"kind":"textbox","id":"sh/hw76l8re","slide":6,"name":"slide-6-title","text":"BCB smoke: weak MT3, invalid context","textPreview":"BCB smoke: weak MT3, invalid context","textChars":36,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/u9gnqtsn","slide":6,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/fapojyt8","slide":6,"name":"slide-6-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/s7e5o3ah","slide":6,"name":"slide-6-footer-page","text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/65wnmtsr","slide":6,"name":"smoke-callout","bbox":[835,164,360,342]}
+{"kind":"textbox","id":"sh/765ofytw","slide":6,"name":"smoke-stat","text":"22 / 140","textPreview":"22 / 140","textChars":8,"textLines":1,"bbox":[865,204,300,76]}
+{"kind":"textbox","id":"sh/k3e5kjal","slide":6,"name":"smoke-label","text":"completed the full semantic path","textPreview":"completed the full semantic path","textChars":32,"textLines":1,"bbox":[865,286,290,64]}
+{"kind":"textbox","id":"sh/54nmdob6","slide":6,"name":"smoke-reason","text":"118 fell back because wrapped fragments lost fields and class context from their original files.","textPreview":"118 fell back because wrapped fragments lost fields and class context from their original files.","textChars":96,"textLines":1,"bbox":[865,374,290,100]}
+{"kind":"textbox","id":"sh/9gbi5gz6","slide":6,"name":"smoke-caveat","text":"DIAGNOSTIC PILOT · 140 PAIRS","textPreview":"DIAGNOSTIC PILOT · 140 PAIRS","textChars":28,"textLines":1,"bbox":[842,545,340,34]}
+{"kind":"chart","id":"ch/xsjitc3u","slide":6,"name":"","chartType":"bar","bbox":[50,155,735,470]}
+{"kind":"notes","id":"nt/r8qcu2","slide":6,"text":"The smoke set is balanced: 20 pairs per positive band and 40 negatives. It is useful for showing the performance pattern and the invalid wrapper context, not for a paper claim.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/bcb_smoke/scored/summary.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/README.md\n[/Sources]"}
+{"kind":"slide","id":"sl/ufoc6a","slide":7,"title":"The full BCB pilot confirmed the pattern at scale","textShapes":8}
+{"kind":"textbox","id":"sh/apgzyh0f","slide":7,"name":"slide-7-title","text":"The full BCB pilot confirmed the pattern at scale","textPreview":"The full BCB pilot confirmed the pattern at scale","textChars":49,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/xc7ytcz6","slide":7,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/cbyh07il","slide":7,"name":"slide-7-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/zepgvmhw","slide":7,"name":"slide-7-footer-page","text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/lgrixwz2","slide":7,"name":"full-n","text":"144,478","textPreview":"144,478","textChars":7,"textLines":1,"bbox":[916,184,290,78]}
+{"kind":"textbox","id":"sh/kfyh4rih","slide":7,"name":"full-n-label","text":"scored file pairs","textPreview":"scored file pairs","textChars":17,"textLines":1,"bbox":[916,267,280,44]}
+{"kind":"shape","id":"sh/fi5gj2hs","slide":7,"bbox":[916,334,280,0]}
+{"kind":"textbox","id":"sh/ehwzqx07","slide":7,"name":"full-pattern","text":"Strong\nT1 / T2","textPreview":"Strong | T1 / T2","textChars":14,"textLines":2,"bbox":[916,364,126,96]}
+{"kind":"textbox","id":"sh/0be9cvu1","slide":7,"name":"full-gap","text":"Weak\nMT3","textPreview":"Weak | MT3","textChars":8,"textLines":2,"bbox":[1070,364,126,96]}
+{"kind":"textbox","id":"sh/1cnal0bm","slide":7,"name":"full-caveat","text":"Still the same wrapped-fragment pilot path—not final BCB evidence.","textPreview":"Still the same wrapped-fragment pilot path—not final BCB evidence.","textChars":66,"textLines":1,"bbox":[916,506,280,84]}
+{"kind":"chart","id":"ch/mhsjupo7","slide":7,"name":"","chartType":"bar","bbox":[48,154,820,482]}
+{"kind":"notes","id":"nt/ufoc6a","slide":7,"text":"At scale, T1/T2 detection remains strong, VST3/ST3 type recovery is lower, and MT3 remains the dominant weakness. The full run is still a quarantined pilot because the input construction is not clean-room.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/bcb_full_scored/summary.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/9mbh0n","slide":8,"title":"BCB changed the test—not the headline","textShapes":12}
+{"kind":"textbox","id":"sh/472dcbmh","slide":8,"name":"slide-8-title","text":"BCB changed the test—not the headline","textPreview":"BCB changed the test—not the headline","textChars":37,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/36tc36lc","slide":8,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/i5kva14r","slide":8,"name":"slide-8-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/h4bu1w36","slide":8,"name":"slide-8-footer-page","text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/g3id8rml","slide":8,"name":"bcb-says-label","text":"WHAT THE PILOT SAYS","textPreview":"WHAT THE PILOT SAYS","textChars":19,"textLines":1,"bbox":[62,160,500,32]}
+{"kind":"textbox","id":"sh/v29czml0","slide":8,"name":"bcb-cannot-label","text":"WHAT IT CANNOT SAY","textPreview":"WHAT IT CANNOT SAY","textChars":18,"textLines":1,"bbox":[682,160,500,32]}
+{"kind":"shape","id":"sh/u10v614f","slide":8,"bbox":[640,150,0,0]}
+{"kind":"shape","id":"sh/tgruxw3u","slide":8,"name":"bullet-225-0","bbox":[62,234,11,11]}
+{"kind":"textbox","id":"sh/8fid4rmp","slide":8,"name":"bullet-text-225-0","text":"T1 and T2 are consistently recoverable.","textPreview":"T1 and T2 are consistently recoverable.","textChars":39,"textLines":1,"bbox":[87,225,495,80]}
+{"kind":"shape","id":"sh/mtwrupk7","slide":8,"name":"bullet-225-1","bbox":[62,316,11,11]}
+{"kind":"textbox","id":"sh/nu5s3u1s","slide":8,"name":"bullet-text-225-1","text":"MT3 is the clearest sensitivity gap.","textPreview":"MT3 is the clearest sensitivity gap.","textChars":36,"textLines":1,"bbox":[87,307,495,80]}
+{"kind":"shape","id":"sh/8ve9wz2d","slide":8,"name":"bullet-225-2","bbox":[62,398,11,11]}
+{"kind":"textbox","id":"sh/9wna54jy","slide":8,"name":"bullet-text-225-2","text":"Compilation context controls WALA eligibility.","textPreview":"Compilation context controls WALA eligibility.","textChars":46,"textLines":1,"bbox":[87,389,495,80]}
+{"kind":"shape","id":"sh/ypwrqpkb","slide":8,"name":"bullet-225-0","bbox":[682,234,11,11]}
+{"kind":"textbox","id":"sh/zq58zu1w","slide":8,"name":"bullet-text-225-0","text":"It is not final BigCloneBench recall.","textPreview":"It is not final BigCloneBench recall.","textChars":37,"textLines":1,"bbox":[707,225,495,80]}
+{"kind":"shape","id":"sh/0re9sz21","slide":8,"name":"bullet-225-1","bbox":[682,316,11,11]}
+{"kind":"textbox","id":"sh/lsna1kjm","slide":8,"name":"bullet-text-225-1","text":"Fallback rate is not detector generality.","textPreview":"Fallback rate is not detector generality.","textChars":41,"textLines":1,"bbox":[707,307,495,80]}
+{"kind":"shape","id":"sh/qlcrm5kz","slide":8,"name":"bullet-225-2","bbox":[682,398,11,11]}
+{"kind":"textbox","id":"sh/bml8va1k","slide":8,"name":"bullet-text-225-2","text":"Wrapped inputs are not original project files.","textPreview":"Wrapped inputs are not original project files.","textChars":46,"textLines":1,"bbox":[707,389,495,80]}
+{"kind":"shape","id":"sh/fuhg7md0","slide":8,"name":"bcb-decision","bbox":[62,523,1136,84]}
+{"kind":"textbox","id":"sh/ut8fehwf","slide":8,"name":"bcb-decision-text","text":"Decision: quarantine the pilot and require clean-room BCB with complete original files.","textPreview":"Decision: quarantine the pilot and require clean-room BCB with complete original files.","textChars":87,"textLines":1,"bbox":[92,544,1076,46]}
+{"kind":"notes","id":"nt/9mbh0n","slide":8,"text":"This slide protects credibility. The earlier results remain useful engineering evidence, but the protocol explicitly prevents them from being mixed with future clean-room results.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/README.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/apfi8p","slide":9,"title":"A compilable corpus isolates detector behavior","textShapes":13}
+{"kind":"textbox","id":"sh/mtoz2h0v","slide":9,"name":"slide-9-title","text":"A compilable corpus isolates detector behavior","textPreview":"A compilable corpus isolates detector behavior","textChars":46,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/9wzidwj6","slide":9,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/ovqh4ril","slide":9,"name":"slide-9-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/zqxg7m14","slide":9,"name":"slide-9-footer-page","text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/epozyh0j","slide":9,"name":"mif-card-0","bbox":[42,170,376,350]}
+{"kind":"textbox","id":"sh/1sfy9cja","slide":9,"name":"mif-num-0","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[70,196,58,58]}
+{"kind":"textbox","id":"sh/0r6h07ip","slide":9,"name":"mif-head-0","text":"Select a real seed","textPreview":"Select a real seed","textChars":18,"textLines":1,"bbox":[70,277,320,62]}
+{"kind":"textbox","id":"sh/r2dg3218","slide":9,"name":"mif-body-0","text":"Project CodeNet Java250\nSelf-contained Java solutions","textPreview":"Project CodeNet Java250 | Self-contained Java solutions","textChars":53,"textLines":2,"bbox":[70,369,320,86]}
+{"kind":"shape","id":"sh/q14zux0n","slide":9,"name":"mif-card-1","bbox":[452,170,376,350]}
+{"kind":"textbox","id":"sh/4juxwjuh","slide":9,"name":"mif-num-1","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[480,196,58,58]}
+{"kind":"textbox","id":"sh/5k3epov2","slide":9,"name":"mif-head-1","text":"Apply one known edit","textPreview":"Apply one known edit","textChars":20,"textLines":1,"bbox":[480,277,320,62]}
+{"kind":"textbox","id":"sh/ihsfutwb","slide":9,"name":"mif-body-1","text":"10 balanced Spoon operators\nType-safe and compile-checked","textPreview":"10 balanced Spoon operators | Type-safe and compile-checked","textChars":57,"textLines":2,"bbox":[480,369,320,86]}
+{"kind":"shape","id":"sh/jilw3ydw","slide":9,"name":"mif-card-2","bbox":[862,170,376,350]}
+{"kind":"textbox","id":"sh/wfaxsjel","slide":9,"name":"mif-num-2","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[890,196,58,58]}
+{"kind":"textbox","id":"sh/xgje1ovq","slide":9,"name":"mif-head-2","text":"Record three truths","textPreview":"Record three truths","textChars":19,"textLines":1,"bbox":[890,277,320,62]}
+{"kind":"textbox","id":"sh/adsfq9wf","slide":9,"name":"mif-body-2","text":"Clone interval · mutation runs\n· untouched runs","textPreview":"Clone interval · mutation runs | · untouched runs","textChars":47,"textLines":2,"bbox":[890,369,320,86]}
+{"kind":"textbox","id":"sh/ve1wzed0","slide":9,"name":"mif-note","text":"Declared trade-off: this is an E2-adapted, supplementary instrument—not a claim of identical official MIF execution.","textPreview":"Declared trade-off: this is an E2-adapted, supplementary instrument—not a claim of identical official MIF execution.","textChars":116,"textLines":1,"bbox":[42,565,1160,54]}
+{"kind":"notes","id":"nt/apfi8p","slide":9,"text":"Official MIF includes operators whose effect is an undeclared placeholder or inconsistent rename, which cannot survive a compilation-based detector. The adaptation is declared rather than hidden.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/FREEZE.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/docs/decision-log.md\n[/Sources]"}
+{"kind":"slide","id":"sl/tzkicm","slide":10,"title":"Three reference layers answer three questions","textShapes":12}
+{"kind":"textbox","id":"sh/w7a1wnqh","slide":10,"name":"slide-10-title","text":"Three reference layers answer three questions","textPreview":"Three reference layers answer three questions","textChars":45,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/v610nipw","slide":10,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/a5sjud8b","slide":10,"name":"slide-10-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/5c32tc7y","slide":10,"name":"slide-10-footer-page","text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/kbu107qd","slide":10,"name":"gt-band-0","bbox":[42,165,1196,112]}
+{"kind":"shape","id":"sh/jal0r2p8","slide":10,"name":"gt-color-0","bbox":[42,165,12,112]}
+{"kind":"textbox","id":"sh/i9cjyx8n","slide":10,"name":"gt-label-0","text":"CLONE INTERVAL","textPreview":"CLONE INTERVAL","textChars":14,"textLines":1,"bbox":[80,187,250,30]}
+{"kind":"textbox","id":"sh/lgzih8ru","slide":10,"name":"gt-question-0","text":"Did the detector find the corresponding block?","textPreview":"Did the detector find the corresponding block?","textChars":46,"textLines":1,"bbox":[80,222,720,38]}
+{"kind":"textbox","id":"sh/0fq1o3q9","slide":10,"name":"gt-rule-0","text":"Region · ≥70% both sides","textPreview":"Region · ≥70% both sides","textChars":24,"textLines":1,"bbox":[900,202,290,48]}
+{"kind":"shape","id":"sh/uhg3itsn","slide":10,"name":"gt-band-1","bbox":[42,318,1196,112]}
+{"kind":"shape","id":"sh/vip4by98","slide":10,"name":"gt-color-1","bbox":[42,318,12,112]}
+{"kind":"textbox","id":"sh/wjy5k3at","slide":10,"name":"gt-label-1","text":"MUTATION RUN","textPreview":"MUTATION RUN","textChars":12,"textLines":1,"bbox":[80,340,250,30]}
+{"kind":"textbox","id":"sh/hk7md8re","slide":10,"name":"gt-question-1","text":"Did it isolate the changed code and assign the right type?","textPreview":"Did it isolate the changed code and assign the right type?","textChars":58,"textLines":1,"bbox":[80,375,720,38]}
+{"kind":"textbox","id":"sh/ilgnmt8z","slide":10,"name":"gt-rule-1","text":"Sub-region · overlap + type","textPreview":"Sub-region · overlap + type","textChars":27,"textLines":1,"bbox":[900,355,290,48]}
+{"kind":"shape","id":"sh/j6p4fy94","slide":10,"name":"gt-band-2","bbox":[42,471,1196,112]}
+{"kind":"shape","id":"sh/47y5o3qp","slide":10,"name":"gt-color-2","bbox":[42,471,12,112]}
+{"kind":"textbox","id":"sh/58rmh8ra","slide":10,"name":"gt-label-2","text":"UNTOUCHED RUN","textPreview":"UNTOUCHED RUN","textChars":13,"textLines":1,"bbox":[80,493,250,30]}
+{"kind":"textbox","id":"sh/690nqd8v","slide":10,"name":"gt-question-2","text":"Did unchanged code remain identifiable as Type 1?","textPreview":"Did unchanged code remain identifiable as Type 1?","textChars":49,"textLines":1,"bbox":[80,528,720,38]}
+{"kind":"textbox","id":"sh/ra94ji9g","slide":10,"name":"gt-rule-2","text":"Sub-region · expected T1","textPreview":"Sub-region · expected T1","textChars":24,"textLines":1,"bbox":[900,508,290,48]}
+{"kind":"notes","id":"nt/tzkicm","slide":10,"text":"The three references prevent one coarse label from hiding localization and type behavior. Mutation scoring is the discriminating measure; clone interval matching is intentionally reported with a localization warning.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/FREEZE.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/RESULTS.md\n[/Sources]"}
+{"kind":"slide","id":"sl/9129kd","slide":11,"title":"Validity comes before speed","textShapes":21}
+{"kind":"textbox","id":"sh/alsfmhsv","slide":11,"name":"slide-11-title","text":"Validity comes before speed","textPreview":"Validity comes before speed","textChars":27,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/xo3yhwrm","slide":11,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/wnuxora1","slide":11,"name":"slide-11-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/jqlgj69s","slide":11,"name":"slide-11-footer-page","text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/ypcfq1s7","slide":11,"name":"trade-header","bbox":[42,151,1196,54]}
+{"kind":"textbox","id":"sh/ls3ylgri","slide":11,"name":"trade-h-0","text":"Decision","textPreview":"Decision","textChars":8,"textLines":1,"bbox":[56,164,235,28]}
+{"kind":"textbox","id":"sh/kruxsbad","slide":11,"name":"trade-h-1","text":"Choice","textPreview":"Choice","textChars":6,"textLines":1,"bbox":[324,164,235,28]}
+{"kind":"textbox","id":"sh/7u5gn69o","slide":11,"name":"trade-h-2","text":"Reason","textPreview":"Reason","textChars":6,"textLines":1,"bbox":[604,164,620,28]}
+{"kind":"shape","id":"sh/6tcfu1s3","slide":11,"name":"trade-row-bg-0","bbox":[42,205,1196,82]}
+{"kind":"textbox","id":"sh/kjaho7ed","slide":11,"name":"trade-a-0","text":"Dynamic execution","textPreview":"Dynamic execution","textChars":17,"textLines":1,"bbox":[56,225,240,42]}
+{"kind":"textbox","id":"sh/lkjyhcvy","slide":11,"name":"trade-b-0","text":"Disabled","textPreview":"Disabled","textChars":8,"textLines":1,"bbox":[324,225,245,42]}
+{"kind":"textbox","id":"sh/yhsfmxwn","slide":11,"name":"trade-c-0","text":"Untrusted corpus code can leak threads; sampling is evidence, not proof.","textPreview":"Untrusted corpus code can leak threads; sampling is evidence, not proof.","textChars":72,"textLines":1,"bbox":[604,217,620,58]}
+{"kind":"shape","id":"sh/zi1gf2ds","slide":11,"bbox":[42,286,1196,0]}
+{"kind":"shape","id":"sh/8nahs7ep","slide":11,"name":"trade-row-bg-1","bbox":[42,287,1196,82]}
+{"kind":"textbox","id":"sh/9o3ylcva","slide":11,"name":"trade-a-1","text":"Compilation assistance","textPreview":"Compilation assistance","textChars":22,"textLines":1,"bbox":[56,307,240,42]}
+{"kind":"textbox","id":"sh/mlszqhwj","slide":11,"name":"trade-b-1","text":"Stubs enabled","textPreview":"Stubs enabled","textChars":13,"textLines":1,"bbox":[324,307,245,42]}
+{"kind":"textbox","id":"sh/7m1gjmd4","slide":11,"name":"trade-c-1","text":"Raises WALA eligibility, but stubbed pairs cannot claim strict T4.","textPreview":"Raises WALA eligibility, but stubbed pairs cannot claim strict T4.","textChars":66,"textLines":1,"bbox":[604,299,620,58]}
+{"kind":"shape","id":"sh/wbuhwrel","slide":11,"bbox":[42,368,1196,0]}
+{"kind":"shape","id":"sh/hc3ypwv6","slide":11,"name":"trade-row-bg-2","bbox":[42,369,1196,82]}
+{"kind":"textbox","id":"sh/58zy9wna","slide":11,"name":"trade-a-2","text":"Parallelism","textPreview":"Parallelism","textChars":11,"textLines":1,"bbox":[56,389,240,42]}
+{"kind":"textbox","id":"sh/47qx0r6p","slide":11,"name":"trade-b-2","text":"2 workers","textPreview":"2 workers","textChars":9,"textLines":1,"bbox":[324,389,245,42]}
+{"kind":"textbox","id":"sh/36hg7m54","slide":11,"name":"trade-c-2","text":"8GB host cannot safely support the earlier 4 × 4GB configuration.","textPreview":"8GB host cannot safely support the earlier 4 × 4GB configuration.","textChars":65,"textLines":1,"bbox":[604,381,620,58]}
+{"kind":"shape","id":"sh/i58fyhoz","slide":11,"bbox":[42,450,1196,0]}
+{"kind":"shape","id":"sh/dwjydwnm","slide":11,"name":"trade-row-bg-3","bbox":[42,451,1196,82]}
+{"kind":"textbox","id":"sh/svah4r61","slide":11,"name":"trade-a-3","text":"Sharding","textPreview":"Sharding","textChars":8,"textLines":1,"bbox":[56,471,240,42]}
+{"kind":"textbox","id":"sh/ra1gbm5g","slide":11,"name":"trade-b-3","text":"8 shards","textPreview":"8 shards","textChars":8,"textLines":1,"bbox":[324,471,245,42]}
+{"kind":"textbox","id":"sh/q98z21ov","slide":11,"name":"trade-c-3","text":"Smaller recovery unit if one shard fails; semantics unchanged.","textPreview":"Smaller recovery unit if one shard fails; semantics unchanged.","textChars":62,"textLines":1,"bbox":[604,463,620,58]}
+{"kind":"shape","id":"sh/t0fy1cn2","slide":11,"bbox":[42,532,1196,0]}
+{"kind":"shape","id":"sh/8f6xs76h","slide":11,"name":"trade-row-bg-4","bbox":[42,533,1196,82]}
+{"kind":"textbox","id":"sh/y9knm903","slide":11,"name":"trade-a-4","text":"Raw output","textPreview":"Raw output","textChars":10,"textLines":1,"bbox":[56,553,240,42]}
+{"kind":"textbox","id":"sh/zut4feho","slide":11,"name":"trade-b-4","text":"Preserved","textPreview":"Preserved","textChars":9,"textLines":1,"bbox":[324,553,245,42]}
+{"kind":"textbox","id":"sh/0v25oji9","slide":11,"name":"trade-c-4","text":"Ground truth/scoring can be repaired without a seven-hour rerun.","textPreview":"Ground truth/scoring can be repaired without a seven-hour rerun.","textChars":64,"textLines":1,"bbox":[604,545,620,58]}
+{"kind":"shape","id":"sh/lwbmhozu","slide":11,"bbox":[42,614,1196,0]}
+{"kind":"notes","id":"nt/9129kd","slide":11,"text":"Present these choices as validity controls, not implementation trivia. The frozen file says four shards but the actual run configuration and handoff use eight; this documentation mismatch should be amended.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/FREEZE.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/HANDOFF.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/scripts/experiments/run_batch.sh\n[/Sources]"}
+{"kind":"slide","id":"sl/1d0ixt","slide":12,"title":"Ground-truth corrections: one rule remains open","textShapes":20}
+{"kind":"textbox","id":"sh/0za5svep","slide":12,"name":"slide-12-title","text":"Ground-truth corrections: one rule remains open","textPreview":"Ground-truth corrections: one rule remains open","textChars":47,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/fy1ojqdk","slide":12,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/exsnqlwz","slide":12,"name":"slide-12-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/po36p0vm","slide":12,"name":"slide-12-footer-page","text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/onu5wfu1","slide":12,"bbox":[85,494,1108,0]}
+{"kind":"shape","id":"sh/n2lonadg","slide":12,"name":"gt-dot-0","bbox":[80,485,20,20]}
+{"kind":"textbox","id":"sh/21snu5wv","slide":12,"name":"gt-round-0","text":"ROUND 1","textPreview":"ROUND 1","textChars":7,"textLines":1,"bbox":[70,160,245,28]}
+{"kind":"textbox","id":"sh/xs36tkvi","slide":12,"name":"gt-headline-0","text":"Wrap","textPreview":"Wrap","textChars":4,"textLines":1,"bbox":[70,207,245,44]}
+{"kind":"textbox","id":"sh/cru50fux","slide":12,"name":"gt-copy-0","text":"Reference only the added\nif-header line","textPreview":"Reference only the added | if-header line","textChars":39,"textLines":2,"bbox":[70,281,245,76]}
+{"kind":"textbox","id":"sh/il0butsr","slide":12,"name":"gt-result-0","text":"7.3 → 99.7%","textPreview":"7.3 → 99.7%","textChars":11,"textLines":1,"bbox":[70,390,245,40]}
+{"kind":"shape","id":"sh/3m9cnytc","slide":12,"name":"gt-dot-1","bbox":[375,485,20,20]}
+{"kind":"textbox","id":"sh/4nitw3ax","slide":12,"name":"gt-round-1","text":"ROUND 2","textPreview":"ROUND 2","textChars":7,"textLines":1,"bbox":[365,160,245,28]}
+{"kind":"textbox","id":"sh/porup8bi","slide":12,"name":"gt-headline-1","text":"Insert / delete","textPreview":"Insert / delete","textChars":15,"textLines":1,"bbox":[365,207,245,44]}
+{"kind":"textbox","id":"sh/qp0byds3","slide":12,"name":"gt-copy-1","text":"Remove normalized-twin\ncorpus artifacts","textPreview":"Remove normalized-twin | corpus artifacts","textChars":39,"textLines":2,"bbox":[365,281,245,76]}
+{"kind":"textbox","id":"sh/rqtcrito","slide":12,"name":"gt-result-1","text":"Batch 5 arm","textPreview":"Batch 5 arm","textChars":11,"textLines":1,"bbox":[365,390,245,40]}
+{"kind":"shape","id":"sh/cr2t0nat","slide":12,"name":"gt-dot-2","bbox":[670,485,20,20]}
+{"kind":"textbox","id":"sh/dsbut8be","slide":12,"name":"gt-round-2","text":"ROUND 3","textPreview":"ROUND 3","textChars":7,"textLines":1,"bbox":[660,160,245,28]}
+{"kind":"textbox","id":"sh/6tgbm9sj","slide":12,"name":"gt-headline-2","text":"Rename","textPreview":"Rename","textChars":6,"textLines":1,"bbox":[660,207,245,44]}
+{"kind":"textbox","id":"sh/7upsfet4","slide":12,"name":"gt-copy-2","text":"Split scattered changes\ninto contiguous runs","textPreview":"Split scattered changes | into contiguous runs","textChars":44,"textLines":2,"bbox":[660,281,245,76]}
+{"kind":"textbox","id":"sh/bml07q5k","slide":12,"name":"gt-result-2","text":"88.3 → 99.3%","textPreview":"88.3 → 99.3%","textChars":12,"textLines":1,"bbox":[660,390,245,40]}
+{"kind":"shape","id":"sh/alszyl4f","slide":12,"name":"gt-dot-3","bbox":[965,485,20,20]}
+{"kind":"textbox","id":"sh/xo3i9gnq","slide":12,"name":"gt-round-3","text":"ROUND 4","textPreview":"ROUND 4","textChars":7,"textLines":1,"bbox":[955,160,245,28]}
+{"kind":"textbox","id":"sh/cnuh0vm5","slide":12,"name":"gt-headline-3","text":"Reindent","textPreview":"Reindent","textChars":8,"textLines":1,"bbox":[955,207,245,44]}
+{"kind":"textbox","id":"sh/ni1g365o","slide":12,"name":"gt-copy-3","text":"Should continuous effects\nremain one interval?","textPreview":"Should continuous effects | remain one interval?","textChars":46,"textLines":2,"bbox":[955,281,245,76]}
+{"kind":"textbox","id":"sh/2xszu143","slide":12,"name":"gt-result-3","text":"DECISION NEEDED","textPreview":"DECISION NEEDED","textChars":15,"textLines":1,"bbox":[955,390,245,40]}
+{"kind":"textbox","id":"sh/pkjy5gnu","slide":12,"name":"gt-principle","text":"Principle: detector output is immutable; only justified references are recomputed and rescored.","textPreview":"Principle: detector output is immutable; only justified references are recomputed and rescored.","textChars":95,"textLines":1,"bbox":[80,560,1100,45]}
+{"kind":"notes","id":"nt/1d0ixt","slide":12,"text":"Explain that corrections were driven by the meaning of each mutation, not by inspecting which rule produced a higher number. Round 4 is deliberately unresolved and should be discussed with the professor.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/HANDOFF.md\n[/Sources]"}
+{"kind":"slide","id":"sl/zbf4pz","slide":13,"title":"3,000 formal pairs completed the full semantic path","textShapes":11}
+{"kind":"textbox","id":"sh/ahsnmxcf","slide":13,"name":"slide-13-title","text":"3,000 formal pairs completed the full semantic path","textPreview":"3,000 formal pairs completed the full semantic path","textChars":51,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/x4j6xcvq","slide":13,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/wja5o7u5","slide":13,"name":"slide-13-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/j6lozmdw","slide":13,"name":"slide-13-footer-page","text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/y5s7qhcb","slide":13,"name":"formal-summary","text":"Batches 1–3 are complete; batch 4 is running. All completed pairs used the same semantic analysis mode.","textPreview":"Batches 1–3 are complete; batch 4 is running. All completed pairs used the same semantic analysis mode.","textChars":103,"textLines":1,"bbox":[42,132,1120,62]}
+{"kind":"shape","id":"sh/l8361cv2","slide":13,"name":"metric-completed pairs","bbox":[42,282,374,232]}
+{"kind":"shape","id":"sh/k7upsruh","slide":13,"name":"metric-accent-completed pairs","bbox":[42,282,10,232]}
+{"kind":"textbox","id":"sh/7alo3mds","slide":13,"name":"metric-value-completed pairs","text":"3,000","textPreview":"3,000","textChars":5,"textLines":1,"bbox":[72,316,320,96]}
+{"kind":"textbox","id":"sh/69c7uhc7","slide":13,"name":"metric-label-completed pairs","text":"completed pairs","textPreview":"completed pairs","textChars":15,"textLines":1,"bbox":[72,424,320,62]}
+{"kind":"shape","id":"sh/k7atgbe5","slide":13,"name":"metric-scored references","bbox":[453,282,374,232]}
+{"kind":"shape","id":"sh/l8ju9gvq","slide":13,"name":"metric-accent-scored references","bbox":[453,282,10,232]}
+{"kind":"textbox","id":"sh/ylsbe1wf","slide":13,"name":"metric-value-scored references","text":"12,002","textPreview":"12,002","textChars":6,"textLines":1,"bbox":[483,316,320,96]}
+{"kind":"textbox","id":"sh/zm1s76d0","slide":13,"name":"metric-label-scored references","text":"scored references","textPreview":"scored references","textChars":17,"textLines":1,"bbox":[483,424,320,62]}
+{"kind":"shape","id":"sh/8butkbeh","slide":13,"name":"metric-fallbacks","bbox":[864,282,374,232]}
+{"kind":"shape","id":"sh/9c3udgv2","slide":13,"name":"metric-accent-fallbacks","bbox":[864,282,10,232]}
+{"kind":"textbox","id":"sh/m9cbilwb","slide":13,"name":"metric-value-fallbacks","text":"0","textPreview":"0","textChars":1,"textLines":1,"bbox":[894,316,320,96]}
+{"kind":"textbox","id":"sh/7alcb6dw","slide":13,"name":"metric-label-fallbacks","text":"fallbacks","textPreview":"fallbacks","textChars":9,"textLines":1,"bbox":[894,424,320,62]}
+{"kind":"textbox","id":"sh/wfutovud","slide":13,"name":"formal-foot","text":"244 CodeNet problems · every completed record status=ok · SOURCE_PLUS_WALA_SMT","textPreview":"244 CodeNet problems · every completed record status=ok · SOURCE_PLUS_WALA_SMT","textChars":78,"textLines":1,"bbox":[42,570,1120,42]}
+{"kind":"notes","id":"nt/zbf4pz","slide":13,"text":"Do not use the observed batch timings as formal performance evidence; contention made batch 2 much slower. The result inventory is complete and auditable, but timing requires a separate protocol.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/RESULTS.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/HANDOFF.md\n[/Sources]"}
+{"kind":"slide","id":"sl/sy8lki","slide":14,"title":"Statement edits classify well; layout changes do not","textShapes":9}
+{"kind":"textbox","id":"sh/6h4fud83","slide":14,"name":"slide-14-title","text":"Statement edits classify well; layout changes do not","textPreview":"Statement edits classify well; layout changes do not","textChars":52,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/tkfy587u","slide":14,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/8j6xw3q9","slide":14,"name":"slide-14-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/jedgzy9s","slide":14,"name":"slide-14-footer-page","text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/lgvy18ry","slide":14,"name":"op-stable","text":"STABLE","textPreview":"STABLE","textChars":6,"textLines":1,"bbox":[915,166,250,25]}
+{"kind":"textbox","id":"sh/kfmxs3qd","slide":14,"name":"op-stable-body","text":"Literals, rename, and corrected wrap are ~98–100%.","textPreview":"Literals, rename, and corrected wrap are ~98–100%.","textChars":50,"textLines":1,"bbox":[915,202,270,86]}
+{"kind":"textbox","id":"sh/bqdgvy9g","slide":14,"name":"op-review","text":"REVIEW","textPreview":"REVIEW","textChars":6,"textLines":1,"bbox":[915,330,250,25]}
+{"kind":"textbox","id":"sh/apkfmt8b","slide":14,"name":"op-review-body","text":"Insert/delete reflect corpus artifacts; reindent depends on the open GT rule.","textPreview":"Insert/delete reflect corpus artifacts; reindent depends on the open GT rule.","textChars":77,"textLines":1,"bbox":[915,366,270,110]}
+{"kind":"textbox","id":"sh/0ju5wjep","slide":14,"name":"op-boundary","text":"OUT OF UNIT","textPreview":"OUT OF UNIT","textChars":11,"textLines":1,"bbox":[915,514,250,25]}
+{"kind":"textbox","id":"sh/1k3m5ova","slide":14,"name":"op-boundary-body","text":"Blank and comment-only lines are not statements, so no sub-region exists.","textPreview":"Blank and comment-only lines are not statements, so no sub-region exists.","textChars":73,"textLines":1,"bbox":[915,550,270,80]}
+{"kind":"chart","id":"ch/qlo7itkj","slide":14,"name":"","chartType":"bar","bbox":[48,142,815,506]}
+{"kind":"notes","id":"nt/sy8lki","slide":14,"text":"These are the corrected v3 mutation-reference results from batches 1–3. Mark insert/delete and reindent as provisional. The aggregate 81.6% hides the important distinction between code statements and layout/comment-only edits.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/HANDOFF.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/RESULTS.md\n[/Sources]"}
+{"kind":"slide","id":"sl/jmym2p","slide":15,"title":"Negative pairs separate errors from exploratory T4","textShapes":11}
+{"kind":"textbox","id":"sh/psba1c7u","slide":15,"name":"slide-15-title","text":"Negative pairs separate errors from exploratory T4","textPreview":"Negative pairs separate errors from exploratory T4","textChars":50,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/2pkb6xoj","slide":15,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/nqtsz2p4","slide":15,"name":"slide-15-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/cf2tc76l","slide":15,"name":"slide-15-footer-page","text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"shape","id":"sh/xgvu5c76","slide":15,"name":"metric-no output","bbox":[42,180,345,232]}
+{"kind":"shape","id":"sh/atkbahof","slide":15,"name":"metric-accent-no output","bbox":[42,180,10,232]}
+{"kind":"textbox","id":"sh/buts32p0","slide":15,"name":"metric-value-no output","text":"81 / 100","textPreview":"81 / 100","textChars":8,"textLines":1,"bbox":[72,214,291,96]}
+{"kind":"textbox","id":"sh/sjit0n6h","slide":15,"name":"metric-label-no output","text":"no output","textPreview":"no output","textChars":9,"textLines":1,"bbox":[72,322,291,62]}
+{"kind":"shape","id":"sh/dkrats72","slide":15,"name":"metric-any output","bbox":[468,180,345,232]}
+{"kind":"shape","id":"sh/14r2hcfy","slide":15,"name":"metric-accent-any output","bbox":[468,180,10,232]}
+{"kind":"textbox","id":"sh/03i1o7yd","slide":15,"name":"metric-value-any output","text":"19 / 100","textPreview":"19 / 100","textChars":8,"textLines":1,"bbox":[498,214,291,96]}
+{"kind":"textbox","id":"sh/z29kf2hs","slide":15,"name":"metric-label-any output","text":"any output","textPreview":"any output","textChars":10,"textLines":1,"bbox":[498,322,291,62]}
+{"kind":"shape","id":"sh/eh0jmxg7","slide":15,"name":"metric-claimed T1/T2/T3","bbox":[894,180,345,232]}
+{"kind":"shape","id":"sh/98b2lcfu","slide":15,"name":"metric-accent-claimed T1/T2/T3","bbox":[894,180,10,232]}
+{"kind":"textbox","id":"sh/87ils7y9","slide":15,"name":"metric-value-claimed T1/T2/T3","text":"2 / 100","textPreview":"2 / 100","textChars":7,"textLines":1,"bbox":[924,214,291,96]}
+{"kind":"textbox","id":"sh/n69kjmx4","slide":15,"name":"metric-label-claimed T1/T2/T3","text":"claimed T1/T2/T3","textPreview":"claimed T1/T2/T3","textChars":16,"textLines":1,"bbox":[924,322,291,62]}
+{"kind":"shape","id":"sh/m503qhgj","slide":15,"name":"negative-interpretation","bbox":[42,465,1197,138]}
+{"kind":"textbox","id":"sh/xcb2pwf6","slide":15,"name":"negative-head","text":"Interpretation","textPreview":"Interpretation","textChars":14,"textLines":1,"bbox":[72,489,220,32]}
+{"kind":"textbox","id":"sh/wb2lwryl","slide":15,"name":"negative-body","text":"Most extra outputs are POSSIBLE_T4_CANDIDATE regions caused by shared competition-code I/O scaffolding. They must be reported separately from confirmed clones and syntactic false positives.","textPreview":"Most extra outputs are POSSIBLE_T4_CANDIDATE regions caused by shared competition-code I/O scaffolding. They must be reported separately ...","textChars":189,"textLines":1,"bbox":[72,532,1110,60]}
+{"kind":"notes","id":"nt/jmym2p","slide":15,"text":"The strict product false-positive definition counts any region, while the evidence-tier view distinguishes candidate-only T4 from syntactic claims. The current negative set is a 100-pair pilot, not the planned 1,000.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/RESULTS.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/r0x15i","slide":16,"title":"Current evidence supports a narrow, useful claim","textShapes":13}
+{"kind":"textbox","id":"sh/jih03yxg","slide":16,"name":"slide-16-title","text":"Current evidence supports a narrow, useful claim","textPreview":"Current evidence supports a narrow, useful claim","textChars":48,"textLines":1,"bbox":[42,34,1160,72]}
+{"kind":"shape","id":"sh/kjqhw3y1","slide":16,"bbox":[42,112,1196,0]}
+{"kind":"textbox","id":"sh/5kji58f6","slide":16,"name":"slide-16-footer-left","text":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textPreview":"DRAFT · TESTING DESIGN UPDATE · 29 JUL 2026","textChars":43,"textLines":1,"bbox":[42,674,520,18]}
+{"kind":"textbox","id":"sh/at8zqtgj","slide":16,"name":"slide-16-footer-page","text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"textbox","id":"sh/vuh0zex4","slide":16,"name":"can-label","text":"SUPPORTED NOW","textPreview":"SUPPORTED NOW","textChars":13,"textLines":1,"bbox":[62,158,480,30]}
+{"kind":"textbox","id":"sh/wvqhsjyp","slide":16,"name":"cannot-label","text":"NOT YET SUPPORTED","textPreview":"NOT YET SUPPORTED","textChars":17,"textLines":1,"bbox":[682,158,480,30]}
+{"kind":"shape","id":"sh/xwzi1ofa","slide":16,"bbox":[640,150,0,0]}
+{"kind":"shape","id":"sh/epsj2dg3","slide":16,"name":"bullet-220-0","bbox":[62,229,11,11]}
+{"kind":"textbox","id":"sh/fq10bixo","slide":16,"name":"bullet-text-220-0","text":"Auditable pairwise region scoring","textPreview":"Auditable pairwise region scoring","textChars":33,"textLines":1,"bbox":[87,220,495,75]}
+{"kind":"shape","id":"sh/j6lgby1g","slide":16,"name":"bullet-220-1","bbox":[62,306,11,11]}
+{"kind":"textbox","id":"sh/y5czitkv","slide":16,"name":"bullet-text-220-1","text":"Strong T1/T2/T3 attribution under isolated edits","textPreview":"Strong T1/T2/T3 attribution under isolated edits","textChars":48,"textLines":1,"bbox":[87,297,495,75]}
+{"kind":"shape","id":"sh/l83id8j6","slide":16,"name":"bullet-220-2","bbox":[62,383,11,11]}
+{"kind":"textbox","id":"sh/k7uhk321","slide":16,"name":"bullet-text-220-2","text":"Line-level localization for literals and statements","textPreview":"Line-level localization for literals and statements","textChars":51,"textLines":1,"bbox":[87,374,495,75]}
+{"kind":"shape","id":"sh/7al0fi1c","slide":16,"name":"bullet-220-3","bbox":[62,460,11,11]}
+{"kind":"textbox","id":"sh/69czmdkr","slide":16,"name":"bullet-text-220-3","text":"Zero fallback in the formal controlled corpus","textPreview":"Zero fallback in the formal controlled corpus","textChars":45,"textLines":1,"bbox":[87,451,495,75]}
+{"kind":"shape","id":"sh/twnih8ji","slide":16,"name":"bullet-220-0","bbox":[682,229,11,11]}
+{"kind":"textbox","id":"sh/8veho32x","slide":16,"name":"bullet-text-220-0","text":"General repository-search recall","textPreview":"General repository-search recall","textChars":32,"textLines":1,"bbox":[707,220,495,75]}
+{"kind":"shape","id":"sh/vy50ji1o","slide":16,"name":"bullet-220-1","bbox":[682,306,11,11]}
+{"kind":"textbox","id":"sh/uxwzqdk3","slide":16,"name":"bullet-text-220-1","text":"Final clean-room BigCloneBench results","textPreview":"Final clean-room BigCloneBench results","textChars":38,"textLines":1,"bbox":[707,297,495,75]}
+{"kind":"shape","id":"sh/qtgjih4b","slide":16,"name":"bullet-220-2","bbox":[682,383,11,11]}
+{"kind":"textbox","id":"sh/rupkbmlw","slide":16,"name":"bullet-text-220-2","text":"Broad T4 effectiveness","textPreview":"Broad T4 effectiveness","textChars":22,"textLines":1,"bbox":[707,374,495,75]}
+{"kind":"shape","id":"sh/cvilkrmh","slide":16,"name":"bullet-220-3","bbox":[682,460,11,11]}
+{"kind":"textbox","id":"sh/dwr2dw3m","slide":16,"name":"bullet-text-220-3","text":"Final specificity or formal performance","textPreview":"Final specificity or formal performance","textChars":39,"textLines":1,"bbox":[707,451,495,75]}
+{"kind":"notes","id":"nt/r0x15i","slide":16,"text":"This is the central validity slide. The 97% clone-interval match is near-trivial by construction and must not be presented as general detection accuracy; conditional type attribution is the more informative result.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/RESULTS.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
+{"kind":"slide","id":"sl/109tb2","slide":17,"title":"DISCUSSION","textShapes":7}
+{"kind":"textbox","id":"sh/edwfihwf","slide":17,"name":"close-kicker","text":"DISCUSSION","textPreview":"DISCUSSION","textChars":10,"textLines":1,"bbox":[42,42,300,30]}
+{"kind":"textbox","id":"sh/1g7edcv6","slide":17,"name":"close-title","text":"The testing framework is ready.\nThe next value comes from breadth—not another headline number.","textPreview":"The testing framework is ready. | The next value comes from breadth—not another headline number.","textChars":94,"textLines":2,"bbox":[42,154,1080,178]}
+{"kind":"shape","id":"sh/0fyxkrel","slide":17,"bbox":[42,378,1196,0]}
+{"kind":"textbox","id":"sh/nipgfmdc","slide":17,"name":"close-prompt","text":"Decisions to discuss","textPreview":"Decisions to discuss","textChars":20,"textLines":1,"bbox":[42,410,330,36]}
+{"kind":"shape","id":"sh/mhgfmhwr","slide":17,"name":"bullet-470-0","bbox":[42,479,11,11]}
+{"kind":"textbox","id":"sh/9k7yhwv2","slide":17,"name":"bullet-text-470-0","text":"Approve the operator-specific Round-4 ground-truth rule.","textPreview":"Approve the operator-specific Round-4 ground-truth rule.","textChars":56,"textLines":1,"bbox":[67,470,1085,54]}
+{"kind":"shape","id":"sh/ojyxoreh","slide":17,"name":"bullet-470-1","bbox":[42,535,11,11]}
+{"kind":"textbox","id":"sh/3mlw32ds","slide":17,"name":"bullet-text-470-1","text":"After batch 5, prioritize multi-relationship and negative strata.","textPreview":"After batch 5, prioritize multi-relationship and negative strata.","textChars":65,"textLines":1,"bbox":[67,526,1085,54]}
+{"kind":"shape","id":"sh/2lcfaxw7","slide":17,"name":"bullet-470-2","bbox":[42,591,11,11]}
+{"kind":"textbox","id":"sh/87ypgr25","slide":17,"name":"bullet-text-470-2","text":"Freeze the scope of clean-room BCB, T4, baselines, and performance work.","textPreview":"Freeze the scope of clean-room BCB, T4, baselines, and performance work.","textChars":72,"textLines":1,"bbox":[67,582,1085,54]}
+{"kind":"textbox","id":"sh/t87q9wjq","slide":17,"name":"close-page","text":"17","textPreview":"17","textChars":2,"textLines":1,"bbox":[1180,670,58,22]}
+{"kind":"notes","id":"nt/109tb2","slide":17,"text":"Do not end with a generic thank-you. Use the remaining time to get explicit guidance on the open ground-truth rule and the evaluation scope.\n\n[Sources]\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/results/formal-v1/HANDOFF.md\n- /Users/liuziqi/Documents/西大Graduate/Project_base/Code/Meng_ProjectBased_DetectCodeSimilar/code-sim/evaluation/paper_evaluation_protocol.md\n[/Sources]"}
