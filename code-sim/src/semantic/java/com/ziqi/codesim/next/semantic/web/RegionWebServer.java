@@ -11,6 +11,7 @@ import com.ziqi.codesim.next.RegionCandidate;
 import com.ziqi.codesim.next.RegionDecision;
 import com.ziqi.codesim.next.RegionKind;
 import com.ziqi.codesim.next.SubRegion;
+import com.ziqi.codesim.next.semantic.AnalysisOptions;
 import com.ziqi.codesim.next.semantic.PipelineExecution;
 import com.ziqi.codesim.next.semantic.WalaNextPipelineRunner;
 
@@ -71,6 +72,14 @@ public final class RegionWebServer {
         String rightName = form.getOrDefault("rightName", "Right.java");
         String leftSource = form.getOrDefault("leftSource", "");
         String rightSource = form.getOrDefault("rightSource", "");
+        AnalysisOptions options;
+        try {
+            options = analysisOptions(form);
+        } catch (IllegalArgumentException ex) {
+            send(exchange, 400, "application/json",
+                    "{\"error\":\"" + esc(ex.getMessage()) + "\"}");
+            return;
+        }
 
         // Server-Sent Events: stream each real pipeline stage as it is reached, then the result. The
         // progress consumer runs on this same thread (synchronous), so writing frames here is safe.
@@ -80,9 +89,10 @@ public final class RegionWebServer {
         OutputStream out = exchange.getResponseBody();
         try {
             PipelineExecution execution = runner.runDetailed(leftSource, rightSource,
-                    stage -> writeEvent(out, "stage", "{\"stage\":\"" + esc(stage) + "\"}"));
+                    stage -> writeEvent(out, "stage", "{\"stage\":\"" + esc(stage) + "\"}"),
+                    options);
             writeEvent(out, "result", toJson(
-                    leftName, leftSource, rightName, rightSource, execution));
+                    leftName, leftSource, rightName, rightSource, execution, options));
         } catch (Exception ex) {
             writeEvent(out, "error", "{\"error\":\"" + esc(String.valueOf(ex.getMessage())) + "\"}");
         } finally {
@@ -103,23 +113,38 @@ public final class RegionWebServer {
     // --- JSON assembly (matches web-ui/src/types.ts AnalyzeResponse) ---
 
     private static String toJson(String leftName, String leftSource, String rightName, String rightSource,
-                                 PipelineExecution execution) {
+                                 PipelineExecution execution, AnalysisOptions requested) {
         NextPipelineResult result = execution.result();
         List<String> regions = new ArrayList<>();
         int index = 1;
-        for (RegionDecision decision : result.regionDecisions()) {
-            if (!isCountedVerdict(decision)) {
+        boolean sourceMode = execution.analysisMode() == PipelineExecution.AnalysisMode.SOURCE_AST
+                || execution.analysisMode() == PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK;
+        List<RegionDecision> decisions = sourceMode
+                ? result.selectedRegionDecisions()
+                : result.regionDecisions();
+        for (RegionDecision decision : decisions) {
+            if (!isCountedVerdict(decision, sourceMode)) {
                 continue;
             }
             regions.add(regionJson("r" + index++, decision));
         }
         boolean regionBackend = execution.analysisMode()
-                != PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK;
+                != PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK
+                && execution.analysisMode() != PipelineExecution.AnalysisMode.SOURCE_AST;
+        AnalysisOptions.T4Mode effectiveT4 = effectiveT4Mode(execution);
+        boolean degraded = (requested.depth() == AnalysisOptions.AnalysisDepth.WALA_REGIONS
+                && execution.analysisMode() == PipelineExecution.AnalysisMode.SOURCE_ONLY_FALLBACK)
+                || requested.t4Mode() != effectiveT4;
         return "{"
                 + "\"regionBackend\":" + regionBackend + ","
                 + "\"analysisMode\":\"" + execution.analysisMode().name() + "\","
+                + "\"requestedAnalysisDepth\":\"" + requested.depth().name() + "\","
+                + "\"requestedT4Mode\":\"" + requested.t4Mode().name() + "\","
+                + "\"effectiveT4Mode\":\"" + effectiveT4.name() + "\","
+                + "\"degraded\":" + degraded + ","
                 + "\"fallbackStage\":\"" + esc(execution.fallbackStage()) + "\","
                 + "\"fallbackReason\":\"" + esc(execution.fallbackReason()) + "\","
+                + "\"stages\":" + stagesJson(execution) + ","
                 + "\"compilations\":" + compilationsJson(execution) + ","
                 + "\"left\":{\"name\":\"" + esc(leftName) + "\",\"source\":\"" + esc(leftSource) + "\"},"
                 + "\"right\":{\"name\":\"" + esc(rightName) + "\",\"source\":\"" + esc(rightSource) + "\"},"
@@ -127,12 +152,52 @@ public final class RegionWebServer {
                 + "}";
     }
 
+    private static AnalysisOptions analysisOptions(Map<String, String> form) {
+        String depth = form.get("analysisDepth");
+        String t4 = form.get("t4Mode");
+        if (depth == null && t4 == null) {
+            return AnalysisOptions.defaults();
+        }
+        try {
+            return new AnalysisOptions(
+                    AnalysisOptions.AnalysisDepth.valueOf(
+                            form.getOrDefault("analysisDepth", "WALA_REGIONS").toUpperCase(Locale.ROOT)),
+                    AnalysisOptions.T4Mode.valueOf(
+                            form.getOrDefault("t4Mode", "OFF").toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("invalid analysisDepth or t4Mode");
+        }
+    }
+
+    private static AnalysisOptions.T4Mode effectiveT4Mode(PipelineExecution execution) {
+        PipelineExecution.StageOutcome smt = execution.stages().get("smt");
+        PipelineExecution.StageOutcome dynamic = execution.stages().get("dynamic");
+        if (smt == null || smt.status() != PipelineExecution.StageStatus.SUCCESS) {
+            return AnalysisOptions.T4Mode.OFF;
+        }
+        return dynamic != null && dynamic.status() == PipelineExecution.StageStatus.SUCCESS
+                ? AnalysisOptions.T4Mode.SMT_DYNAMIC
+                : AnalysisOptions.T4Mode.SMT_ONLY;
+    }
+
+    private static String stagesJson(PipelineExecution execution) {
+        List<String> entries = new ArrayList<>();
+        execution.stages().forEach((stage, outcome) -> entries.add(
+                "\"" + esc(stage) + "\":{"
+                        + "\"status\":\"" + outcome.status().name() + "\","
+                        + "\"durationMs\":" + outcome.durationMs() + ","
+                        + "\"detail\":\"" + esc(outcome.detail()) + "\"}"));
+        return "{" + String.join(",", entries) + "}";
+    }
+
     private static String regionJson(String id, RegionDecision decision) {
         RegionCandidate candidate = decision.candidate();
         CodeRegion left = candidate.left();
         CodeRegion right = candidate.right();
         CloneRegionType type = decision.type();
-        boolean regionScope = left.kind() == RegionKind.CALL_EXPANDED_REGION;
+        boolean regionScope = type == CloneRegionType.T1
+                || type == CloneRegionType.T2
+                || type == CloneRegionType.T3;
         boolean crossMethod = candidate.sources().stream()
                 .map(CandidateSource::channel)
                 .anyMatch("CROSS_METHOD_REGION"::equals);
@@ -200,9 +265,13 @@ public final class RegionWebServer {
     }
 
     /** Region-only counting: a Phase A region of a clone type, OR a method-level behavioural T4. */
-    private static boolean isCountedVerdict(RegionDecision decision) {
+    private static boolean isCountedVerdict(RegionDecision decision, boolean sourceMode) {
         if (decision.type() == CloneRegionType.NON_CLONE) {
             return false;
+        }
+        if (sourceMode) {
+            return decision.candidate().left().kind() != RegionKind.FILE
+                    && decision.candidate().right().kind() != RegionKind.FILE;
         }
         boolean regionLevel = decision.candidate().left().kind() == RegionKind.CALL_EXPANDED_REGION;
         return regionLevel || family(decision.type()).equals("T4");

@@ -47,6 +47,25 @@ If compilation or WALA fails, the runner falls back to the source-only evidence
 pipeline. Reports and the web API expose whether the semantic region backend or
 the fallback path produced the result.
 
+### Web analysis modes
+
+The web interface exposes the pipeline cost directly instead of hiding it behind
+one Analyze button:
+
+- **Quick scan** runs the source/AST pipeline for T1--T3 and does not compile the
+  submitted files. This is an intentional mode, not a WALA failure fallback.
+- **Deep structural analysis** compiles both inputs and runs the WALA graph and
+  region pipeline. T4 checking is off unless the user enables it.
+- **Behavioural similarity (T4)** first adds the supported SMT equivalence pass.
+  Its nested runtime option additionally runs bounded deterministic sampling and
+  is labelled as evidence rather than proof; it should be enabled only for code
+  the user trusts.
+
+Every request carries its own analysis options. The response records the
+requested and effective modes, per-stage outcomes, and whether the run degraded,
+so concurrent web requests do not share mutable global mode state and the UI can
+distinguish an intentional quick scan from a fallback.
+
 Generated stubs are compiled into a separate WALA `Extension` context. They are
 never clone candidates and never edit the input source. Stub-assisted executions
 may use WALA for T1--T3 region analysis, but SMT and dynamic T4 evidence are

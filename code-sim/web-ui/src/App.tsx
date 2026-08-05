@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AnalyzeRequest, AnalyzeResponse, CloneFamily, LineSpan, RegionVerdict } from "./types";
+import type {
+  AnalysisDepth,
+  AnalyzeRequest,
+  AnalyzeResponse,
+  CloneFamily,
+  LineSpan,
+  RegionVerdict,
+  T4Mode,
+} from "./types";
 import { DEMO_LEFT, DEMO_RIGHT } from "./sample";
 
 const FAMILY: Record<CloneFamily, { name: string; tone: string; soft: string }> = {
@@ -18,8 +26,9 @@ const TYPE_LABEL: Record<string, string> = {
   POSSIBLE_T4_CANDIDATE: "T4 · possible (cross-method)",
 };
 
-// Real pipeline stages, in the order the backend emits them over SSE.
-const STAGES: { key: string; label: string; hint: string }[] = [
+type StageDefinition = { key: string; label: string; hint: string };
+
+const ADVANCED_STAGES: StageDefinition[] = [
   { key: "compile", label: "Compile", hint: "compiling both files" },
   { key: "graph", label: "Graph", hint: "building the dependence graph" },
   { key: "smt", label: "Equivalence", hint: "proving equivalence with SMT" },
@@ -71,6 +80,10 @@ export default function App() {
   const [data, setData] = useState<AnalyzeResponse | null>(null);
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analysisDepth, setAnalysisDepth] = useState<AnalysisDepth>("SOURCE_AST");
+  const [checkT4, setCheckT4] = useState(false);
+  const [runtimeSampling, setRuntimeSampling] = useState(false);
+  const [runningRequest, setRunningRequest] = useState<AnalyzeRequest | null>(null);
 
   async function analyzeRequest(request: AnalyzeRequest) {
     setError(null);
@@ -85,6 +98,8 @@ export default function App() {
           rightName: request.rightName,
           leftSource: request.leftSource,
           rightSource: request.rightSource,
+          analysisDepth: request.analysisDepth,
+          t4Mode: request.t4Mode,
         }).toString(),
       });
       if (!res.ok || !res.body) throw new Error(`backend returned ${res.status}`);
@@ -124,7 +139,16 @@ export default function App() {
   }
 
   function analyze() {
-    void analyzeRequest({ leftName, rightName, leftSource, rightSource });
+    const request = {
+      leftName,
+      rightName,
+      leftSource,
+      rightSource,
+      analysisDepth,
+      t4Mode: selectedT4Mode(analysisDepth, checkT4, runtimeSampling),
+    } satisfies AnalyzeRequest;
+    setRunningRequest(request);
+    void analyzeRequest(request);
   }
 
   function showDemo() {
@@ -133,11 +157,14 @@ export default function App() {
       rightName: "Right.java",
       leftSource: DEMO_LEFT,
       rightSource: DEMO_RIGHT,
+      analysisDepth,
+      t4Mode: selectedT4Mode(analysisDepth, checkT4, runtimeSampling),
     };
     setLeftName(request.leftName);
     setRightName(request.rightName);
     setLeftSource(request.leftSource);
     setRightSource(request.rightSource);
+    setRunningRequest(request);
     void analyzeRequest(request);
   }
 
@@ -159,12 +186,26 @@ export default function App() {
           setRightName={setRightName}
           setLeftSource={setLeftSource}
           setRightSource={setRightSource}
+          analysisDepth={analysisDepth}
+          setAnalysisDepth={setAnalysisDepth}
+          checkT4={checkT4}
+          setCheckT4={setCheckT4}
+          runtimeSampling={runtimeSampling}
+          setRuntimeSampling={setRuntimeSampling}
           onAnalyze={analyze}
           onDemo={showDemo}
           error={error}
         />
       )}
-      {view === "loading" && <LoadingView leftName={leftName} rightName={rightName} stage={stage} />}
+      {view === "loading" && runningRequest && (
+        <LoadingView
+          leftName={runningRequest.leftName}
+          rightName={runningRequest.rightName}
+          stage={stage}
+          analysisDepth={runningRequest.analysisDepth}
+          t4Mode={runningRequest.t4Mode}
+        />
+      )}
       {view === "result" && data && <ResultView data={data} />}
     </div>
   );
@@ -206,10 +247,16 @@ function Header(props: {
           {props.backend !== undefined && (
             <span
               className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                props.backend ? "text-t1 bg-t1-soft" : "text-t3 bg-t3-soft"
+                props.analysisMode === "SOURCE_AST"
+                  ? "text-accent-ink bg-accent-soft"
+                  : props.backend
+                    ? "text-t1 bg-t1-soft"
+                    : "text-t3 bg-t3-soft"
               }`}
             >
-              {props.analysisMode?.includes("STUBBED")
+              {props.analysisMode === "SOURCE_AST"
+                ? "Quick source + AST"
+                : props.analysisMode?.includes("STUBBED")
                 ? "WALA + generated context"
                 : props.analysisMode?.includes("PROJECT_CONTEXT")
                   ? "WALA + project context"
@@ -241,6 +288,12 @@ function InputView(props: {
   setRightName: (v: string) => void;
   setLeftSource: (v: string) => void;
   setRightSource: (v: string) => void;
+  analysisDepth: AnalysisDepth;
+  setAnalysisDepth: (v: AnalysisDepth) => void;
+  checkT4: boolean;
+  setCheckT4: (v: boolean) => void;
+  runtimeSampling: boolean;
+  setRuntimeSampling: (v: boolean) => void;
   onAnalyze: () => void;
   onDemo: () => void;
   error: string | null;
@@ -275,6 +328,64 @@ function InputView(props: {
         <Editor label="B" tone="#1a7f37" name={props.rightName} setName={props.setRightName} value={props.rightSource} onChange={props.setRightSource} />
       </div>
 
+      <fieldset className="mt-6 rounded-2xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <legend className="px-1 text-[13px] font-semibold text-ink">Analysis depth</legend>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <AnalysisDepthCard
+            checked={props.analysisDepth === "SOURCE_AST"}
+            value="SOURCE_AST"
+            onChange={props.setAnalysisDepth}
+            title="Quick scan"
+            badge="Fastest"
+            description="Source and AST matching for T1–T3. No compilation required."
+          />
+          <AnalysisDepthCard
+            checked={props.analysisDepth === "WALA_REGIONS"}
+            value="WALA_REGIONS"
+            onChange={props.setAnalysisDepth}
+            title="Deep structural analysis"
+            badge="Final review"
+            description="Control/data-flow and cross-method region analysis. Takes longer."
+          />
+        </div>
+
+        {props.analysisDepth === "WALA_REGIONS" && (
+          <div className="mt-4 rounded-xl border border-line bg-panel/50 p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={props.checkT4}
+                onChange={(e) => props.setCheckT4(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-line accent-[#6d5efc]"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold">Check behavioural similarity (T4)</span>
+                <span className="block mt-0.5 text-[12px] leading-5 text-ink-soft">
+                  Attempts formal equivalence proof for supported methods.
+                </span>
+              </span>
+            </label>
+
+            {props.checkT4 && (
+              <label className="mt-3 ml-7 flex items-start gap-3 cursor-pointer rounded-lg border border-[#e5d8ff] bg-[#fdf9ff] px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={props.runtimeSampling}
+                  onChange={(e) => props.setRuntimeSampling(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-line accent-[#8250df]"
+                />
+                <span>
+                  <span className="block text-[12px] font-semibold text-[#6e40c9]">Also run bounded runtime sampling</span>
+                  <span className="block mt-0.5 text-[11px] leading-4 text-ink-soft">
+                    Executes unresolved methods with generated inputs. Use trusted code only; matching samples are evidence, not proof.
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
+        )}
+      </fieldset>
+
       {props.error && (
         <div className="mt-5 text-sm text-t3 bg-t3-soft rounded-xl px-4 py-3">{props.error}</div>
       )}
@@ -285,7 +396,11 @@ function InputView(props: {
           className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white transition hover:brightness-110 shadow-[0_4px_14px_rgba(109,94,252,0.35)]"
           style={{ background: "linear-gradient(135deg,#7c5cff,#06b6d4)" }}
         >
-          Analyze
+          {props.analysisDepth === "SOURCE_AST"
+            ? "Run quick scan"
+            : props.checkT4
+              ? "Run full analysis"
+              : "Run structural analysis"}
         </button>
         <button
           onClick={props.onDemo}
@@ -295,6 +410,43 @@ function InputView(props: {
         </button>
       </div>
     </main>
+  );
+}
+
+function AnalysisDepthCard(props: {
+  checked: boolean;
+  value: AnalysisDepth;
+  onChange: (value: AnalysisDepth) => void;
+  title: string;
+  badge: string;
+  description: string;
+}) {
+  return (
+    <label
+      className={`relative flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition ${
+        props.checked
+          ? "border-[#7c5cff] bg-[#f8f7ff] shadow-[0_0_0_1px_rgba(124,92,255,0.12)]"
+          : "border-line hover:border-ink-faint hover:bg-panel/40"
+      }`}
+    >
+      <input
+        type="radio"
+        name="analysis-depth"
+        value={props.value}
+        checked={props.checked}
+        onChange={() => props.onChange(props.value)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-[#6d5efc]"
+      />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] font-semibold">{props.title}</span>
+          <span className="text-[10px] font-semibold text-accent-ink bg-accent-soft px-1.5 py-0.5 rounded-full">
+            {props.badge}
+          </span>
+        </span>
+        <span className="block mt-1 text-[12px] leading-5 text-ink-soft">{props.description}</span>
+      </span>
+    </label>
   );
 }
 
@@ -350,7 +502,7 @@ function ResultView({ data }: { data: AnalyzeResponse }) {
           <FilePill tone="#1a7f37" name={data.right.name} />
         </div>
         <div className="flex items-center gap-1.5">
-          {(["T1", "T2", "T3", "T4"] as CloneFamily[])
+          {(["T1", "T2", "T3"] as CloneFamily[])
             .filter((f) => counts[f] > 0)
             .map((f) => (
               <span
@@ -363,11 +515,30 @@ function ResultView({ data }: { data: AnalyzeResponse }) {
                 {f} · {counts[f]}
               </span>
             ))}
+          {data.requestedT4Mode === "OFF" ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full text-ink-faint bg-panel border border-line"
+              title="Behavioural similarity was not checked in this run"
+            >
+              T4 · not checked
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ color: FAMILY.T4.tone, background: FAMILY.T4.soft }}
+              title={data.effectiveT4Mode === "OFF" ? "T4 verification was unavailable" : FAMILY.T4.name}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: FAMILY.T4.tone }} />
+              {data.effectiveT4Mode === "OFF" ? "T4 · unavailable" : `T4 · ${counts.T4}`}
+            </span>
+          )}
           {data.regions.length === 0 && <span className="text-xs text-ink-soft">no clone regions</span>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
+      <AnalysisReceipt data={data} />
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5 mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
           <CodePane side="left" file={data.left} regions={data.regions} active={active} onPick={setActiveId} />
           <CodePane side="right" file={data.right} regions={data.regions} active={active} onPick={setActiveId} />
@@ -375,6 +546,46 @@ function ResultView({ data }: { data: AnalyzeResponse }) {
         <Sidebar regions={data.regions} activeId={activeId} onPick={setActiveId} active={active} />
       </div>
     </main>
+  );
+}
+
+function AnalysisReceipt({ data }: { data: AnalyzeResponse }) {
+  const quick = data.analysisMode === "SOURCE_AST";
+  const fallback = data.analysisMode === "SOURCE_ONLY_FALLBACK";
+  const t4Label = data.requestedT4Mode === "OFF"
+    ? "T4 not checked"
+    : data.effectiveT4Mode === "SMT_DYNAMIC"
+      ? "T4 proof + runtime evidence"
+      : data.effectiveT4Mode === "SMT_ONLY"
+        ? "T4 formal proof"
+        : "T4 unavailable";
+
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 flex items-start justify-between gap-4 flex-wrap ${
+        fallback || data.degraded ? "border-[#f2cc60] bg-t3-soft/70" : "border-line bg-panel/50"
+      }`}
+    >
+      <div>
+        <div className="text-[12px] font-semibold">
+          {fallback
+            ? "Deep analysis fell back to source and AST evidence"
+            : quick
+              ? "Quick scan result"
+              : "Deep structural analysis result"}
+        </div>
+        <div className="mt-0.5 text-[11px] leading-4 text-ink-soft">
+          {fallback
+            ? `The requested WALA path could not complete${data.fallbackReason ? ` (${data.fallbackReason})` : ""}.`
+            : quick
+              ? "Source and AST evidence only; no compilation or control-flow analysis was run."
+              : "Compiled WALA control/data-flow and boundary-free region analysis completed."}
+        </div>
+      </div>
+      <span className="shrink-0 rounded-full border border-line bg-surface px-2.5 py-1 text-[10px] font-semibold text-ink-soft">
+        {t4Label}
+      </span>
+    </div>
   );
 }
 
@@ -583,7 +794,19 @@ function Sidebar(props: {
   );
 }
 
-function LoadingView({ leftName, rightName, stage }: { leftName: string; rightName: string; stage: string | null }) {
+function LoadingView({
+  leftName,
+  rightName,
+  stage,
+  analysisDepth,
+  t4Mode,
+}: {
+  leftName: string;
+  rightName: string;
+  stage: string | null;
+  analysisDepth: AnalysisDepth;
+  t4Mode: T4Mode;
+}) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = Date.now();
@@ -592,11 +815,12 @@ function LoadingView({ leftName, rightName, stage }: { leftName: string; rightNa
   }, []);
 
   const fallback = stage === "fallback";
-  const current = fallback ? STAGES.length - 1 : STAGES.findIndex((s) => s.key === stage);
+  const stages = stagesFor(analysisDepth, t4Mode);
+  const current = stages.findIndex((s) => s.key === stage);
   const hint = fallback
-    ? "WALA unavailable — using the source-only fallback"
+    ? "Deep analysis could not continue — producing a source and AST result"
     : current >= 0
-      ? STAGES[current].hint
+      ? stages[current].hint
       : "starting…";
 
   return (
@@ -606,7 +830,7 @@ function LoadingView({ leftName, rightName, stage }: { leftName: string; rightNa
         style={{ color: "#4b3fd6", background: "#eeecff" }}
       >
         <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "linear-gradient(135deg,#7c5cff,#06b6d4)" }} />
-        Analyzing
+        {analysisDepth === "SOURCE_AST" ? "Quick scan" : "Deep analysis"}
       </span>
       <h1 className="text-2xl font-semibold tracking-tight">
         {leftName} <span className="text-ink-faint mx-1">↔</span> {rightName}
@@ -614,7 +838,7 @@ function LoadingView({ leftName, rightName, stage }: { leftName: string; rightNa
       <p className="text-ink-soft mt-2 text-sm">{hint}</p>
 
       <div className="w-full mt-12">
-        <Stepper current={current} />
+        <StageTracker stages={stages} current={current} fallback={fallback} hint={hint} />
       </div>
 
       <p className="mt-7 text-[13px] text-ink-faint font-mono tabular-nums">{elapsed.toFixed(1)}s elapsed</p>
@@ -622,51 +846,71 @@ function LoadingView({ leftName, rightName, stage }: { leftName: string; rightNa
   );
 }
 
-function Stepper({ current }: { current: number }) {
-  const total = STAGES.length;
-  const pct = total > 1 ? (Math.max(0, Math.min(current, total - 1)) / (total - 1)) * 100 : 0;
+function StageTracker({
+  stages,
+  current,
+  fallback,
+  hint,
+}: {
+  stages: StageDefinition[];
+  current: number;
+  fallback: boolean;
+  hint: string;
+}) {
   return (
-    <div>
-      <div className="relative h-1.5 rounded-full bg-line">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full overflow-hidden"
-          style={{ width: `${pct}%`, background: "linear-gradient(90deg,#7c5cff,#06b6d4)", transition: "width .45s cubic-bezier(.2,.8,.2,1)" }}
-        >
-          <div className="cs-shimmer absolute inset-0" />
-        </div>
-        {STAGES.map((s, i) => {
-          const done = i < current;
-          const active = i === current;
-          const left = total > 1 ? (i / (total - 1)) * 100 : 0;
+    <div role="progressbar" aria-label="Analysis progress" aria-valuetext={hint}>
+      <div className="flex flex-wrap justify-center gap-2">
+        {stages.map((stage, index) => {
+          const done = !fallback && current >= 0 && index < current;
+          const active = !fallback && index === current;
           return (
-            <span
-              key={s.key}
-              className="absolute -translate-x-1/2 -translate-y-1/2 top-1/2 rounded-full"
-              style={{
-                left: `${left}%`,
-                width: active ? 15 : 11,
-                height: active ? 15 : 11,
-                background: done || active ? "#ffffff" : "#eef1f9",
-                boxShadow: done
-                  ? "0 0 0 3px #06b6d4"
+            <div
+              key={stage.key}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-semibold transition ${
+                done
+                  ? "border-[#b7ebc6] bg-t1-soft text-t1"
                   : active
-                    ? "0 0 0 3px #7c5cff, 0 0 0 6px rgba(124,92,255,0.22)"
-                    : "inset 0 0 0 1.5px #d1d9e0",
-                transition: "all .3s ease",
-              }}
-            />
+                    ? "border-[#c9c2ff] bg-accent-soft text-accent-ink shadow-[0_0_0_3px_rgba(124,92,255,0.10)]"
+                    : "border-line bg-surface text-ink-faint"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${active ? "animate-pulse" : ""}`}
+                style={{ background: done ? "#1a7f37" : active ? "#7c5cff" : "#d1d9e0" }}
+              />
+              {stage.label}
+            </div>
           );
         })}
-      </div>
-      <div className="flex justify-between mt-4">
-        {STAGES.map((s, i) => (
-          <span key={s.key} className={`text-[11px] font-medium ${i <= current ? "text-ink" : "text-ink-faint"}`}>
-            {s.label}
-          </span>
-        ))}
+        {fallback && (
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#f2cc60] bg-t3-soft px-3 py-2 text-[11px] font-semibold text-t3">
+            <span className="h-2 w-2 rounded-full animate-pulse bg-[#bf8700]" />
+            Source fallback
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function stagesFor(analysisDepth: AnalysisDepth, t4Mode: T4Mode): StageDefinition[] {
+  if (analysisDepth === "SOURCE_AST") {
+    return [{ key: "source", label: "Source & AST", hint: "matching source and AST evidence" }];
+  }
+  return ADVANCED_STAGES.filter((stage) => {
+    if (stage.key === "smt") return t4Mode !== "OFF";
+    if (stage.key === "dynamic") return t4Mode === "SMT_DYNAMIC";
+    return true;
+  });
+}
+
+function selectedT4Mode(
+  analysisDepth: AnalysisDepth,
+  checkT4: boolean,
+  runtimeSampling: boolean,
+): T4Mode {
+  if (analysisDepth === "SOURCE_AST" || !checkT4) return "OFF";
+  return runtimeSampling ? "SMT_DYNAMIC" : "SMT_ONLY";
 }
 
 /**

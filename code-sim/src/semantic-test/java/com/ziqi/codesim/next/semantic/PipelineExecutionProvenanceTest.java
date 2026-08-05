@@ -12,6 +12,50 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PipelineExecutionProvenanceTest {
 
     @Test
+    void quickModeRunsOnlyTheSourceAstPipeline() throws Exception {
+        String left = "class LeftInput { int f(int x) { return x + 1; } }";
+        String right = "class RightInput { int g(int y) { return y + 1; } }";
+
+        PipelineExecution execution = new WalaNextPipelineRunner().runDetailed(
+                left, right, stage -> { }, AnalysisOptions.quick());
+
+        assertEquals(PipelineExecution.AnalysisMode.SOURCE_AST, execution.analysisMode());
+        assertEquals(PipelineExecution.StageStatus.SUCCESS,
+                execution.stages().get("source").status());
+        assertEquals(PipelineExecution.StageStatus.NOT_REACHED,
+                execution.stages().get("compile_left").status());
+        assertEquals(PipelineExecution.StageStatus.NOT_REACHED,
+                execution.stages().get("smt").status());
+        assertEquals(PipelineExecution.StageStatus.NOT_REACHED,
+                execution.stages().get("dynamic").status());
+        assertNotNull(execution.result());
+    }
+
+    @Test
+    void advancedModeCanSkipAllT4WorkPerRequest() throws Exception {
+        String left = "class LeftInput { int f(int x) { return x + 1; } }";
+        String right = "class RightInput { int g(int y) { return y + 1; } }";
+
+        PipelineExecution execution = new WalaNextPipelineRunner().runDetailed(
+                left,
+                right,
+                stage -> { },
+                new AnalysisOptions(
+                        AnalysisOptions.AnalysisDepth.WALA_REGIONS,
+                        AnalysisOptions.T4Mode.OFF));
+
+        assertEquals(PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA,
+                execution.analysisMode());
+        assertEquals(PipelineExecution.StageStatus.SUCCESS,
+                execution.stages().get("regions").status());
+        assertEquals(PipelineExecution.StageStatus.SKIPPED_CONFIG,
+                execution.stages().get("smt").status());
+        assertEquals("disabled_by_request", execution.stages().get("smt").detail());
+        assertEquals(PipelineExecution.StageStatus.SKIPPED_CONFIG,
+                execution.stages().get("dynamic").status());
+    }
+
+    @Test
     void recordsFullWalaModeAndIndependentStageDurations() throws Exception {
         String previous = System.getProperty("codesim.skipDynamic");
         System.setProperty("codesim.skipDynamic", "true");

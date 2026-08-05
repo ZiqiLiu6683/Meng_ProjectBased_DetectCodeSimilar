@@ -89,11 +89,11 @@ public class WalaNextPipelineRunner {
     }
 
     public NextPipelineResult run(String leftSource, String rightSource) throws AnalysisException {
-        return runDetailed(leftSource, rightSource, stage -> { }).result();
+        return runDetailed(leftSource, rightSource, stage -> { }, AnalysisOptions.defaults()).result();
     }
 
     public PipelineExecution runDetailed(String leftSource, String rightSource) throws AnalysisException {
-        return runDetailed(leftSource, rightSource, stage -> { });
+        return runDetailed(leftSource, rightSource, stage -> { }, AnalysisOptions.defaults());
     }
 
     /**
@@ -104,7 +104,7 @@ public class WalaNextPipelineRunner {
      */
     public NextPipelineResult run(String leftSource, String rightSource, java.util.function.Consumer<String> progress)
             throws AnalysisException {
-        return runDetailed(leftSource, rightSource, progress).result();
+        return runDetailed(leftSource, rightSource, progress, AnalysisOptions.defaults()).result();
     }
 
     /**
@@ -115,15 +115,23 @@ public class WalaNextPipelineRunner {
     public PipelineExecution runDetailed(String leftSource, String rightSource,
                                          java.util.function.Consumer<String> progress)
             throws AnalysisException {
+        return runDetailed(leftSource, rightSource, progress, AnalysisOptions.defaults());
+    }
+
+    public PipelineExecution runDetailed(String leftSource, String rightSource,
+                                         java.util.function.Consumer<String> progress,
+                                         AnalysisOptions options)
+            throws AnalysisException {
         return runDetailed(
                 SourceAnalysisInput.standalone(leftSource, "LeftInput.java"),
                 SourceAnalysisInput.standalone(rightSource, "RightInput.java"),
-                progress);
+                progress,
+                options);
     }
 
     public PipelineExecution runDetailed(SourceAnalysisInput leftInput,
                                          SourceAnalysisInput rightInput) throws AnalysisException {
-        return runDetailed(leftInput, rightInput, stage -> { });
+        return runDetailed(leftInput, rightInput, stage -> { }, AnalysisOptions.defaults());
     }
 
     /** Pairwise execution with optional, side-specific project/classpath compilation context. */
@@ -131,8 +139,32 @@ public class WalaNextPipelineRunner {
                                          SourceAnalysisInput rightInput,
                                          java.util.function.Consumer<String> progress)
             throws AnalysisException {
+        return runDetailed(leftInput, rightInput, progress, AnalysisOptions.defaults());
+    }
+
+    /** Pairwise execution controlled by immutable per-request options. */
+    public PipelineExecution runDetailed(SourceAnalysisInput leftInput,
+                                         SourceAnalysisInput rightInput,
+                                         java.util.function.Consumer<String> progress,
+                                         AnalysisOptions options)
+            throws AnalysisException {
         ExecutionTrace trace = new ExecutionTrace(progress);
         Map<String, PipelineExecution.CompilationProvenance> compilations = new LinkedHashMap<>();
+
+        if (options.depth() == AnalysisOptions.AnalysisDepth.SOURCE_AST) {
+            trace.start("source", "source");
+            NextPipelineResult result = new NextPipelineRunner().run(
+                    leftInput.source(), rightInput.source());
+            trace.success();
+            return new PipelineExecution(
+                    result,
+                    PipelineExecution.AnalysisMode.SOURCE_AST,
+                    trace.outcomes(),
+                    "",
+                    "",
+                    compilations);
+        }
+
         try {
             trace.start("compile_left", "compile");
             CompilationArtifact leftCompilation = compilationCoordinator.compile(leftInput);
@@ -202,7 +234,10 @@ public class WalaNextPipelineRunner {
 
             boolean stubbedContext = leftCompilation.usesStubs() || rightCompilation.usesStubs();
             SemanticVerdicts verdicts;
-            if (stubbedContext) {
+            if (options.t4Mode() == AnalysisOptions.T4Mode.OFF) {
+                trace.skipped("smt", "disabled_by_request");
+                verdicts = new SemanticVerdicts(List.of(), List.of());
+            } else if (stubbedContext) {
                 // Generated dependency shells are sufficient to construct WALA graphs for the
                 // application methods, but they are not semantic truth. Never let them participate
                 // in a strict T4 proof or an observed-behaviour claim.
@@ -224,18 +259,13 @@ public class WalaNextPipelineRunner {
             // methods on the same random inputs. Agreement on every input is EVIDENCE (not proof) of a
             // Type-4 clone, surfaced by the recognizer as T4_DYNAMIC_EVIDENCE. Pairs SMT proved
             // DIFFERENT are excluded up front (no point sampling a known counterexample).
-            boolean dynamicDisabled = Boolean.getBoolean("codesim.skipDynamic");
-            // -Dcodesim.skipDynamic=true disables the dynamic tier. Required for benchmark sweeps
-            // over UNTRUSTED corpus code (e.g. BigCloneBench): the dynamic checker EXECUTES both
-            // methods, and arbitrary corpus fragments may spawn processes, touch files, or call
-            // System.exit (killing a batch JVM). The syntactic categories never need this tier.
             List<String[]> dynamicPairs;
-            boolean dynamicSuppressed = dynamicDisabled || stubbedContext;
+            boolean dynamicSuppressed = options.t4Mode() != AnalysisOptions.T4Mode.SMT_DYNAMIC
+                    || stubbedContext;
             if (dynamicSuppressed) {
-                progress.accept("dynamic");
                 trace.skipped("dynamic", stubbedContext
                         ? "stubbed_dependency_context_not_eligible_for_t4"
-                        : "disabled_by_codesim.skipDynamic");
+                        : "disabled_by_request");
                 dynamicPairs = List.of();
             } else {
                 trace.start("dynamic", "dynamic");
@@ -274,7 +304,7 @@ public class WalaNextPipelineRunner {
             trace.success();
             return new PipelineExecution(
                     result,
-                    analysisMode(leftCompilation, rightCompilation, dynamicSuppressed),
+                    analysisMode(leftCompilation, rightCompilation, options.t4Mode()),
                     trace.outcomes(),
                     "",
                     "",
@@ -303,7 +333,8 @@ public class WalaNextPipelineRunner {
     }
 
     private static PipelineExecution.AnalysisMode analysisMode(
-            CompilationArtifact left, CompilationArtifact right, boolean dynamicDisabled) {
+            CompilationArtifact left, CompilationArtifact right,
+            AnalysisOptions.T4Mode t4Mode) {
         boolean stubbed = left.usesStubs() || right.usesStubs();
         // SOURCE_PATH_CONTEXT is real project context too: the supporting classes are the project's
         // own sources compiled under the same contract, not invented code, so it keeps full T4
@@ -311,18 +342,22 @@ public class WalaNextPipelineRunner {
         // the compilations provenance block.
         boolean projectContext = isProjectContext(left.mode()) || isProjectContext(right.mode());
         if (stubbed) {
-            return dynamicDisabled
-                    ? PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT
-                    : PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT_DYNAMIC;
+            return t4Mode == AnalysisOptions.T4Mode.OFF
+                    ? PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA
+                    : PipelineExecution.AnalysisMode.SOURCE_PLUS_STUBBED_WALA_SMT;
         }
         if (projectContext) {
-            return dynamicDisabled
-                    ? PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT
-                    : PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC;
+            return switch (t4Mode) {
+                case OFF -> PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA;
+                case SMT_ONLY -> PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT;
+                case SMT_DYNAMIC -> PipelineExecution.AnalysisMode.SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC;
+            };
         }
-        return dynamicDisabled
-                ? PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT
-                : PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC;
+        return switch (t4Mode) {
+            case OFF -> PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA;
+            case SMT_ONLY -> PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT;
+            case SMT_DYNAMIC -> PipelineExecution.AnalysisMode.SOURCE_PLUS_WALA_SMT_DYNAMIC;
+        };
     }
 
     private static boolean isProjectContext(CompilationArtifact.CompilationMode mode) {
@@ -357,7 +392,7 @@ public class WalaNextPipelineRunner {
     /** Mutable only for the lifetime of one call; the published map is an immutable snapshot. */
     private static final class ExecutionTrace {
         private static final List<String> STAGE_ORDER = List.of(
-                "compile_left", "compile_right", "graph", "smt", "dynamic", "regions",
+                "source", "compile_left", "compile_right", "graph", "smt", "dynamic", "regions",
                 "classify", "fallback");
 
         private final java.util.function.Consumer<String> progress;

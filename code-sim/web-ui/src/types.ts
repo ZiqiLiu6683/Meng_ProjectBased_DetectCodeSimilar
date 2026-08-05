@@ -3,6 +3,8 @@
 // plus method-level behavioural T4. The input is always a pair of files.
 
 export type CloneFamily = "T1" | "T2" | "T3" | "T4";
+export type AnalysisDepth = "SOURCE_AST" | "WALA_REGIONS";
+export type T4Mode = "OFF" | "SMT_ONLY" | "SMT_DYNAMIC";
 
 /** Exact backend type, e.g. T4_CONFIRMED vs T4_DYNAMIC_EVIDENCE vs POSSIBLE_T4_CANDIDATE. */
 export type CloneType =
@@ -83,15 +85,28 @@ export interface AnalyzeResponse {
   /** Whether the WALA region backend ran (false => source-only fallback, weaker). */
   regionBackend: boolean;
   analysisMode:
+    | "SOURCE_AST"
+    | "SOURCE_PLUS_WALA"
     | "SOURCE_PLUS_WALA_SMT"
     | "SOURCE_PLUS_WALA_SMT_DYNAMIC"
+    | "SOURCE_PLUS_PROJECT_CONTEXT_WALA"
     | "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT"
     | "SOURCE_PLUS_PROJECT_CONTEXT_WALA_SMT_DYNAMIC"
+    | "SOURCE_PLUS_STUBBED_WALA"
     | "SOURCE_PLUS_STUBBED_WALA_SMT"
     | "SOURCE_PLUS_STUBBED_WALA_SMT_DYNAMIC"
     | "SOURCE_ONLY_FALLBACK";
+  requestedAnalysisDepth: AnalysisDepth;
+  requestedT4Mode: T4Mode;
+  effectiveT4Mode: T4Mode;
+  degraded: boolean;
   fallbackStage: string;
   fallbackReason: string;
+  stages: Record<string, {
+    status: "SUCCESS" | "FAILED" | "SKIPPED_CONFIG" | "NOT_REACHED";
+    durationMs: number;
+    detail: string;
+  }>;
   compilations: Partial<Record<
     "left" | "right",
     {
@@ -110,4 +125,6 @@ export interface AnalyzeRequest {
   rightName: string;
   leftSource: string;
   rightSource: string;
+  analysisDepth: AnalysisDepth;
+  t4Mode: T4Mode;
 }
