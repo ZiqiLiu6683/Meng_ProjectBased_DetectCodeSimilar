@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AnalyzeResponse, CloneFamily, LineSpan, RegionVerdict } from "./types";
-import { SAMPLE, DEMO_LEFT, DEMO_RIGHT } from "./sample";
+import type { AnalyzeRequest, AnalyzeResponse, CloneFamily, LineSpan, RegionVerdict } from "./types";
+import { DEMO_LEFT, DEMO_RIGHT } from "./sample";
 
 const FAMILY: Record<CloneFamily, { name: string; tone: string; soft: string }> = {
   T1: { name: "Identical", tone: "#1a7f37", soft: "#dafbe1" },
@@ -72,7 +72,7 @@ export default function App() {
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function analyze() {
+  async function analyzeRequest(request: AnalyzeRequest) {
     setError(null);
     setStage(null);
     setView("loading");
@@ -80,7 +80,12 @@ export default function App() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ leftName, rightName, leftSource, rightSource }).toString(),
+        body: new URLSearchParams({
+          leftName: request.leftName,
+          rightName: request.rightName,
+          leftSource: request.leftSource,
+          rightSource: request.rightSource,
+        }).toString(),
       });
       if (!res.ok || !res.body) throw new Error(`backend returned ${res.status}`);
       const reader = res.body.getReader();
@@ -112,17 +117,28 @@ export default function App() {
     } catch (e) {
       setError(
         `Couldn't reach the region backend (${(e as Error).message}). Start it with the semantic ` +
-          "profile, or view the built-in demo.",
+          "profile and try again.",
       );
       setView("input");
     }
   }
 
+  function analyze() {
+    void analyzeRequest({ leftName, rightName, leftSource, rightSource });
+  }
+
   function showDemo() {
-    setData(SAMPLE);
-    setLeftName(SAMPLE.left.name);
-    setRightName(SAMPLE.right.name);
-    setView("result");
+    const request: AnalyzeRequest = {
+      leftName: "Left.java",
+      rightName: "Right.java",
+      leftSource: DEMO_LEFT,
+      rightSource: DEMO_RIGHT,
+    };
+    setLeftName(request.leftName);
+    setRightName(request.rightName);
+    setLeftSource(request.leftSource);
+    setRightSource(request.rightSource);
+    void analyzeRequest(request);
   }
 
   return (
@@ -275,7 +291,7 @@ function InputView(props: {
           onClick={props.onDemo}
           className="text-sm font-medium px-4 py-2.5 rounded-lg text-ink-soft hover:text-accent-ink hover:bg-accent-soft transition"
         >
-          View demo result
+          Analyze demo input
         </button>
       </div>
     </main>
@@ -401,13 +417,23 @@ function CodePane(props: {
           const n = i + 1;
           const owning = props.regions.filter((r) => within(span(r), n));
           const isActive = props.active ? within(span(props.active), n) : false;
-          // Colour by the sub-region covering this line, not by the region as a whole. A region is
-          // maximal, so it stops where the two sides stop corresponding -- not where the KIND of
-          // difference changes; painting all of it one colour would claim, for example, that 30
-          // lines are all near-miss when only one inserted statement is.
-          const subFam = isActive && props.active ? subFamilyAt(props.active, props.side, n) : null;
-          const activeFam = subFam ?? (isActive && props.active ? FAMILY[props.active.family] : null);
+          // The region family stays authoritative and owns the left stripe. A statement-level
+          // sub-region may use a more specific background colour, but its type is always labelled
+          // in the dedicated gutter so a T1 run inside a T2 region cannot look like an unexplained
+          // second colour for T2.
+          const regionFam = isActive && props.active ? FAMILY[props.active.family] : null;
+          const activeSub = isActive && props.active ? subRegionAt(props.active, props.side, n) : null;
+          const subFamily = activeSub ? familyOf(activeSub.type) : null;
+          const lineFam = subFamily ? FAMILY[subFamily] : regionFam;
           const startsActive = props.active ? span(props.active).begin === n : false;
+          const startsSub = activeSub
+            ? (props.side === "left" ? activeSub.left : activeSub.right).some((run) => run.begin === n)
+            : false;
+          const inlineFamily = startsSub
+            ? subFamily
+            : startsActive && !props.active?.subRegions?.length
+              ? props.active?.family ?? null
+              : null;
           const marker = owning[0];
           return (
             <div
@@ -415,24 +441,28 @@ function CodePane(props: {
               data-line={n}
               onClick={() => marker && props.onPick(marker.id)}
               className={`group flex ${marker ? "cursor-pointer" : ""}`}
-              style={activeFam ? { background: activeFam.soft, boxShadow: `inset 3px 0 0 ${activeFam.tone}` } : undefined}
+              style={lineFam && regionFam
+                ? { background: lineFam.soft, boxShadow: `inset 3px 0 0 ${regionFam.tone}` }
+                : undefined}
             >
               <span className="select-none w-11 shrink-0 text-right pr-3 text-ink-faint/70 bg-gutter/70 border-r border-line/60">{n}</span>
-              <span className="pl-3 pr-4 whitespace-pre flex-1 relative">
-                {startsActive && props.active && (
+              <span className="select-none w-9 shrink-0 flex items-center justify-center relative">
+                {inlineFamily && (
                   <span
-                    className="absolute -top-[7px] left-3 text-[9px] font-bold uppercase px-1 rounded-sm text-white tracking-wide"
-                    style={{ background: FAMILY[props.active.family].tone }}
+                    className="text-[9px] leading-4 font-bold uppercase px-1 rounded-sm text-white tracking-wide"
+                    style={{ background: FAMILY[inlineFamily].tone }}
                   >
-                    {props.active.family}
+                    {inlineFamily}
                   </span>
                 )}
                 {!isActive && marker && (
                   <span
-                    className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full"
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{ background: FAMILY[marker.family].tone, opacity: 0.45 }}
                   />
                 )}
+              </span>
+              <span className="pl-1 pr-4 whitespace-pre flex-1 relative">
                 <span dangerouslySetInnerHTML={{ __html: highlight(text) }} />
               </span>
             </div>
@@ -516,6 +546,36 @@ function Sidebar(props: {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {props.active?.subRegions && props.active.subRegions.length > 0 && (
+        <div className="rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="px-4 h-11 flex items-center border-b border-line text-[13px] font-semibold text-ink-soft bg-panel/60">
+            Sub-region breakdown
+          </div>
+          <div className="divide-y divide-line/70">
+            {props.active.subRegions.map((sub, i) => {
+              const family = familyOf(sub.type);
+              const fam = FAMILY[family];
+              return (
+                <div key={`${sub.type}-${i}`} className="px-4 py-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-[11px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ color: fam.tone, background: fam.soft }}
+                    >
+                      {family}
+                    </span>
+                    <span className="text-[12px] font-mono text-ink-soft">
+                      L{segmentLabel(sub.left)} · R{segmentLabel(sub.right)}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[12px] leading-5 text-ink-soft">{sub.reason}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -623,19 +683,17 @@ function coverageNote(span: LineSpan): string {
   return ` · ${covered} lines in ${segments.length} runs`;
 }
 
-/** Family of the sub-region covering this line on this side, or null when there is no breakdown. */
-function subFamilyAt(
-  region: RegionVerdict,
-  side: "left" | "right",
-  line: number,
-): (typeof FAMILY)[CloneFamily] | null {
-  const subs = region.subRegions;
-  if (!subs || subs.length === 0) return null;
-  for (const sub of subs) {
+function segmentLabel(segments: { begin: number; end: number }[]): string {
+  if (segments.length === 0) return "—";
+  return segments.map((segment) => (
+    segment.begin === segment.end ? String(segment.begin) : `${segment.begin}–${segment.end}`
+  )).join(", ");
+}
+
+function subRegionAt(region: RegionVerdict, side: "left" | "right", line: number) {
+  for (const sub of region.subRegions ?? []) {
     const runs = side === "left" ? sub.left : sub.right;
-    if (runs.some((r) => line >= r.begin && line <= r.end)) {
-      return FAMILY[familyOf(sub.type)];
-    }
+    if (runs.some((run) => line >= run.begin && line <= run.end)) return sub;
   }
   return null;
 }
