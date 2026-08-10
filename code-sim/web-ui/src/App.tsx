@@ -5,6 +5,8 @@ import type {
   AnalyzeResponse,
   CloneFamily,
   LineSpan,
+  PreflightResponse,
+  PreflightStatus,
   RegionVerdict,
   T4Mode,
 } from "./types";
@@ -84,6 +86,54 @@ export default function App() {
   const [checkT4, setCheckT4] = useState(false);
   const [runtimeSampling, setRuntimeSampling] = useState(false);
   const [runningRequest, setRunningRequest] = useState<AnalyzeRequest | null>(null);
+  const [preflightStatus, setPreflightStatus] = useState<PreflightStatus>("idle");
+  const [preflight, setPreflight] = useState<PreflightResponse | null>(null);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const preflightSequence = useRef(0);
+  const userSelectedDepth = useRef(false);
+
+  useEffect(() => {
+    if (view !== "input") return;
+    if (!leftSource.trim() || !rightSource.trim()) {
+      setPreflightStatus("idle");
+      setPreflight(null);
+      setPreflightError(null);
+      return;
+    }
+
+    const sequence = ++preflightSequence.current;
+    const controller = new AbortController();
+    setPreflightStatus("checking");
+    setPreflightError(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/preflight", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ leftSource, rightSource }).toString(),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`backend returned ${response.status}`);
+        const result = (await response.json()) as PreflightResponse;
+        if (sequence !== preflightSequence.current) return;
+        setPreflight(result);
+        setPreflightStatus("ready");
+        if (result.parseable && result.recommendedMode && !userSelectedDepth.current) {
+          setAnalysisDepth(result.recommendedMode);
+        }
+      } catch (reason) {
+        if (controller.signal.aborted || sequence !== preflightSequence.current) return;
+        setPreflight(null);
+        setPreflightError((reason as Error).message);
+        setPreflightStatus("error");
+      }
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [leftSource, rightSource, view]);
 
   async function analyzeRequest(request: AnalyzeRequest) {
     setError(null);
@@ -130,15 +180,17 @@ export default function App() {
         }
       }
     } catch (e) {
-      setError(
-        `Couldn't reach the region backend (${(e as Error).message}). Start it with the semantic ` +
-          "profile and try again.",
-      );
+      const message = (e as Error).message;
+      setError(message.startsWith("Quick scan is unavailable")
+        ? message
+        : `Couldn't reach the region backend (${message}). Start it with the semantic profile and try again.`);
       setView("input");
     }
   }
 
   function analyze() {
+    if (preflightStatus !== "ready" || !preflight?.parseable) return;
+    if (analysisDepth === "SOURCE_AST" && preflight.quickAllowed === false) return;
     const request = {
       leftName,
       rightName,
@@ -149,6 +201,17 @@ export default function App() {
     } satisfies AnalyzeRequest;
     setRunningRequest(request);
     void analyzeRequest(request);
+  }
+
+  function chooseAnalysisDepth(value: AnalysisDepth) {
+    userSelectedDepth.current = true;
+    setAnalysisDepth(value);
+  }
+
+  function useRecommendedDepth() {
+    if (!preflight?.recommendedMode) return;
+    userSelectedDepth.current = true;
+    setAnalysisDepth(preflight.recommendedMode);
   }
 
   function showDemo() {
@@ -187,7 +250,7 @@ export default function App() {
           setLeftSource={setLeftSource}
           setRightSource={setRightSource}
           analysisDepth={analysisDepth}
-          setAnalysisDepth={setAnalysisDepth}
+          setAnalysisDepth={chooseAnalysisDepth}
           checkT4={checkT4}
           setCheckT4={setCheckT4}
           runtimeSampling={runtimeSampling}
@@ -195,6 +258,10 @@ export default function App() {
           onAnalyze={analyze}
           onDemo={showDemo}
           error={error}
+          preflightStatus={preflightStatus}
+          preflight={preflight}
+          preflightError={preflightError}
+          onUseRecommended={useRecommendedDepth}
         />
       )}
       {view === "loading" && runningRequest && (
@@ -297,7 +364,25 @@ function InputView(props: {
   onAnalyze: () => void;
   onDemo: () => void;
   error: string | null;
+  preflightStatus: PreflightStatus;
+  preflight: PreflightResponse | null;
+  preflightError: string | null;
+  onUseRecommended: () => void;
 }) {
+  const parseBlocked = props.preflightStatus === "ready" && props.preflight?.parseable === false;
+  const quickBlocked = props.preflightStatus === "ready"
+    && props.preflight?.parseable === true
+    && props.preflight.quickAllowed === false;
+  const checking = props.preflightStatus === "checking" || props.preflightStatus === "idle";
+  const canAnalyze = !checking
+    && props.preflightStatus === "ready"
+    && props.preflight?.parseable === true
+    && !(props.analysisDepth === "SOURCE_AST" && quickBlocked);
+  const quickRecommended = props.preflight?.parseable === true
+    && props.preflight.recommendedMode === "SOURCE_AST";
+  const deepRecommended = props.preflight?.parseable === true
+    && props.preflight.recommendedMode === "WALA_REGIONS";
+
   return (
     <main className="relative mx-auto w-full max-w-[1240px] px-6 py-12 flex-1">
       <div
@@ -328,6 +413,14 @@ function InputView(props: {
         <Editor label="B" tone="#1a7f37" name={props.rightName} setName={props.setRightName} value={props.rightSource} onChange={props.setRightSource} />
       </div>
 
+      <PreflightPanel
+        status={props.preflightStatus}
+        result={props.preflight}
+        networkError={props.preflightError}
+        selectedDepth={props.analysisDepth}
+        onUseRecommended={props.onUseRecommended}
+      />
+
       <fieldset className="mt-6 rounded-2xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <legend className="px-1 text-[13px] font-semibold text-ink">Analysis depth</legend>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -335,17 +428,23 @@ function InputView(props: {
             checked={props.analysisDepth === "SOURCE_AST"}
             value="SOURCE_AST"
             onChange={props.setAnalysisDepth}
-            title="Quick scan"
-            badge="Fastest"
-            description="Source and AST matching for T1–T3. No compilation required."
+            title="Quick source scan"
+            badge={quickBlocked ? "Not suitable" : quickRecommended ? "Recommended" : "Small inputs"}
+            badgeTone={quickBlocked ? "danger" : quickRecommended ? "success" : "neutral"}
+            description={quickBlocked
+              ? `This input may require up to ${formatNumber(props.preflight?.quickComparisonUpperBound)} source-region comparisons.`
+              : "Usually fastest for smaller files with fewer methods. Source and AST matching for T1–T3."}
+            disabled={quickBlocked || parseBlocked}
           />
           <AnalysisDepthCard
             checked={props.analysisDepth === "WALA_REGIONS"}
             value="WALA_REGIONS"
             onChange={props.setAnalysisDepth}
             title="Deep structural analysis"
-            badge="Final review"
-            description="Control/data-flow and cross-method region analysis. Takes longer."
+            badge={deepRecommended ? "Recommended" : "Large & reorganized"}
+            badgeTone={deepRecommended ? "success" : "neutral"}
+            description="Control/data-flow and cross-method region analysis. Better suited to large or many-method inputs."
+            disabled={parseBlocked}
           />
         </div>
 
@@ -393,14 +492,19 @@ function InputView(props: {
       <div className="mt-6 flex items-center gap-3">
         <button
           onClick={props.onAnalyze}
-          className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white transition hover:brightness-110 shadow-[0_4px_14px_rgba(109,94,252,0.35)]"
+          disabled={!canAnalyze}
+          className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100 shadow-[0_4px_14px_rgba(109,94,252,0.35)]"
           style={{ background: "linear-gradient(135deg,#7c5cff,#06b6d4)" }}
         >
-          {props.analysisDepth === "SOURCE_AST"
-            ? "Run quick scan"
-            : props.checkT4
-              ? "Run full analysis"
-              : "Run structural analysis"}
+          {checking
+            ? "Checking input…"
+            : props.analysisDepth === "SOURCE_AST" && quickBlocked
+              ? "Choose deep analysis"
+              : props.analysisDepth === "SOURCE_AST"
+                ? "Run quick scan"
+                : props.checkT4
+                  ? "Run full analysis"
+                  : "Run structural analysis"}
         </button>
         <button
           onClick={props.onDemo}
@@ -413,18 +517,158 @@ function InputView(props: {
   );
 }
 
+function PreflightPanel(props: {
+  status: PreflightStatus;
+  result: PreflightResponse | null;
+  networkError: string | null;
+  selectedDepth: AnalysisDepth;
+  onUseRecommended: () => void;
+}) {
+  const result = props.result;
+
+  if (props.status === "idle" || props.status === "checking") {
+    return (
+      <section
+        className="mt-6 rounded-2xl border border-[#d8d4ff] bg-[#faf9ff] px-5 py-4"
+        role="status"
+        aria-atomic="true"
+      >
+        <div className="flex items-center gap-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#7c5cff] animate-pulse" />
+          <div>
+            <h2 className="text-[13px] font-semibold">Checking input</h2>
+            <p className="mt-0.5 text-[12px] text-ink-soft">
+              Measuring source structure before recommending an analysis mode…
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (props.status === "error") {
+    return (
+      <section
+        className="mt-6 rounded-2xl border border-[#f2cc60] bg-t3-soft px-5 py-4"
+        role="status"
+        aria-atomic="true"
+      >
+        <h2 className="text-[13px] font-semibold text-t3">Input check unavailable</h2>
+        <p className="mt-1 text-[12px] leading-5 text-ink-soft">
+          The server could not size this comparison ({props.networkError ?? "unknown error"}). Analysis is paused until the check succeeds.
+        </p>
+      </section>
+    );
+  }
+
+  if (!result?.parseable) {
+    return (
+      <section
+        className="mt-6 rounded-2xl border border-[#f2cc60] bg-t3-soft px-5 py-4"
+        role="status"
+        aria-atomic="true"
+      >
+        <h2 className="text-[13px] font-semibold text-t3">Check the Java syntax</h2>
+        <p className="mt-1 text-[12px] leading-5 text-ink-soft">
+          CodeSim could not parse both inputs, so it cannot recommend a safe mode yet.
+        </p>
+        {result?.error && (
+          <details className="mt-2 text-[11px] text-ink-soft">
+            <summary className="cursor-pointer font-medium">Parser detail</summary>
+            <p className="mt-1 font-mono break-words">{result.error}</p>
+          </details>
+        )}
+      </section>
+    );
+  }
+
+  const high = result.workload === "HIGH";
+  const moderate = result.workload === "MODERATE";
+  const recommended = result.recommendedMode === "SOURCE_AST"
+    ? "Quick source scan"
+    : "Deep structural analysis";
+  const recommendationChanged = result.recommendedMode !== props.selectedDepth;
+  const panelClass = high
+    ? "border-[#f3b7ae] bg-[#fff8f6]"
+    : moderate
+      ? "border-[#f2cc60] bg-[#fffdf2]"
+      : "border-[#b7ebc6] bg-[#f6fff8]";
+  const statusClass = high ? "text-[#b42318]" : moderate ? "text-t3" : "text-t1";
+  const workloadLabel = high ? "High workload" : moderate ? "Moderate workload" : "Low workload";
+
+  return (
+    <section className={`mt-6 rounded-2xl border px-5 py-4 ${panelClass}`} aria-labelledby="input-check-title">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0" role="status" aria-atomic="true">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 id="input-check-title" className="text-[13px] font-semibold">Input check</h2>
+            <span className={`text-[10px] font-semibold rounded-full bg-white/80 px-2 py-0.5 ${statusClass}`}>
+              {workloadLabel}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[13px] font-semibold">{recommended} is recommended for this input.</p>
+          <p className="mt-1 text-[12px] leading-5 text-ink-soft">
+            {high
+              ? `Quick scan could require up to ${formatNumber(result.quickComparisonUpperBound)} source-region comparisons, above the temporary safety budget.`
+              : moderate
+                ? `Quick scan could require up to ${formatNumber(result.quickComparisonUpperBound)} source-region comparisons and may take several seconds.`
+                : "This pair has a small source/AST comparison space, so a quick preview is appropriate."}
+          </p>
+        </div>
+        {recommendationChanged && (
+          <button
+            type="button"
+            onClick={props.onUseRecommended}
+            className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[12px] font-semibold text-accent-ink shadow-sm hover:bg-accent-soft transition"
+          >
+            Use {result.recommendedMode === "SOURCE_AST" ? "Quick" : "Deep"}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-ink-soft sm:grid-cols-2">
+        <div className="rounded-lg border border-white/80 bg-white/65 px-3 py-2">
+          <span className="font-semibold text-ink">Left</span>
+          {` · ${formatNumber(result.left?.lines)} lines · ${formatNumber(result.left?.methods)} methods`}
+        </div>
+        <div className="rounded-lg border border-white/80 bg-white/65 px-3 py-2">
+          <span className="font-semibold text-ink">Right</span>
+          {` · ${formatNumber(result.right?.lines)} lines · ${formatNumber(result.right?.methods)} methods`}
+        </div>
+      </div>
+
+      <details className="mt-3 text-[11px] text-ink-soft">
+        <summary className="cursor-pointer font-medium hover:text-ink">How this was estimated</summary>
+        <p className="mt-1.5 leading-5">
+          The check parses the current source and counts the regions Quick would compare. It does not classify clones or change either analysis pipeline.
+          {` Current upper bound: ${formatNumber(result.quickComparisonUpperBound)}; temporary web budget: ${formatNumber(result.quickComparisonBudget)}.`}
+        </p>
+      </details>
+    </section>
+  );
+}
+
 function AnalysisDepthCard(props: {
   checked: boolean;
   value: AnalysisDepth;
   onChange: (value: AnalysisDepth) => void;
   title: string;
   badge: string;
+  badgeTone: "neutral" | "success" | "danger";
   description: string;
+  disabled?: boolean;
 }) {
+  const badgeClass = props.badgeTone === "success"
+    ? "text-t1 bg-t1-soft"
+    : props.badgeTone === "danger"
+      ? "text-[#b42318] bg-[#fff0ee]"
+      : "text-accent-ink bg-accent-soft";
   return (
     <label
       className={`relative flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition ${
-        props.checked
+        props.disabled
+          ? "border-line bg-panel/40 opacity-65 cursor-not-allowed"
+          : props.checked
           ? "border-[#7c5cff] bg-[#f8f7ff] shadow-[0_0_0_1px_rgba(124,92,255,0.12)]"
           : "border-line hover:border-ink-faint hover:bg-panel/40"
       }`}
@@ -434,13 +678,14 @@ function AnalysisDepthCard(props: {
         name="analysis-depth"
         value={props.value}
         checked={props.checked}
+        disabled={props.disabled}
         onChange={() => props.onChange(props.value)}
         className="mt-0.5 h-4 w-4 shrink-0 accent-[#6d5efc]"
       />
       <span className="min-w-0">
         <span className="flex items-center gap-2 flex-wrap">
           <span className="text-[13px] font-semibold">{props.title}</span>
-          <span className="text-[10px] font-semibold text-accent-ink bg-accent-soft px-1.5 py-0.5 rounded-full">
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}>
             {props.badge}
           </span>
         </span>
@@ -448,6 +693,12 @@ function AnalysisDepthCard(props: {
       </span>
     </label>
   );
+}
+
+const DISPLAY_NUMBER = new Intl.NumberFormat("en-CA");
+
+function formatNumber(value: number | undefined): string {
+  return value === undefined ? "—" : DISPLAY_NUMBER.format(value);
 }
 
 function Editor(props: {

@@ -52,6 +52,7 @@ public final class RegionWebServer {
                 args.length > 1 ? args[1] : "web-ui/dist"));
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         RegionWebServer app = new RegionWebServer(webRoot);
+        server.createContext("/api/preflight", app::handlePreflight);
         server.createContext("/api/analyze", app::handleAnalyze);
         server.createContext("/", app::handleStatic);
         server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
@@ -59,6 +60,26 @@ public final class RegionWebServer {
         System.out.println("CodeSim region web server: http://localhost:" + port + "/");
         System.out.println("Serving SPA from: " + webRoot.toAbsolutePath()
                 + (Files.exists(webRoot) ? "" : "  (not built yet -- run `npm run dev` in web-ui and open :5173)"));
+    }
+
+    private void handlePreflight(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            send(exchange, 405, "application/json", "{\"error\":\"method not allowed\"}");
+            return;
+        }
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> form = parseForm(body);
+        String leftSource = form.getOrDefault("leftSource", "");
+        String rightSource = form.getOrDefault("rightSource", "");
+        try {
+            send(exchange, 200, "application/json", preflightJson(
+                    InputPreflight.inspect(leftSource, rightSource)));
+        } catch (RuntimeException ex) {
+            send(exchange, 200, "application/json", "{"
+                    + "\"parseable\":false,"
+                    + "\"error\":\"" + esc(normalizedMessage(ex)) + "\""
+                    + "}");
+        }
     }
 
     private void handleAnalyze(HttpExchange exchange) throws IOException {
@@ -88,6 +109,18 @@ public final class RegionWebServer {
         exchange.sendResponseHeaders(200, 0); // 0 => chunked, keeps the stream open
         OutputStream out = exchange.getResponseBody();
         try {
+            if (options.depth() == AnalysisOptions.AnalysisDepth.SOURCE_AST) {
+                InputPreflight.Result preflight = InputPreflight.inspect(leftSource, rightSource);
+                if (!preflight.quickAllowed()) {
+                    writeEvent(out, "error", "{\"error\":\"Quick scan is unavailable for this input: "
+                            + "the source/AST comparison upper bound is "
+                            + preflight.quickComparisonUpperBound()
+                            + ", above the temporary web safety budget of "
+                            + preflight.quickComparisonBudget()
+                            + ". Use deep structural analysis.\"}");
+                    return;
+                }
+            }
             PipelineExecution execution = runner.runDetailed(leftSource, rightSource,
                     stage -> writeEvent(out, "stage", "{\"stage\":\"" + esc(stage) + "\"}"),
                     options);
@@ -99,6 +132,37 @@ public final class RegionWebServer {
             out.close();
             exchange.close();
         }
+    }
+
+    private static String preflightJson(InputPreflight.Result result) {
+        return "{"
+                + "\"parseable\":true,"
+                + "\"left\":" + preflightSideJson(result.left()) + ","
+                + "\"right\":" + preflightSideJson(result.right()) + ","
+                + "\"quickComparisonUpperBound\":" + result.quickComparisonUpperBound() + ","
+                + "\"quickComparisonBudget\":" + result.quickComparisonBudget() + ","
+                + "\"workload\":\"" + result.workload().name() + "\","
+                + "\"recommendedMode\":\"" + result.recommendedMode().name() + "\","
+                + "\"quickAllowed\":" + result.quickAllowed()
+                + "}";
+    }
+
+    private static String preflightSideJson(InputPreflight.SideMetrics side) {
+        return "{"
+                + "\"lines\":" + side.lines() + ","
+                + "\"characters\":" + side.characters() + ","
+                + "\"methods\":" + side.methods() + ","
+                + "\"regions\":" + side.regions()
+                + "}";
+    }
+
+    private static String normalizedMessage(Throwable throwable) {
+        String message = throwable.getMessage();
+        if (message == null || message.isBlank()) {
+            return throwable.getClass().getSimpleName();
+        }
+        String singleLine = message.replace('\n', ' ').replace('\r', ' ').trim();
+        return singleLine.length() <= 240 ? singleLine : singleLine.substring(0, 240) + "…";
     }
 
     private static void writeEvent(OutputStream out, String event, String data) {

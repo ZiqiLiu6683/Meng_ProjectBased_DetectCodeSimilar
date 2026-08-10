@@ -5,6 +5,27 @@
 export type CloneFamily = "T1" | "T2" | "T3" | "T4";
 export type AnalysisDepth = "SOURCE_AST" | "WALA_REGIONS";
 export type T4Mode = "OFF" | "SMT_ONLY" | "SMT_DYNAMIC";
+export type PreflightStatus = "idle" | "checking" | "ready" | "error";
+export type WorkloadBand = "LOW" | "MODERATE" | "HIGH";
+
+export interface PreflightSideMetrics {
+  lines: number;
+  characters: number;
+  methods: number;
+  regions: number;
+}
+
+export interface PreflightResponse {
+  parseable: boolean;
+  error?: string;
+  left?: PreflightSideMetrics;
+  right?: PreflightSideMetrics;
+  quickComparisonUpperBound?: number;
+  quickComparisonBudget?: number;
+  workload?: WorkloadBand;
+  recommendedMode?: AnalysisDepth;
+  quickAllowed?: boolean;
+}
 
 /** Exact backend type, e.g. T4_CONFIRMED vs T4_DYNAMIC_EVIDENCE vs POSSIBLE_T4_CANDIDATE. */
 export type CloneType =

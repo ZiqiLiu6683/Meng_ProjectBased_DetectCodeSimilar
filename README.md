@@ -61,6 +61,14 @@ one Analyze button:
   is labelled as evidence rather than proof; it should be enabled only for code
   the user trusts.
 
+Before enabling the Analyze button, the web interface runs a read-only AST
+preflight through `POST /api/preflight`. It reports the real line, method, and
+source-region counts for both inputs, estimates the source-region comparison
+upper bound, and recommends Quick or Deep. This check does not classify clones
+or alter either detector pipeline. Quick is temporarily guarded at 300,000
+possible source-region comparisons: the limit is a product safety budget based
+on measured web runs, not a clone-detection threshold or a paper result.
+
 Every request carries its own analysis options. The response records the
 requested and effective modes, per-stage outcomes, and whether the run degraded,
 so concurrent web requests do not share mutable global mode state and the UI can
@@ -234,9 +242,10 @@ mvn -Psemantic-analysis \
   exec:java
 ```
 
-Open <http://localhost:8080>. The server exposes `POST /api/analyze`, streams
-pipeline stages using Server-Sent Events, and serves the production frontend
-from `web-ui/dist`.
+Open <http://localhost:8080>. The server exposes `POST /api/preflight` for the
+read-only input-sizing recommendation and `POST /api/analyze` for analysis,
+streams pipeline stages using Server-Sent Events, and serves the production
+frontend from `web-ui/dist`.
 
 For frontend development, keep the Java server on port 8080 and run:
 
